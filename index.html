@@ -763,17 +763,18 @@ const CONFIG = {
   // FUTURE: replace with live API call when /api/game/state endpoint added
   stats: { products: 35, revenue: 0 },
 
-  // Room definitions - order determines grid position
+  // ForgeCore engine rooms - 3x3 grid. status: 'live'|'partial'|'planned'
+  // metric: default display value, overridden live by RoomData.refresh()
   rooms: [
-    { id: 'bridge',    label: 'Command\nBridge',   tasks: ['revenue_pipeline', 'morning_briefing'] },
-    { id: 'factory',   label: 'Product\nFactory',  tasks: ['gumroad_publish',  'product_factory']   },
-    { id: 'content',   label: 'Content\nEngine',   tasks: ['content_publisher','overnight_builder']  },
-    { id: 'traffic',   label: 'Traffic\nHub',      tasks: ['reddit_post',      'quora_answer']       },
-    { id: 'analytics', label: 'Analytics\nBay',    tasks: ['analytics_engine', 'brain_refresh']      },
-    { id: 'vault',     label: 'Vault',              tasks: []                                         },
-    { id: 'comms',     label: 'Comms',              tasks: ['notification_writer']                    },
-    { id: 'armory',    label: 'Armory',             tasks: []                                         }
-    // FUTURE: add active_tasks[] from Railway /api/game/state to animate per-room status
+    { id: 'command',    label: 'Command\nEngine',    status: 'live',    tasks: ['revenue_pipeline', 'morning_briefing'],    metric: 'IDLE' },
+    { id: 'forge',      label: 'Forge\nEngine',      status: 'live',    tasks: ['gumroad_publish',  'product_factory'],     metric: '35 products' },
+    { id: 'signal',     label: 'Signal\nEngine',     status: 'partial', tasks: ['content_publisher','overnight_builder'],   metric: 'BUILDING' },
+    { id: 'traffic',    label: 'Traffic\nEngine',    status: 'partial', tasks: ['reddit_post',       'quora_answer'],       metric: 'BUILDING' },
+    { id: 'strategy',   label: 'Strategy\nEngine',   status: 'partial', tasks: ['analytics_engine',  'brain_refresh'],     metric: 'BUILDING' },
+    { id: 'memory',     label: 'Memory\nCore',       status: 'partial', tasks: ['brain_refresh'],                          metric: 'BUILDING' },
+    { id: 'governance', label: 'Governance\nEngine', status: 'partial', tasks: ['qc_check'],                               metric: 'BUILDING' },
+    { id: 'growth',     label: 'Growth\nEngine',     status: 'planned', tasks: [],                                         metric: 'QUEUED' },
+    { id: 'genesis',    label: 'Genesis\nEngine',    status: 'planned', tasks: [],                                         metric: 'QUEUED' }
   ],
 
   // Platform deep link builders
@@ -839,6 +840,36 @@ async function apiGet(path)        { return apiFetch(path); }
 async function apiPost(path, body) { return apiFetch(path, { method: 'POST', body: JSON.stringify(body) }); }
 
 // ============================================================
+//  ROOM DATA - Live metrics per ForgeCore engine room
+// ============================================================
+const RoomData = {
+  metrics: {},
+
+  init() {
+    CONFIG.rooms.forEach(r => { this.metrics[r.id] = r.metric || ''; });
+  },
+
+  async refresh() {
+    try {
+      const [pipeline, chains] = await Promise.all([
+        apiGet('/api/pipeline/status'),
+        apiGet('/api/chain/list')
+      ]);
+      this.metrics['command']    = pipeline.running ? 'RUNNING' : 'IDLE';
+      this.metrics['forge']      = CONFIG.stats.products + ' products';
+      this.metrics['governance'] = (chains.chains || []).length + ' chains live';
+      HUDLayer.updateStats({ pipeline });
+      HUDLayer.updateRoomDots(pipeline.running);
+      if (window._phaserScene && window._phaserScene.drawRooms) {
+        window._phaserScene.drawRooms();
+      }
+    } catch (e) {
+      log('rooms', 'Metric refresh failed: ' + e.message);
+    }
+  }
+};
+
+// ============================================================
 //  HUD LAYER
 // ============================================================
 const HUDLayer = {
@@ -859,13 +890,13 @@ const HUDLayer = {
   },
 
   updateRoomDots(pipelineRunning) {
-    // Phase 1: global pipeline status drives all active rooms
-    // Phase 2: per-room from active_tasks[] - FUTURE
+    // Drive LIVE rooms green when pipeline running, leave PARTIAL amber, PLANNED always dim
     if (!window._phaserScene) return;
-    const status = pipelineRunning ? 'green' : 'amber';
     CONFIG.rooms.forEach(r => {
+      let s = r.status;
+      if (r.status === 'live') s = pipelineRunning ? 'green' : 'live';
       if (window._phaserScene.setRoomStatus) {
-        window._phaserScene.setRoomStatus(r.id, status);
+        window._phaserScene.setRoomStatus(r.id, s);
       }
     });
   },
@@ -972,16 +1003,11 @@ function scheduleReconnect() {
   }, CONFIG.wsReconnectMs);
 }
 
-// REST fallback: poll pipeline status every 30s when WS is down or as supplement
+// REST fallback: poll pipeline status + room metrics every 30s
 function startRestFallback() {
   if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(async () => {
-    try {
-      const data = await apiGet('/api/pipeline/status');
-      HUDLayer.updateStats({ pipeline: data });
-      HUDLayer.updateRoomDots(data.running);
-    } catch (_) {}
-  }, CONFIG.pollMs);
+  RoomData.refresh();  // immediate first fetch
+  pollTimer = setInterval(() => RoomData.refresh(), CONFIG.pollMs);
 }
 
 // ============================================================
@@ -1008,7 +1034,7 @@ class StationScene extends Phaser.Scene {
 
     const W      = this.scale.width;
     const H      = this.scale.height;
-    const cols   = W < 500 ? 2 : 4;
+    const cols   = 3;  // ForgeCore 3x3 grid
     const rows   = Math.ceil(CONFIG.rooms.length / cols);
     const pad    = 10;
     const gapX   = 8;
@@ -1025,7 +1051,7 @@ class StationScene extends Phaser.Scene {
       const x   = pad + col * (cellW + gapX) + cellW / 2;
       const y   = pad + row * (cellH + gapY) + cellH / 2;
 
-      const status = this.roomStatuses[room.id] || 'amber';
+      const status = this.roomStatuses[room.id] || room.status || 'partial';
       const colors = this._roomColors(status);
 
       // Room rectangle
@@ -1049,14 +1075,24 @@ class StationScene extends Phaser.Scene {
       g.strokeLineShape(new Phaser.Geom.Line(x1, y1, x1 - accentLen, y1));
       g.strokeLineShape(new Phaser.Geom.Line(x1, y1, x1, y1 - accentLen));
 
-      // Room label
-      const fontSize = Math.max(10, Math.min(13, cellW / 8));
-      const label = this.add.text(x, y - 10, room.label, {
+      // Room label (shifted up slightly to make room for metric)
+      const fontSize   = Math.max(9, Math.min(12, cellW / 9));
+      const metricSize = Math.max(8, Math.min(10, cellW / 11));
+      const label = this.add.text(x, y - 14, room.label, {
         fontSize: `${fontSize}px`,
         fontFamily: 'Courier New, monospace',
         color: colors.text,
         align: 'center',
         lineSpacing: 2
+      }).setOrigin(0.5, 0.5);
+
+      // Live metric subtitle
+      const metricVal = RoomData.metrics[room.id] || room.metric || '';
+      this.add.text(x, y + 8, metricVal, {
+        fontSize: `${metricSize}px`,
+        fontFamily: 'Courier New, monospace',
+        color: colors.metric || colors.dot_text || '#5a4a25',
+        align: 'center'
       }).setOrigin(0.5, 0.5);
 
       // Status dot (top-right corner)
@@ -1069,9 +1105,12 @@ class StationScene extends Phaser.Scene {
 
   _roomColors(status) {
     switch (status) {
-      case 'green': return { fill: 0x0d1a10, border: 0x3a7d44, text: '#4caf60', dot: 0x3a7d44 };
-      case 'red':   return { fill: 0x1a0d0d, border: 0x8b2020, text: '#c0392b', dot: 0x8b2020 };
-      default:      return { fill: 0x111111, border: 0x2a2218, text: '#d4b86a', dot: 0x7a5e10 };
+      case 'green':
+      case 'live':    return { fill: 0x0d1a10, border: 0x3a7d44, text: '#4caf60', dot: 0x3a7d44, metric: '#2d6e3a' };
+      case 'partial': return { fill: 0x111111, border: 0x2a2218, text: '#d4b86a', dot: 0x7a5e10, metric: '#5a4a25' };
+      case 'planned': return { fill: 0x0a0a0a, border: 0x1a1510, text: '#3a3028', dot: 0x1a1510, metric: '#2a2018' };
+      case 'red':     return { fill: 0x1a0d0d, border: 0x8b2020, text: '#c0392b', dot: 0x8b2020, metric: '#5a1515' };
+      default:        return { fill: 0x111111, border: 0x2a2218, text: '#d4b86a', dot: 0x7a5e10, metric: '#5a4a25' };
     }
   }
 
@@ -1081,10 +1120,12 @@ class StationScene extends Phaser.Scene {
   }
 
   _onRoomTap(room, status) {
-    const statusLabel = status === 'green' ? 'ACTIVE' : status === 'red' ? 'ERROR' : 'IDLE';
-    const tasks = room.tasks.length ? room.tasks.join(', ') : 'no active tasks';
-    HUDLayer.showTooltip(`${room.label.replace('\n',' ')}  [${statusLabel}]\n${tasks}`);
-    log('station', `Room tapped: ${room.id} (${statusLabel})`);
+    const statusMap = { live: 'LIVE', green: 'ACTIVE', partial: 'BUILDING', planned: 'QUEUED', red: 'ERROR' };
+    const statusLabel = statusMap[status] || 'IDLE';
+    const metric = RoomData.metrics[room.id] || room.metric || '';
+    const tasks  = room.tasks.length ? room.tasks.join(', ') : 'no tasks wired';
+    HUDLayer.showTooltip(`${room.label.replace('\n',' ')}  [${statusLabel}]  ${metric}\n${tasks}`);
+    log('station', `${room.label.replace('\n',' ')} tapped (${statusLabel})`);
   }
 }
 
@@ -1579,8 +1620,7 @@ const SceneManager = {
   _renderCssFallback() {
     const mount = document.getElementById('phaser-mount');
     mount.style.cssText = 'display:grid;padding:10px;gap:8px;overflow:auto;';
-    const cols = window.innerWidth < 500 ? 2 : 4;
-    mount.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    mount.style.gridTemplateColumns = `repeat(3, 1fr)`;
 
     CONFIG.rooms.forEach(room => {
       const el = document.createElement('div');
@@ -1594,7 +1634,10 @@ const SceneManager = {
 // ============================================================
 //  BOOT
 // ============================================================
-window.addEventListener('load', () => SceneManager.init());
+window.addEventListener('load', () => {
+  RoomData.init();
+  SceneManager.init();
+});
 </script>
 </body>
 </html>
