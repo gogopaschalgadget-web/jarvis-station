@@ -1217,6 +1217,14 @@ const Missions = {
       return this._buildMultiTargetContainer(step, idx, posts);
     }
 
+    // Gumroad per-field renderer: triggers when step has default_content.product (not posts).
+    // Renders NAME, PRICE, TAGLINE, DESCRIPTION as separate labeled copy blocks.
+    // FUTURE: published status flag per product. Trigger: chain_content_injector Phase 2 activation.
+    // FUTURE: auto-publish step replaces manual when Gumroad API unblocked. Trigger: Railway egress proxy resolved.
+    if (step.type === 'manual' && step.default_content?.product) {
+      return this._buildGumroadCard(step, idx, step.default_content.product);
+    }
+
     const card   = document.createElement('div');
     const isManual = step.type === 'manual';
     card.className = `step-card ${isManual ? 'manual' : 'auto'}`;
@@ -1286,6 +1294,64 @@ const Missions = {
       </div>` : ''}
       ${content ? `<div class="step-content-block" id="step-content-${idx}">${escHtml(content)}</div>` : ''}
       ${actionsHtml}`;
+
+    return card;
+  },
+
+  // Gumroad per-field card renderer.
+  // Renders one card per bundle step with labeled COPY buttons for NAME, PRICE, TAGLINE, DESCRIPTION.
+  // Thumbnail note reminds user to upload manually (file upload cannot be automated via this chain).
+  // Called from _buildStepCard when step.default_content.product is present.
+  // FUTURE: add "PUBLISHED" badge when product.status === 'published'. Trigger: chain_content_injector Phase 2.
+  // FUTURE: replace with automated step when Gumroad API unblocked. Trigger: Railway egress proxy resolved.
+  _buildGumroadCard(step, idx, product) {
+    const card = document.createElement('div');
+    card.className = 'step-card manual';
+    card.id = `step-card-${idx}`;
+
+    const navUrl    = 'https://gumroad.com/products/new';
+    const nameId    = `gum-name-${idx}`;
+    const priceId   = `gum-price-${idx}`;
+    const taglineId = `gum-tagline-${idx}`;
+    const descId    = `gum-desc-${idx}`;
+
+    card.innerHTML = `
+      <div class="step-header">
+        <span class="step-num">STEP ${idx + 1}</span>
+        <span class="step-type-badge badge-manual">MANUAL</span>
+      </div>
+      <div class="step-title">${escHtml(step.name || 'Publish Product')}</div>
+      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
+      <div class="step-nav-block">
+        <span class="nav-label">NAVIGATE TO</span>
+        <div class="nav-url-row">
+          <span class="nav-url-display" id="step-nav-url-${idx}" data-full="${navUrl}">gumroad.com/products/new</span>
+          <button class="btn-copy-url" onclick="Missions._copyNav(${idx}, this)">COPY URL</button>
+          <button class="step-btn btn-link" onclick="Missions._openLink('${navUrl}')">OPEN</button>
+        </div>
+      </div>
+      ${product.name ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;margin-top:8px;">
+        <span class="bank-label" style="flex-shrink:0;">NAME</span>
+        <span id="${nameId}" style="flex:1;word-break:break-word;">${escHtml(product.name)}</span>
+        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${nameId}', this)">COPY</button>
+      </div>` : ''}
+      ${product.price ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;margin-top:4px;">
+        <span class="bank-label" style="flex-shrink:0;">PRICE</span>
+        <span id="${priceId}" style="flex:1;word-break:break-word;">$${escHtml(product.price)}</span>
+        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${priceId}', this)">COPY</button>
+      </div>` : ''}
+      ${product.tagline ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;margin-top:4px;">
+        <span class="bank-label" style="flex-shrink:0;">TAGLINE</span>
+        <span id="${taglineId}" style="flex:1;word-break:break-word;">${escHtml(product.tagline)}</span>
+        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${taglineId}', this)">COPY</button>
+      </div>` : ''}
+      ${product.description ? `<div class="step-content-block" id="${descId}" style="white-space:pre-wrap;">${escHtml(product.description)}</div>` : ''}
+      ${product.thumbnail ? `<div class="step-workaround" style="margin-top:8px;">THUMBNAIL: Upload <strong>${escHtml(product.thumbnail)}</strong> from your tradespro-guide/thumbnails/ folder. File upload is manual.</div>` : ''}
+      <div class="step-actions">
+        ${product.description ? `<button class="step-btn btn-copy" onclick="Missions._copyContentSub('${descId}', this)">COPY DESC</button>` : ''}
+        <button class="step-btn btn-done"  onclick="Missions._recordEvent(${idx}, 'done',  this)">DONE</button>
+        <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${idx}, 'stuck', this)">STUCK</button>
+      </div>`;
 
     return card;
   },
