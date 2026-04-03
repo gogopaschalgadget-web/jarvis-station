@@ -350,6 +350,31 @@ body::before {
   margin-bottom: 10px;
 }
 
+.step-bank-title {
+  background: #0a0a0a;
+  border: 1px solid var(--amber);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--amber);
+  line-height: 1.4;
+  word-break: break-word;
+  margin-bottom: 6px;
+}
+
+.bank-label {
+  display: inline-block;
+  background: var(--amber);
+  color: #000;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-right: 6px;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
 .step-actions {
   display: flex;
   gap: 8px;
@@ -1062,12 +1087,23 @@ const Missions = {
     card.className = `step-card ${isManual ? 'manual' : 'auto'}`;
     card.id        = `step-card-${idx}`;
 
-    const content = step.generated_content || step.content || '';
+    // Resolve content: generated_content first, then default_content bank (used when no executor exists)
+    let content = step.generated_content || step.content || '';
+    let _bankTitle = '';  // Reddit title field (separate from body)
+    let _bankSub   = '';  // Reddit subreddit from bank post
+    if (!content && step.default_content?.posts) {
+      const post = step.default_content.posts.find(p => p.status === 'approved') || step.default_content.posts[0];
+      if (post) {
+        _bankTitle = post.title  || '';
+        _bankSub   = post.subreddit || '';
+        content    = post.body   || post.content || '';
+      }
+    }
     const platform = currentChain?.platform || '';
 
     let actionsHtml = '';
     if (isManual) {
-      const link = this._buildDeepLink(platform, content, step);
+      const link = this._buildDeepLink(platform, content, step, _bankTitle, _bankSub);
       actionsHtml = `
         <div class="step-actions">
           ${content ? `<button class="step-btn btn-copy" onclick="Missions._copyContent(${idx}, this)">COPY</button>` : ''}
@@ -1087,16 +1123,18 @@ const Missions = {
       </div>
       <div class="step-title">${escHtml(step.name || step.label || `Step ${idx + 1}`)}</div>
       ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
+      ${_bankTitle ? `<div class="step-bank-title"><span class="bank-label">TITLE</span>${escHtml(_bankTitle)}</div>` : ''}
       ${content ? `<div class="step-content-block" id="step-content-${idx}">${escHtml(content)}</div>` : ''}
       ${actionsHtml}`;
 
     return card;
   },
 
-  _buildDeepLink(platform, content, step) {
-    const p = (platform || '').toLowerCase();
-    const sub = step.params?.subreddit || '';
-    if (p === 'reddit')    return CONFIG.deepLinks.reddit(sub, content.split('\n')[0], content);
+  _buildDeepLink(platform, content, step, titleOverride, subOverride) {
+    const p     = (platform || '').toLowerCase();
+    const sub   = subOverride   || step.params?.subreddit || '';
+    const title = titleOverride || content.split('\n')[0];
+    if (p === 'reddit')    return CONFIG.deepLinks.reddit(sub, title, content);
     if (p === 'x' || p === 'twitter') return CONFIG.deepLinks.x(content);
     if (p === 'pinterest') return CONFIG.deepLinks.pinterest(content);
     if (p === 'quora')     return CONFIG.deepLinks.quora();
