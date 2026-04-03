@@ -34,7 +34,8 @@ html, body {
   color: var(--text);
   font-family: var(--mono);
   font-size: 13px;
-  height: 100%;
+  /* Use --app-h set by JS (window.innerHeight) to handle iOS Safari chrome correctly */
+  height: var(--app-h, 100vh);
   width: 100%;
   overflow: hidden;
 }
@@ -59,8 +60,11 @@ body::before {
 #app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: var(--app-h, 100vh);
   width: 100vw;
+  position: fixed;   /* prevents iOS scroll-bounce pushing content off screen */
+  top: 0;
+  left: 0;
 }
 
 /* ---- HUD TOP ---- */
@@ -445,10 +449,13 @@ body::before {
 /* ---- HUD BOTTOM NAV ---- */
 #hud-bottom {
   flex: 0 0 var(--nav-h);
+  min-height: var(--nav-h);
   display: flex;
   border-top: 1px solid var(--border);
   background: var(--panel);
   z-index: 100;
+  /* safe area for iPhone home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .nav-btn {
@@ -614,6 +621,21 @@ body::before {
 
 <script>
 'use strict';
+
+// ============================================================
+//  MOBILE VIEWPORT FIX
+//  iOS Safari reports 100vh including the browser chrome bar,
+//  which pushes the bottom nav off screen. Fix by measuring
+//  window.innerHeight (true visible height) and setting --app-h.
+// ============================================================
+(function fixViewport() {
+  function setH() {
+    document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+  }
+  setH();
+  window.addEventListener('resize', setH);
+  window.addEventListener('orientationchange', function() { setTimeout(setH, 100); });
+})();
 
 // ============================================================
 //  CONFIG
