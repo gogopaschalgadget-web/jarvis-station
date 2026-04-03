@@ -1238,7 +1238,11 @@ const Missions = {
           <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('step-nav-url-${idx}').dataset.full)">OPEN</button>
         </div>
       </div>` : ''}
-      ${_bankTitle ? `<div class="step-bank-title"><span class="bank-label">TITLE</span>${escHtml(_bankTitle)}</div>` : ''}
+      ${_bankTitle ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;">
+        <span class="bank-label" style="flex-shrink:0;">TITLE</span>
+        <span id="step-title-text-${idx}" style="flex:1;word-break:break-word;">${escHtml(_bankTitle)}</span>
+        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('step-title-text-${idx}', this)">COPY</button>
+      </div>` : ''}
       ${content ? `<div class="step-content-block" id="step-content-${idx}">${escHtml(content)}</div>` : ''}
       ${actionsHtml}`;
 
@@ -1298,6 +1302,7 @@ const Missions = {
     const navUrlId  = `sub-nav-url-${stepIdx}-${postIdx}-${targetIdx}`;
     const cardSuffix = `${stepIdx}-${postIdx}-${targetIdx}`;
 
+    const titleId = `sub-title-${stepIdx}-${postIdx}-${targetIdx}`;
     card.innerHTML = `
       <div class="sub-card-header">
         <span class="sub-label">r/${subEsc}</span>
@@ -1310,7 +1315,11 @@ const Missions = {
           <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('${navUrlId}').dataset.full)">OPEN</button>
         </div>
       </div>
-      ${post.title ? `<div class="step-bank-title"><span class="bank-label">TITLE</span>${escHtml(post.title)}</div>` : ''}
+      ${post.title ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;">
+        <span class="bank-label" style="flex-shrink:0;">TITLE</span>
+        <span id="${titleId}" style="flex:1;word-break:break-word;">${escHtml(post.title)}</span>
+        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${titleId}', this)">COPY</button>
+      </div>` : ''}
       ${(post.body || post.content) ? `<div class="step-content-block" id="${contentId}">${escHtml(post.body || post.content || '')}</div>` : ''}
       <div class="step-actions">
         ${(post.body || post.content) ? `<button class="step-btn btn-copy" onclick="Missions._copyContentSub('${contentId}', this)">COPY BODY</button>` : ''}
