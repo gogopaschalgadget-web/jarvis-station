@@ -1199,7 +1199,8 @@ const Missions = {
 
   _buildDeepLink(platform, content, step, titleOverride, subOverride) {
     const p     = (platform || '').toLowerCase();
-    const sub   = subOverride   || step.params?.subreddit || '';
+    // Strip r/ prefix if present -- chain configs store "r/SubName" but URL builder adds its own r/
+    const sub   = (subOverride || step.params?.subreddit || '').replace(/^r\//i, '');
     const title = titleOverride || content.split('\n')[0];
     if (p === 'reddit')    return CONFIG.deepLinks.reddit(sub, title, content);
     if (p === 'x' || p === 'twitter') return CONFIG.deepLinks.x(content);
