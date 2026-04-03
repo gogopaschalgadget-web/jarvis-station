@@ -396,6 +396,47 @@ body::before {
 
 .btn-copy-url:active { background: rgba(58,125,68,0.3); }
 
+/* Multi-target sub-card styles (ADR-004) */
+.step-multi-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 12px 6px;
+  background: var(--panel);
+  margin-bottom: 10px;
+}
+
+.step-multi-header {
+  margin-bottom: 10px;
+}
+
+.step-sub-card {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #0d0d0d;
+}
+
+.sub-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sub-label {
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--amber);
+  letter-spacing: 1px;
+  background: var(--amber-lo);
+  border: 1px solid var(--amber-dim);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
 .step-bank-title {
   background: #0a0a0a;
   border: 1px solid var(--amber);
@@ -1128,6 +1169,13 @@ const Missions = {
   },
 
   _buildStepCard(step, idx) {
+    // ADR-004: if any post in default_content has a targets array, render multi-target sub-cards
+    const posts = step.default_content?.posts || [];
+    const hasTargets = posts.some(p => Array.isArray(p.targets) && p.targets.length > 0);
+    if (hasTargets && step.type === 'manual') {
+      return this._buildMultiTargetContainer(step, idx, posts);
+    }
+
     const card   = document.createElement('div');
     const isManual = step.type === 'manual';
     card.className = `step-card ${isManual ? 'manual' : 'auto'}`;
@@ -1197,6 +1245,82 @@ const Missions = {
     return card;
   },
 
+  // ADR-004: renders a container card with N sub-cards, one per active target subreddit
+  _buildMultiTargetContainer(step, idx, posts) {
+    const container = document.createElement('div');
+    container.className = 'step-multi-container';
+    container.id = `step-card-${idx}`;
+
+    // Step header + instruction
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'step-multi-header';
+    headerDiv.innerHTML = `
+      <div class="step-header">
+        <span class="step-num">STEP ${idx + 1}</span>
+        <span class="step-type-badge badge-manual">MANUAL</span>
+      </div>
+      <div class="step-title">${escHtml(step.name || `Step ${idx + 1}`)}</div>
+      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}`;
+    container.appendChild(headerDiv);
+
+    // Render sub-cards for each approved post's active targets
+    posts.forEach((post, postIdx) => {
+      if (post.status !== 'approved') return;
+      const activeTargets = (post.targets || []).filter(t => t.status === 'active');
+      activeTargets.forEach((target, targetIdx) => {
+        container.appendChild(this._buildSubCard(step, idx, post, target, postIdx, targetIdx));
+      });
+    });
+
+    // Workaround note at the bottom of the container
+    if (step.workaround) {
+      const wa = document.createElement('div');
+      wa.className = 'step-workaround';
+      wa.textContent = step.workaround;
+      container.appendChild(wa);
+    }
+
+    return container;
+  },
+
+  // ADR-004: renders a single sub-card for one target subreddit within a multi-target step
+  _buildSubCard(step, stepIdx, post, target, postIdx, targetIdx) {
+    const card = document.createElement('div');
+    card.className = 'step-card manual step-sub-card';
+    card.id = `step-card-${stepIdx}-${postIdx}-${targetIdx}`;
+
+    const sub = (target.subreddit || '').replace(/^r\//i, '');
+    const navLink = `https://www.reddit.com/r/${sub}/submit`;
+    const navDisplayUrl = `www.reddit.com/r/${sub}/submit`;
+    const postId = escHtml(post.id || '');
+    const subEsc = escHtml(sub);
+    const contentId = `sub-content-${stepIdx}-${postIdx}-${targetIdx}`;
+    const navUrlId  = `sub-nav-url-${stepIdx}-${postIdx}-${targetIdx}`;
+    const cardSuffix = `${stepIdx}-${postIdx}-${targetIdx}`;
+
+    card.innerHTML = `
+      <div class="sub-card-header">
+        <span class="sub-label">r/${subEsc}</span>
+      </div>
+      <div class="step-nav-block">
+        <span class="nav-label">NAVIGATE TO</span>
+        <div class="nav-url-row">
+          <span class="nav-url-display" id="${navUrlId}" data-full="${escHtml(navLink)}">${escHtml(navDisplayUrl)}</span>
+          <button class="btn-copy-url" onclick="Missions._copyNavSub('${cardSuffix}', this)">COPY URL</button>
+          <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('${navUrlId}').dataset.full)">OPEN</button>
+        </div>
+      </div>
+      ${post.title ? `<div class="step-bank-title"><span class="bank-label">TITLE</span>${escHtml(post.title)}</div>` : ''}
+      ${(post.body || post.content) ? `<div class="step-content-block" id="${contentId}">${escHtml(post.body || post.content || '')}</div>` : ''}
+      <div class="step-actions">
+        ${(post.body || post.content) ? `<button class="step-btn btn-copy" onclick="Missions._copyContentSub('${contentId}', this)">COPY BODY</button>` : ''}
+        <button class="step-btn btn-done"  onclick="Missions._recordEvent(${stepIdx}, 'done',  this, {subreddit:'${subEsc}', post_id:'${postId}', action:'posted'}, '${cardSuffix}')">DONE</button>
+        <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${stepIdx}, 'stuck', this, {subreddit:'${subEsc}', post_id:'${postId}', reason:'rejected'}, '${cardSuffix}')">STUCK</button>
+      </div>`;
+
+    return card;
+  },
+
   _buildDeepLink(platform, content, step, titleOverride, subOverride) {
     const p     = (platform || '').toLowerCase();
     // Strip r/ prefix if present -- chain configs store "r/SubName" but URL builder adds its own r/
@@ -1258,21 +1382,71 @@ const Missions = {
     log('missions', `Step ${stepIdx + 1} nav URL copied`);
   },
 
+  // ADR-004: copy URL for a sub-card nav block (uses element ID suffix string)
+  async _copyNavSub(cardSuffix, btn) {
+    const el = document.getElementById(`sub-nav-url-${cardSuffix}`);
+    if (!el) return;
+    const url = el.dataset.full || el.textContent;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch(_) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity  = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const orig = btn.textContent;
+    btn.textContent = 'COPIED';
+    btn.style.color = 'var(--green-hi)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+    log('missions', `Sub-card ${cardSuffix} nav URL copied`);
+  },
+
+  // ADR-004: copy body content for a sub-card (uses full element ID)
+  async _copyContentSub(contentId, btn) {
+    const el = document.getElementById(contentId);
+    if (!el) return;
+    const text = el.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity  = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const orig = btn.textContent;
+    btn.textContent = 'COPIED';
+    btn.style.color = 'var(--green-hi)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+    log('missions', `Sub-card content copied`);
+  },
+
   _openLink(url) {
     window.open(url, '_blank', 'noopener');
     log('missions', `Opened: ${url.slice(0, 60)}...`);
   },
 
-  async _recordEvent(stepIdx, eventType, btn) {
+  // ADR-004: extraPayload optional {subreddit, post_id, action/reason}. cardSuffix optional for sub-cards.
+  async _recordEvent(stepIdx, eventType, btn, extraPayload, cardSuffix) {
     if (!currentRunId) return;
-    const card = document.getElementById(`step-card-${stepIdx}`);
+    const cardId = cardSuffix ? `step-card-${cardSuffix}` : `step-card-${stepIdx}`;
+    const card = document.getElementById(cardId);
 
     try {
       await apiPost('/api/chain/event', {
         run_id:     currentRunId,
         step_index: stepIdx,
         event_type: eventType,
-        payload:    {}
+        payload:    extraPayload || {}
       });
 
       if (eventType === 'done') {
@@ -1284,14 +1458,16 @@ const Missions = {
           const actions = card.querySelector('.step-actions');
           if (actions) actions.innerHTML = '<div class="step-status-msg" style="color:var(--green-hi);">&#10003; COMPLETED</div>';
         }
-        log('chain', `Step ${stepIdx + 1} marked done`);
+        const sub = extraPayload?.subreddit ? ` (r/${extraPayload.subreddit})` : '';
+        log('chain', `Step ${stepIdx + 1}${sub} marked done`);
       } else {
         if (card) {
           card.classList.add('stuck');
           const badge = card.querySelector('.step-type-badge');
           if (badge) { badge.className = 'step-type-badge badge-stuck'; badge.textContent = 'STUCK'; }
         }
-        log('chain', `Step ${stepIdx + 1} marked stuck`);
+        const sub = extraPayload?.subreddit ? ` (r/${extraPayload.subreddit})` : '';
+        log('chain', `Step ${stepIdx + 1}${sub} marked stuck`);
         HUDLayer.showTooltip('Marked as stuck. Try rephrasing or check the workaround note.');
       }
     } catch (e) {
