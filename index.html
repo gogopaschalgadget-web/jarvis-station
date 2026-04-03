@@ -2,733 +2,830 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>JARVIS STATION</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
 <style>
-  :root {
-    --bg:        #0d0d0d;
-    --panel:     #111111;
-    --border:    #2a2218;
-    --amber:     #c9a227;
-    --amber-dim: #7a5e10;
-    --amber-lo:  #2a1f05;
-    --green:     #3a7d44;
-    --red:       #8b2020;
-    --text:      #d4b86a;
-    --text-dim:  #5a4a25;
-    --mono:      'Courier New', Courier, monospace;
-  }
+/* ============================================================
+   PHASE 0 PALETTE - preserved exactly
+   ============================================================ */
+:root {
+  --bg:         #0d0d0d;
+  --panel:      #111111;
+  --border:     #2a2218;
+  --amber:      #c9a227;
+  --amber-dim:  #7a5e10;
+  --amber-lo:   #2a1f05;
+  --green:      #3a7d44;
+  --green-hi:   #4caf60;
+  --red:        #8b2020;
+  --red-hi:     #c0392b;
+  --text:       #d4b86a;
+  --text-dim:   #5a4a25;
+  --mono:       'Courier New', Courier, monospace;
+  --nav-h:      64px;
+  --hud-h:      48px;
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
 
-  /* ── Scanline overlay ── */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      to bottom,
-      transparent 0px,
-      transparent 2px,
-      rgba(0,0,0,0.08) 2px,
-      rgba(0,0,0,0.08) 4px
-    );
-    pointer-events: none;
-    z-index: 9999;
-  }
+/* scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 2px,
+    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
 
-  /* ── Header ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-  }
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+/* ---- HUD TOP ---- */
+#hud-top {
+  flex: 0 0 var(--hud-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  z-index: 100;
+}
 
-  .logo-mark {
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--amber);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    color: var(--amber);
-    box-shadow: 0 0 8px rgba(201,162,39,0.3);
-    animation: pulse 3s ease-in-out infinite;
-  }
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 8px rgba(201,162,39,0.3); }
-    50%       { box-shadow: 0 0 18px rgba(201,162,39,0.6); }
-  }
+.logo-mark {
+  width: 28px; height: 28px;
+  border: 2px solid var(--amber);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--amber);
+  box-shadow: 0 0 8px rgba(201,162,39,0.3);
+  animation: pulse 3s ease-in-out infinite;
+  flex-shrink: 0;
+}
 
-  .logo-text {
-    letter-spacing: 4px;
-    font-size: 15px;
-    color: var(--amber);
-    text-transform: uppercase;
-  }
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 8px rgba(201,162,39,0.3); }
+  50%      { box-shadow: 0 0 18px rgba(201,162,39,0.7); }
+}
 
-  .logo-sub {
-    font-size: 9px;
-    color: var(--text-dim);
-    letter-spacing: 3px;
-    margin-top: 2px;
-  }
+.logo-text {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--amber);
+  text-transform: uppercase;
+}
 
-  .ws-status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--text-dim);
-  }
+.hud-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 
-  .ws-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-dim);
-    transition: background 0.4s, box-shadow 0.4s;
-  }
-  .ws-dot.connected    { background: var(--amber); box-shadow: 0 0 6px rgba(201,162,39,0.7); }
-  .ws-dot.connecting   { background: #8b7020; animation: blink 1s step-start infinite; }
-  .ws-dot.error        { background: var(--red); }
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
 
-  @keyframes blink { 50% { opacity: 0; } }
+.stat-val {
+  font-size: 14px;
+  color: var(--amber);
+  font-weight: bold;
+  line-height: 1;
+}
 
-  /* ── Ticker tape ── */
-  .ticker {
-    background: var(--amber-lo);
-    border-bottom: 1px solid var(--border);
-    padding: 4px 0;
-    overflow: hidden;
-    white-space: nowrap;
-    font-size: 10px;
-    color: var(--amber-dim);
-    letter-spacing: 2px;
-  }
-  .ticker-inner {
-    display: inline-block;
-    animation: scroll-left 40s linear infinite;
-    padding-left: 100%;
-  }
-  @keyframes scroll-left {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(-100%); }
-  }
+.stat-lbl {
+  font-size: 8px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
 
-  /* ── Main grid ── */
-  .main-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: auto auto;
-    gap: 12px;
-    padding: 16px;
-  }
+.ws-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
 
-  @media (max-width: 900px) {
-    .main-grid { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 540px) {
-    .main-grid { grid-template-columns: 1fr; }
-  }
+.ws-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  flex-shrink: 0;
+}
+.ws-dot.connected   { background: var(--amber); box-shadow: 0 0 6px rgba(201,162,39,0.7); }
+.ws-dot.connecting  { background: var(--amber-dim); animation: blink 1s step-start infinite; }
 
-  /* ── Panel card ── */
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 14px 16px;
-    position: relative;
-  }
+@keyframes blink { 50% { opacity: 0; } }
 
-  .panel::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: var(--amber-dim);
-    opacity: 0.4;
-  }
+/* ---- MAIN AREA ---- */
+#main-area {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
+}
 
-  .panel-title {
-    font-size: 9px;
-    letter-spacing: 3px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+/* Phaser canvas - fills main area */
+#phaser-mount {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
 
-  .panel-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+#phaser-mount canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
 
-  /* ── Gauge ── */
-  .gauge-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
+/* ---- MISSIONS OVERLAY ---- */
+#missions-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: var(--bg);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-  .gauge {
-    width: 90px;
-    height: 90px;
-    position: relative;
-  }
+#missions-overlay.active { display: flex; }
 
-  .gauge svg { width: 100%; height: 100%; transform: rotate(-135deg); }
-  .gauge-track { fill: none; stroke: var(--border); stroke-width: 8; }
-  .gauge-fill  {
-    fill: none;
-    stroke: var(--amber);
-    stroke-width: 8;
-    stroke-linecap: round;
-    stroke-dasharray: 190;
-    stroke-dashoffset: 190;
-    transition: stroke-dashoffset 1s ease, stroke 0.5s;
-  }
+.missions-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
 
-  .gauge-label {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transform: rotate(135deg);
-  }
+#missions-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px 12px 8px;
+  -webkit-overflow-scrolling: touch;
+}
 
-  .gauge-val {
-    font-size: 20px;
-    color: var(--amber);
-    line-height: 1;
-    font-weight: bold;
-  }
+/* chain selector (list of available chains) */
+.chain-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-  .gauge-unit {
-    font-size: 8px;
-    color: var(--text-dim);
-    letter-spacing: 1px;
-  }
+.chain-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  transition: border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
 
-  /* ── Status badge ── */
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-top: 4px;
-  }
+.chain-btn:active, .chain-btn:hover {
+  border-color: var(--amber);
+  background: var(--amber-lo);
+}
 
-  .status-badge.idle    { border-color: var(--amber-dim); color: var(--amber-dim); }
-  .status-badge.running { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 8px rgba(201,162,39,0.2); }
-  .status-badge.offline { border-color: var(--red); color: #c04040; }
+.chain-name { color: var(--amber); font-weight: bold; }
+.chain-meta { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+.chain-arrow { color: var(--amber-dim); font-size: 16px; }
 
-  .status-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-  .status-badge.running .status-dot { animation: blink 1s step-start infinite; }
+/* step cards */
+#step-view {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
 
-  /* ── Big number ── */
-  .big-num {
-    font-size: 48px;
-    color: var(--amber);
-    line-height: 1;
-    font-weight: bold;
-    text-align: center;
-    padding: 8px 0;
-    text-shadow: 0 0 20px rgba(201,162,39,0.3);
-    transition: all 0.4s;
-  }
+#step-view.active { display: flex; }
 
-  .big-num-label {
-    text-align: center;
-    font-size: 9px;
-    color: var(--text-dim);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-  }
+.step-back-btn {
+  background: none;
+  border: none;
+  color: var(--amber-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 10px 16px;
+  text-align: left;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  min-height: 44px;
+}
 
-  /* ── Chain run panel ── */
-  .chain-run {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+.step-back-btn:active { color: var(--amber); }
 
-  .chain-run-name {
-    font-size: 13px;
-    color: var(--amber);
-    letter-spacing: 1px;
-  }
+.step-chain-title {
+  padding: 0 16px 10px;
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
 
-  .chain-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
+#steps-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-  .chain-step {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    color: var(--text-dim);
-    padding: 3px 0;
-    border-left: 2px solid var(--border);
-    padding-left: 8px;
-  }
+.step-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+}
 
-  .chain-step.active {
-    color: var(--amber);
-    border-left-color: var(--amber);
-  }
+.step-card.manual { border-color: var(--amber-dim); }
+.step-card.done   { border-color: var(--green); opacity: 0.6; }
+.step-card.stuck  { border-color: var(--red); }
+.step-card.running { border-color: var(--amber); }
 
-  .chain-step.done {
-    color: #3a5a3a;
-    border-left-color: #2a4a2a;
-    text-decoration: line-through;
-    text-decoration-color: #2a4a2a;
-  }
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
 
-  .step-icon {
-    width: 12px;
-    text-align: center;
-    flex-shrink: 0;
-  }
+.step-num {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
 
-  .no-chain {
-    color: var(--text-dim);
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-align: center;
-    padding: 20px 0;
-  }
+.step-type-badge {
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
 
-  /* ── Log terminal ── */
-  .log-panel {
-    grid-column: 1 / -1;
-  }
+.badge-manual   { background: var(--amber-lo); color: var(--amber); border: 1px solid var(--amber-dim); }
+.badge-auto     { background: #0d1a10; color: var(--green); border: 1px solid #1a3d20; }
+.badge-done     { background: #0d1a10; color: var(--green-hi); border: 1px solid var(--green); }
+.badge-stuck    { background: #1a0d0d; color: var(--red-hi); border: 1px solid var(--red); }
 
-  .log-terminal {
-    background: #0a0a0a;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 10px 12px;
-    height: 160px;
-    overflow-y: auto;
-    font-size: 11px;
-    line-height: 1.6;
-    scrollbar-width: thin;
-    scrollbar-color: var(--amber-dim) transparent;
-  }
+.step-title {
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 6px;
+  font-weight: bold;
+}
 
-  .log-terminal::-webkit-scrollbar { width: 4px; }
-  .log-terminal::-webkit-scrollbar-thumb { background: var(--amber-dim); }
+.step-instruction {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
 
-  .log-line {
-    display: flex;
-    gap: 10px;
-    opacity: 0;
-    animation: fadeIn 0.3s forwards;
-  }
+.step-content-block {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px;
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
 
-  @keyframes fadeIn { to { opacity: 1; } }
+.step-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
-  .log-time  { color: var(--text-dim); flex-shrink: 0; }
-  .log-level { flex-shrink: 0; width: 50px; }
-  .log-level.info  { color: var(--amber-dim); }
-  .log-level.ok    { color: var(--green); }
-  .log-level.err   { color: var(--red); }
-  .log-level.ws    { color: #4a7a9b; }
-  .log-msg   { color: var(--text); }
+.step-btn {
+  flex: 1;
+  min-width: 80px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
 
-  /* ── Controls ── */
-  .controls-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 0 16px 16px;
-  }
+.btn-copy   { background: var(--amber-lo); color: var(--amber); border-color: var(--amber-dim); }
+.btn-copy:active { background: #3a2a05; }
 
-  .ctrl-btn {
-    background: transparent;
-    border: 1px solid var(--amber-dim);
-    color: var(--amber-dim);
-    padding: 6px 14px;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.2s;
-  }
+.btn-link   { background: #0a1520; color: #4a90d9; border-color: #1a3a5c; }
+.btn-link:active { background: #0d1f30; }
 
-  .ctrl-btn:hover {
-    border-color: var(--amber);
-    color: var(--amber);
-    box-shadow: 0 0 8px rgba(201,162,39,0.2);
-  }
+.btn-done   { background: #0d1a10; color: var(--green-hi); border-color: var(--green); }
+.btn-done:active { background: #152a1a; }
 
-  .ctrl-btn:active { background: var(--amber-lo); }
+.btn-stuck  { background: #1a0d0d; color: var(--red-hi); border-color: var(--red); }
+.btn-stuck:active { background: #2a1515; }
 
-  /* ── Decorative corner marks ── */
-  .corner-mark {
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-color: var(--amber-dim);
-    border-style: solid;
-    opacity: 0.5;
-  }
-  .corner-mark.tl { top: 4px; left: 4px;  border-width: 1px 0 0 1px; }
-  .corner-mark.tr { top: 4px; right: 4px; border-width: 1px 1px 0 0; }
-  .corner-mark.bl { bottom: 4px; left: 4px;  border-width: 0 0 1px 1px; }
-  .corner-mark.br { bottom: 4px; right: 4px; border-width: 0 1px 1px 0; }
+.step-workaround {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--amber-dim);
+}
 
-  /* ── Uptime bar ── */
-  .uptime-bar {
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    margin-top: 10px;
-    overflow: hidden;
-  }
+.step-status-msg {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 6px;
+  letter-spacing: 1px;
+}
 
-  .uptime-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--amber-dim), var(--amber));
-    width: 0%;
-    transition: width 1s ease;
-  }
+/* ---- LOG PANEL ---- */
+#log-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: var(--bg);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-  /* ── Error overlay ── */
-  #error-overlay {
-    display: none;
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
-    background: #1a0a0a;
-    border: 1px solid var(--red);
-    padding: 10px 14px;
-    font-size: 11px;
-    color: #c04040;
-    max-width: 300px;
-    z-index: 100;
-    border-radius: 2px;
-  }
+#log-panel.active { display: flex; }
 
-  #error-overlay.visible { display: block; }
+.log-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+#log-entries {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 8px 12px;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.log-line {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  animation: fadein 0.3s ease;
+}
+
+.log-line .log-tag { color: var(--amber-dim); margin-right: 6px; }
+.log-line .log-msg { color: var(--text); }
+.log-line .log-ts  { color: #3a3020; font-size: 9px; margin-right: 6px; }
+
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- HUD BOTTOM NAV ---- */
+#hud-bottom {
+  flex: 0 0 var(--nav-h);
+  display: flex;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  z-index: 100;
+}
+
+.nav-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: var(--nav-h);
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-btn:last-child { border-right: none; }
+.nav-btn .nav-icon { font-size: 18px; }
+
+.nav-btn.active {
+  background: var(--amber-lo);
+  color: var(--amber);
+  border-bottom: 2px solid var(--amber);
+}
+
+.nav-btn:active:not(.active) {
+  background: #181408;
+}
+
+/* ---- ROOM DETAIL TOOLTIP ---- */
+#room-tooltip {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--amber-dim);
+  border-radius: 4px;
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--text);
+  z-index: 50;
+  display: none;
+  text-align: center;
+  max-width: 240px;
+  pointer-events: none;
+  animation: fadein 0.2s ease;
+}
+
+/* ---- LOADING INDICATOR ---- */
+#loading-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 12px;
+  letter-spacing: 2px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 480px) {
+  .hud-stats { gap: 10px; }
+  .stat-val  { font-size: 13px; }
+  .logo-text { display: none; }
+}
 </style>
 </head>
 <body>
+<div id="app">
 
-<!-- ══════════════════════════════════════════
-     JARVIS STATION — Phase 0 Shell
-     WebSocket game UI for Autonomous Revenue Agent
-     ══════════════════════════════════════════ -->
+  <!-- ===================== HUD TOP ===================== -->
+  <div id="hud-top">
+    <div class="logo">
+      <div class="logo-mark">J</div>
+      <div class="logo-text">JARVIS&nbsp;STATION</div>
+    </div>
 
-<header>
-  <div class="logo">
-    <div class="logo-mark">J</div>
-    <div>
-      <div class="logo-text">Jarvis Station</div>
-      <div class="logo-sub">Autonomous Revenue Agent / Phase 0</div>
+    <div class="hud-stats">
+      <div class="stat-item">
+        <div class="stat-val" id="statPipeline">IDLE</div>
+        <div class="stat-lbl">STATUS</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statProducts">35</div>
+        <div class="stat-lbl">PRODUCTS</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statRevenue">$0</div>
+        <div class="stat-lbl">REVENUE</div>
+      </div>
+    </div>
+
+    <div class="ws-group">
+      <div class="ws-dot" id="wsDot"></div>
+      <span id="wsLabel">OFFLINE</span>
     </div>
   </div>
-  <div class="ws-status">
-    <div class="ws-dot connecting" id="wsDot"></div>
-    <span id="wsStatusText">CONNECTING</span>
-  </div>
-</header>
 
-<div class="ticker">
-  <span class="ticker-inner" id="tickerText">
-    SYSTEM INITIALIZING &nbsp;&nbsp;|&nbsp;&nbsp; ESTABLISHING SECURE CHANNEL &nbsp;&nbsp;|&nbsp;&nbsp; AWAITING PIPELINE DATA &nbsp;&nbsp;|&nbsp;&nbsp; JARVIS STATION ONLINE &nbsp;&nbsp;|&nbsp;&nbsp;
-  </span>
-</div>
+  <!-- ===================== MAIN AREA ===================== -->
+  <div id="main-area">
 
-<div class="main-grid">
+    <div id="loading-msg">INITIALIZING...</div>
 
-  <!-- Panel 1: Pipeline Status -->
-  <div class="panel">
-    <div class="corner-mark tl"></div>
-    <div class="corner-mark tr"></div>
-    <div class="corner-mark bl"></div>
-    <div class="corner-mark br"></div>
-    <div class="panel-title">Pipeline</div>
-    <div class="gauge-wrap">
-      <div class="gauge">
-        <svg viewBox="0 0 100 100">
-          <circle class="gauge-track" cx="50" cy="50" r="38" stroke-dasharray="190 1000"/>
-          <circle class="gauge-fill" id="pipelineGaugeFill" cx="50" cy="50" r="38"/>
-        </svg>
-        <div class="gauge-label">
-          <div class="gauge-val" id="pipelineStageNum">--</div>
-          <div class="gauge-unit">STAGE</div>
+    <!-- Phaser canvas target -->
+    <div id="phaser-mount"></div>
+
+    <!-- Missions overlay (HTML-driven, shown over canvas) -->
+    <div id="missions-overlay">
+      <div class="missions-header">// MISSIONS &nbsp;&nbsp; ACTIVE CHAINS</div>
+      <div id="missions-list">
+        <div class="chain-selector" id="chain-selector">
+          <div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">
+            LOADING CHAINS...
+          </div>
+        </div>
+        <div id="step-view" class="step-view">
+          <button class="step-back-btn" id="stepBackBtn">&#8592; BACK TO MISSIONS</button>
+          <div class="step-chain-title" id="stepChainTitle">CHAIN NAME</div>
+          <div id="steps-scroll"></div>
         </div>
       </div>
-      <div class="status-badge idle" id="pipelineStatusBadge">
-        <div class="status-dot"></div>
-        <span id="pipelineStatusText">OFFLINE</span>
-      </div>
     </div>
-  </div>
 
-  <!-- Panel 2: Notifications -->
-  <div class="panel">
-    <div class="corner-mark tl"></div>
-    <div class="corner-mark tr"></div>
-    <div class="corner-mark bl"></div>
-    <div class="corner-mark br"></div>
-    <div class="panel-title">Notifications</div>
-    <div class="big-num" id="notifCount">--</div>
-    <div class="big-num-label">UNREAD</div>
-    <div class="uptime-bar">
-      <div class="uptime-fill" id="notifBar"></div>
+    <!-- Log panel -->
+    <div id="log-panel">
+      <div class="log-header">// COMMS &nbsp;&nbsp; ACTIVITY LOG</div>
+      <div id="log-entries"></div>
     </div>
+
+    <!-- Room tooltip -->
+    <div id="room-tooltip"></div>
+
+  </div><!-- /main-area -->
+
+  <!-- ===================== HUD BOTTOM NAV ===================== -->
+  <div id="hud-bottom">
+    <button class="nav-btn active" id="navStation" onclick="SceneManager.switch('station')">
+      <span class="nav-icon">&#9632;</span>
+      <span>STATION</span>
+    </button>
+    <button class="nav-btn" id="navMissions" onclick="SceneManager.switch('missions')">
+      <span class="nav-icon">&#9654;</span>
+      <span>MISSIONS</span>
+    </button>
+    <button class="nav-btn" id="navLog" onclick="SceneManager.switch('log')">
+      <span class="nav-icon">&#9654;&#9474;</span>
+      <span>LOG</span>
+    </button>
   </div>
 
-  <!-- Panel 3: System -->
-  <div class="panel">
-    <div class="corner-mark tl"></div>
-    <div class="corner-mark tr"></div>
-    <div class="corner-mark bl"></div>
-    <div class="corner-mark br"></div>
-    <div class="panel-title">System</div>
-    <div style="display:flex; flex-direction:column; gap:10px;">
-      <div>
-        <div style="font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:4px;">SESSION UPTIME</div>
-        <div style="font-size:16px;color:var(--amber);" id="uptimeDisplay">00:00:00</div>
-      </div>
-      <div>
-        <div style="font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:4px;">LAST PING</div>
-        <div style="font-size:12px;color:var(--amber-dim);" id="lastPingDisplay">--</div>
-      </div>
-      <div>
-        <div style="font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:4px;">RECONNECTS</div>
-        <div style="font-size:12px;color:var(--amber-dim);" id="reconnectCount">0</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Panel 4: Active Chain Run -->
-  <div class="panel" style="grid-column: 1 / 3;">
-    <div class="corner-mark tl"></div>
-    <div class="corner-mark tr"></div>
-    <div class="corner-mark bl"></div>
-    <div class="corner-mark br"></div>
-    <div class="panel-title">Active Chain Run</div>
-    <div class="chain-run" id="chainRunContainer">
-      <div class="no-chain">No active chain run</div>
-    </div>
-  </div>
-
-  <!-- Panel 5: Revenue -->
-  <div class="panel">
-    <div class="corner-mark tl"></div>
-    <div class="corner-mark tr"></div>
-    <div class="corner-mark bl"></div>
-    <div class="corner-mark br"></div>
-    <div class="panel-title">Revenue Signal</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
-      <div>
-        <div style="font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:3px;">PRODUCTS LIVE</div>
-        <div style="font-size:18px;color:var(--amber);" id="productsLive">35</div>
-      </div>
-      <div>
-        <div style="font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:3px;">SITES LIVE</div>
-        <div style="font-size:18px;color:var(--amber);" id="sitesLive">5</div>
-      </div>
-      <div>
-        <div style="font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-bottom:3px;">PHASE</div>
-        <div style="font-size:11px;color:var(--amber-dim);letter-spacing:1px;">TRAFFIC</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Log Terminal -->
-  <div class="panel log-panel">
-    <div class="panel-title">Event Log</div>
-    <div class="log-terminal" id="logTerminal"></div>
-  </div>
-
-</div>
-
-<!-- Controls -->
-<div class="controls-row">
-  <button class="ctrl-btn" onclick="triggerPipeline()">Run Pipeline</button>
-  <button class="ctrl-btn" onclick="refreshData()">Refresh</button>
-  <button class="ctrl-btn" onclick="clearLog()">Clear Log</button>
-  <button class="ctrl-btn" onclick="window.open('https://web-production-eb2a6.up.railway.app','_blank')">Open Dashboard</button>
-</div>
-
-<!-- Error overlay -->
-<div id="error-overlay"></div>
+</div><!-- /app -->
 
 <script>
-// ═══════════════════════════════════════════
-// CONFIG
-// ═══════════════════════════════════════════
+'use strict';
+
+// ============================================================
+//  CONFIG
+// ============================================================
 const CONFIG = {
-  railwayUrl:  'https://web-production-eb2a6.up.railway.app',
-  webhookKey:  'jarvis-pipeline-2026',
+  railwayUrl:    'https://web-production-eb2a6.up.railway.app',
+  webhookKey:    'jarvis-pipeline-2026',
   wsReconnectMs: 5000,
-  maxLogLines: 120
+  maxLogLines:   80,
+  pollMs:        30000,
+
+  // Phase 1: hardcoded known stats. Phase 2: pull from /api/game/state
+  // FUTURE: replace with live API call when /api/game/state endpoint added
+  stats: { products: 35, revenue: 0 },
+
+  // Room definitions - order determines grid position
+  rooms: [
+    { id: 'bridge',    label: 'Command\nBridge',   tasks: ['revenue_pipeline', 'morning_briefing'] },
+    { id: 'factory',   label: 'Product\nFactory',  tasks: ['gumroad_publish',  'product_factory']   },
+    { id: 'content',   label: 'Content\nEngine',   tasks: ['content_publisher','overnight_builder']  },
+    { id: 'traffic',   label: 'Traffic\nHub',      tasks: ['reddit_post',      'quora_answer']       },
+    { id: 'analytics', label: 'Analytics\nBay',    tasks: ['analytics_engine', 'brain_refresh']      },
+    { id: 'vault',     label: 'Vault',              tasks: []                                         },
+    { id: 'comms',     label: 'Comms',              tasks: ['notification_writer']                    },
+    { id: 'armory',    label: 'Armory',             tasks: []                                         }
+    // FUTURE: add active_tasks[] from Railway /api/game/state to animate per-room status
+  ],
+
+  // Platform deep link builders
+  deepLinks: {
+    reddit:    (sub, title, text) =>
+      `https://www.reddit.com/r/${sub || 'smallbusiness'}/submit?title=${encodeURIComponent(title||'')}&text=${encodeURIComponent(text||'')}`,
+    x:         (text) =>
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent((text||'').slice(0,280))}`,
+    pinterest: (desc) =>
+      `https://www.pinterest.com/pin/create/button/?description=${encodeURIComponent(desc||'')}`,
+    quora:     ()    => 'https://www.quora.com',
+    gumroad:   ()    => 'https://gumroad.com/products/new'
+  }
 };
 
-// ═══════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════
-let ws            = null;
+// ============================================================
+//  STATE
+// ============================================================
 let jwtToken      = null;
-let reconnects    = 0;
+let wsConn        = null;
 let reconnectTimer= null;
-let startTime     = Date.now();
-let lastPing      = null;
-let uptimeInterval= null;
+let reconnects    = 0;
+let pollTimer     = null;
+let activeTasks   = [];    // from game_state (Phase 2: per-room)
+let currentRunId  = null;  // active chain run
+let currentChain  = null;  // chain config for active run
+let currentSteps  = [];    // steps for active run
 
-// ═══════════════════════════════════════════
-// LOGGING
-// ═══════════════════════════════════════════
-function log(level, msg) {
-  const t   = document.getElementById('logTerminal');
-  const now = new Date().toLocaleTimeString('en-US', {hour12:false});
+// ============================================================
+//  LOGGING
+// ============================================================
+function log(tag, msg) {
+  const ts   = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const el   = document.getElementById('log-entries');
   const line = document.createElement('div');
   line.className = 'log-line';
-  line.innerHTML = `<span class="log-time">${now}</span>`
-                 + `<span class="log-level ${level}">[${level.toUpperCase().padEnd(4)}]</span>`
-                 + `<span class="log-msg">${msg}</span>`;
-  t.appendChild(line);
-  // cap log lines
-  while (t.children.length > CONFIG.maxLogLines) t.removeChild(t.firstChild);
-  t.scrollTop = t.scrollHeight;
+  line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-tag">[${tag.toUpperCase()}]</span><span class="log-msg">${escHtml(msg)}</span>`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > CONFIG.maxLogLines) el.removeChild(el.firstChild);
 }
 
-// ═══════════════════════════════════════════
-// JWT AUTH
-// ═══════════════════════════════════════════
-async function fetchToken() {
-  log('info', 'Requesting JWT from /api/auth/token...');
-  try {
-    const res = await fetch(`${CONFIG.railwayUrl}/api/auth/token`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({key: CONFIG.webhookKey})
-    });
-    const data = await res.json();
-    if (data.token) {
-      jwtToken = data.token;
-      log('ok', 'JWT issued. Connecting WebSocket...');
-      return true;
-    } else {
-      log('err', `Auth failed: ${JSON.stringify(data)}`);
-      return false;
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+//  API CLIENT
+//  REST uses ?key= auth. WebSocket uses JWT.
+// ============================================================
+async function apiFetch(path, options = {}) {
+  const sep  = path.includes('?') ? '&' : '?';
+  const url  = `${CONFIG.railwayUrl}${path}${sep}key=${CONFIG.webhookKey}`;
+  const res  = await fetch(url, {
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options
+  });
+  if (!res.ok) throw new Error(`${res.status} ${path}`);
+  return res.json();
+}
+
+async function apiGet(path)        { return apiFetch(path); }
+async function apiPost(path, body) { return apiFetch(path, { method: 'POST', body: JSON.stringify(body) }); }
+
+// ============================================================
+//  HUD LAYER
+// ============================================================
+const HUDLayer = {
+  setWsStatus(status) {
+    const dot = document.getElementById('wsDot');
+    const lbl = document.getElementById('wsLabel');
+    dot.className = `ws-dot ${status}`;
+    lbl.textContent = status.toUpperCase();
+  },
+
+  updateStats(data) {
+    if (data.pipeline) {
+      document.getElementById('statPipeline').textContent = data.pipeline.running ? 'RUNNING' : 'IDLE';
     }
-  } catch(e) {
-    log('err', `Auth request failed: ${e.message}`);
+    // Phase 1: products and revenue are from CONFIG.stats (no live endpoint yet)
+    document.getElementById('statProducts').textContent = CONFIG.stats.products;
+    document.getElementById('statRevenue').textContent  = '$' + CONFIG.stats.revenue;
+  },
+
+  updateRoomDots(pipelineRunning) {
+    // Phase 1: global pipeline status drives all active rooms
+    // Phase 2: per-room from active_tasks[] - FUTURE
+    if (!window._phaserScene) return;
+    const status = pipelineRunning ? 'green' : 'amber';
+    CONFIG.rooms.forEach(r => {
+      if (window._phaserScene.setRoomStatus) {
+        window._phaserScene.setRoomStatus(r.id, status);
+      }
+    });
+  },
+
+  showTooltip(text, duration = 2500) {
+    const el = document.getElementById('room-tooltip');
+    el.textContent = text;
+    el.style.display = 'block';
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.display = 'none'; }, duration);
+  }
+};
+
+// ============================================================
+//  WEBSOCKET CLIENT
+// ============================================================
+async function fetchToken() {
+  try {
+    const data = await fetch(`${CONFIG.railwayUrl}/api/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: CONFIG.webhookKey })
+    }).then(r => r.json());
+    jwtToken = data.token;
+    log('auth', 'JWT issued');
+    return true;
+  } catch (e) {
+    log('auth', `Token fetch failed: ${e.message}`);
     return false;
   }
 }
 
-// ═══════════════════════════════════════════
-// WEBSOCKET
-// ═══════════════════════════════════════════
-function setWsStatus(state) {
-  const dot  = document.getElementById('wsDot');
-  const text = document.getElementById('wsStatusText');
-  dot.className  = `ws-dot ${state}`;
-  text.textContent = state.toUpperCase();
-}
-
-async function connect() {
-  if (ws) { ws.onclose = null; ws.close(); ws = null; }
-
+async function connectWS() {
   const ok = await fetchToken();
-  if (!ok) {
-    setWsStatus('error');
-    scheduleReconnect();
-    return;
-  }
+  if (!ok) { scheduleReconnect(); return; }
 
-  setWsStatus('connecting');
+  HUDLayer.setWsStatus('connecting');
   const wsUrl = `${CONFIG.railwayUrl.replace('https://','wss://')}/ws?token=${jwtToken}`;
 
   try {
-    ws = new WebSocket(wsUrl);
-  } catch(e) {
-    log('err', `WS init failed: ${e.message}`);
-    setWsStatus('error');
+    wsConn = new WebSocket(wsUrl);
+  } catch (e) {
+    log('ws', `WS init error: ${e.message}`);
     scheduleReconnect();
     return;
   }
 
-  ws.onopen = () => {
-    setWsStatus('connected');
-    log('ws', 'WebSocket connected to Jarvis backend');
-    updateTicker('CONNECTED TO JARVIS BACKEND | LIVE DATA STREAMING');
+  wsConn.onopen = () => {
+    HUDLayer.setWsStatus('connected');
+    log('ws', 'Connected to Jarvis backend');
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-    fetchNotifications();
-    fetchChainStatus();
+    startRestFallback();
   };
 
-  ws.onmessage = (evt) => {
-    lastPing = new Date();
-    document.getElementById('lastPingDisplay').textContent = lastPing.toLocaleTimeString('en-US',{hour12:false});
-    try {
-      const msg = JSON.parse(evt.data);
-      handleMessage(msg);
-    } catch(e) {
-      log('err', `Bad WS message: ${e.message}`);
-    }
+  wsConn.onmessage = (e) => {
+    try { handleMessage(JSON.parse(e.data)); } catch (_) {}
   };
 
-  ws.onerror = (e) => {
-    log('err', 'WebSocket error');
-    setWsStatus('error');
+  wsConn.onerror = () => {
+    log('ws', 'WS error');
+    HUDLayer.setWsStatus('connecting');
   };
 
-  ws.onclose = (e) => {
-    log('ws', `WS closed (code ${e.code}). Reconnecting in ${CONFIG.wsReconnectMs/1000}s...`);
-    setWsStatus('error');
+  wsConn.onclose = (e) => {
+    HUDLayer.setWsStatus('');
+    log('ws', `Disconnected (${e.code}). Reconnecting in ${CONFIG.wsReconnectMs/1000}s...`);
     scheduleReconnect();
   };
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case 'game_state':
+    case 'connected':
+      HUDLayer.updateStats(msg);
+      if (msg.pipeline) HUDLayer.updateRoomDots(msg.pipeline.running);
+      if (msg.chains)   log('ws', `${msg.chains.length} chains loaded`);
+      document.getElementById('loading-msg').style.display = 'none';
+      break;
+
+    case 'chain_update':
+      log('chain', `Chain update: ${JSON.stringify(msg.data || {}).slice(0,80)}`);
+      if (currentRunId && msg.data && msg.data.run_id === currentRunId) {
+        renderStepStatus(msg.data);
+      }
+      break;
+
+    case 'notification':
+      log('notif', msg.data?.title || msg.data?.message || 'Notification received');
+      break;
+
+    default:
+      break;
+  }
 }
 
 function scheduleReconnect() {
@@ -736,174 +833,431 @@ function scheduleReconnect() {
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     reconnects++;
-    document.getElementById('reconnectCount').textContent = reconnects;
-    log('info', `Reconnect attempt #${reconnects}`);
-    connect();
+    log('ws', `Reconnect attempt #${reconnects}`);
+    connectWS();
   }, CONFIG.wsReconnectMs);
 }
 
-// ═══════════════════════════════════════════
-// MESSAGE HANDLER
-// ═══════════════════════════════════════════
-function handleMessage(msg) {
-  if (msg.type === 'game_state') {
-    updatePipeline(msg.pipeline_running);
-    if (msg.active_chain) updateChainRun(msg.active_chain);
-    else clearChainRun();
-    log('info', `State update: pipeline=${msg.pipeline_running ? 'RUNNING' : 'IDLE'}`);
+// REST fallback: poll pipeline status every 30s when WS is down or as supplement
+function startRestFallback() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const data = await apiGet('/api/pipeline/status');
+      HUDLayer.updateStats({ pipeline: data });
+      HUDLayer.updateRoomDots(data.running);
+    } catch (_) {}
+  }, CONFIG.pollMs);
+}
+
+// ============================================================
+//  PHASER STATION SCENE
+// ============================================================
+class StationScene extends Phaser.Scene {
+  constructor() { super({ key: 'StationScene' }); }
+
+  create() {
+    window._phaserScene = this;
+    this.roomObjects  = {};  // id -> { rect, dot, label }
+    this.roomStatuses = {};  // id -> 'green'|'amber'|'red'
+    CONFIG.rooms.forEach(r => { this.roomStatuses[r.id] = 'amber'; });
+    this.drawRooms();
+
+    // Handle resize
+    this.scale.on('resize', this.drawRooms, this);
   }
-  if (msg.type === 'notification') {
-    log('ok', `Notif: ${msg.title || msg.message || 'new event'}`);
-    fetchNotifications();
+
+  drawRooms() {
+    // Clear existing objects
+    this.children.list.slice().forEach(c => c.destroy());
+    this.roomObjects = {};
+
+    const W      = this.scale.width;
+    const H      = this.scale.height;
+    const cols   = W < 500 ? 2 : 4;
+    const rows   = Math.ceil(CONFIG.rooms.length / cols);
+    const pad    = 10;
+    const gapX   = 8;
+    const gapY   = 8;
+    const cellW  = (W - pad * 2 - gapX * (cols - 1)) / cols;
+    const cellH  = (H - pad * 2 - gapY * (rows - 1)) / rows;
+
+    // Background
+    this.add.rectangle(W/2, H/2, W, H, 0x0d0d0d);
+
+    CONFIG.rooms.forEach((room, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x   = pad + col * (cellW + gapX) + cellW / 2;
+      const y   = pad + row * (cellH + gapY) + cellH / 2;
+
+      const status = this.roomStatuses[room.id] || 'amber';
+      const colors = this._roomColors(status);
+
+      // Room rectangle
+      const rect = this.add.rectangle(x, y, cellW, cellH, colors.fill)
+        .setStrokeStyle(1, colors.border)
+        .setInteractive()
+        .on('pointerdown', () => this._onRoomTap(room, status));
+
+      // Corner accent lines (steampunk feel)
+      const g = this.add.graphics();
+      const accentLen = Math.min(cellW, cellH) * 0.15;
+      g.lineStyle(1, colors.border, 0.4);
+      const x0 = x - cellW/2, x1 = x + cellW/2;
+      const y0 = y - cellH/2, y1 = y + cellH/2;
+      g.strokeLineShape(new Phaser.Geom.Line(x0, y0, x0 + accentLen, y0));
+      g.strokeLineShape(new Phaser.Geom.Line(x0, y0, x0, y0 + accentLen));
+      g.strokeLineShape(new Phaser.Geom.Line(x1, y0, x1 - accentLen, y0));
+      g.strokeLineShape(new Phaser.Geom.Line(x1, y0, x1, y0 + accentLen));
+      g.strokeLineShape(new Phaser.Geom.Line(x0, y1, x0 + accentLen, y1));
+      g.strokeLineShape(new Phaser.Geom.Line(x0, y1, x0, y1 - accentLen));
+      g.strokeLineShape(new Phaser.Geom.Line(x1, y1, x1 - accentLen, y1));
+      g.strokeLineShape(new Phaser.Geom.Line(x1, y1, x1, y1 - accentLen));
+
+      // Room label
+      const fontSize = Math.max(10, Math.min(13, cellW / 8));
+      const label = this.add.text(x, y - 10, room.label, {
+        fontSize: `${fontSize}px`,
+        fontFamily: 'Courier New, monospace',
+        color: colors.text,
+        align: 'center',
+        lineSpacing: 2
+      }).setOrigin(0.5, 0.5);
+
+      // Status dot (top-right corner)
+      const dotR = Math.max(4, Math.min(6, cellW / 16));
+      const dot  = this.add.circle(x + cellW/2 - dotR - 4, y - cellH/2 + dotR + 4, dotR, colors.dot);
+
+      this.roomObjects[room.id] = { rect, dot, label };
+    });
   }
-  if (msg.type === 'chain_update') {
-    updateChainRun(msg.run);
-    log('ok', `Chain update: ${msg.run?.chain_id || ''} step ${msg.run?.current_step ?? '--'}`);
-  }
-}
 
-// ═══════════════════════════════════════════
-// UI UPDATERS
-// ═══════════════════════════════════════════
-function updatePipeline(running) {
-  const badge = document.getElementById('pipelineStatusBadge');
-  const text  = document.getElementById('pipelineStatusText');
-  const fill  = document.getElementById('pipelineGaugeFill');
-  const stage = document.getElementById('pipelineStageNum');
-
-  badge.className = `status-badge ${running ? 'running' : 'idle'}`;
-  text.textContent = running ? 'RUNNING' : 'IDLE';
-  stage.textContent = running ? '1' : '0';
-  fill.style.strokeDashoffset = running ? '95' : '190';
-  fill.style.stroke = running ? 'var(--amber)' : 'var(--amber-dim)';
-}
-
-function updateNotifCount(n) {
-  document.getElementById('notifCount').textContent = n;
-  const pct = Math.min(n * 10, 100);
-  document.getElementById('notifBar').style.width = pct + '%';
-}
-
-function updateChainRun(run) {
-  if (!run) { clearChainRun(); return; }
-  const c = document.getElementById('chainRunContainer');
-  const steps = (run.steps || []);
-  const cur   = run.current_step ?? -1;
-  c.innerHTML = `
-    <div class="chain-run-name">${run.chain_id || 'Unknown Chain'}</div>
-    <div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;">
-      RUN ${(run.run_id||'').substring(0,12)}... &nbsp;|&nbsp; ${run.status || 'active'}
-    </div>
-    <div class="chain-steps">
-      ${steps.map((s, i) => {
-        let cls = i < cur ? 'done' : (i === cur ? 'active' : '');
-        let icon = i < cur ? '✓' : (i === cur ? '>' : '·');
-        return `<div class="chain-step ${cls}">
-          <span class="step-icon">${icon}</span>
-          <span>${s.label || s.action || `Step ${i+1}`}</span>
-        </div>`;
-      }).join('')}
-    </div>
-  `;
-}
-
-function clearChainRun() {
-  document.getElementById('chainRunContainer').innerHTML =
-    '<div class="no-chain">No active chain run</div>';
-}
-
-// ═══════════════════════════════════════════
-// REST FETCHES (for initial load)
-// ═══════════════════════════════════════════
-async function fetchNotifications() {
-  try {
-    const res = await fetch(`${CONFIG.railwayUrl}/api/notifications/count`);
-    const d   = await res.json();
-    if (typeof d.unread === 'number') updateNotifCount(d.unread);
-  } catch(e) { /* silent */ }
-}
-
-async function fetchChainStatus() {
-  try {
-    const res = await fetch(`${CONFIG.railwayUrl}/api/chain/list?key=${CONFIG.webhookKey}`);
-    const d   = await res.json();
-    if (d.active_run) updateChainRun(d.active_run);
-    log('info', `Chains loaded: ${(d.chains||[]).length} defined`);
-  } catch(e) { /* silent */ }
-}
-
-async function fetchPipelineStatus() {
-  try {
-    const res = await fetch(`${CONFIG.railwayUrl}/api/pipeline/status?key=${CONFIG.webhookKey}`);
-    const d   = await res.json();
-    updatePipeline(d.running === true);
-  } catch(e) { /* silent */ }
-}
-
-// ═══════════════════════════════════════════
-// CONTROLS
-// ═══════════════════════════════════════════
-async function triggerPipeline() {
-  log('info', 'Triggering pipeline run...');
-  try {
-    const res = await fetch(`${CONFIG.railwayUrl}/api/pipeline?key=${CONFIG.webhookKey}`, {method:'POST'});
-    const d   = await res.json();
-    log('ok', `Pipeline trigger: ${JSON.stringify(d).substring(0,60)}`);
-  } catch(e) {
-    log('err', `Pipeline trigger failed: ${e.message}`);
-  }
-}
-
-async function refreshData() {
-  log('info', 'Manual refresh...');
-  await fetchPipelineStatus();
-  await fetchNotifications();
-  await fetchChainStatus();
-  log('ok', 'Refresh complete');
-}
-
-function clearLog() {
-  document.getElementById('logTerminal').innerHTML = '';
-}
-
-// ═══════════════════════════════════════════
-// UPTIME CLOCK
-// ═══════════════════════════════════════════
-function startUptime() {
-  uptimeInterval = setInterval(() => {
-    const secs = Math.floor((Date.now() - startTime) / 1000);
-    const h = String(Math.floor(secs / 3600)).padStart(2,'0');
-    const m = String(Math.floor((secs % 3600) / 60)).padStart(2,'0');
-    const s = String(secs % 60).padStart(2,'0');
-    document.getElementById('uptimeDisplay').textContent = `${h}:${m}:${s}`;
-  }, 1000);
-}
-
-// ═══════════════════════════════════════════
-// TICKER
-// ═══════════════════════════════════════════
-function updateTicker(msg) {
-  document.getElementById('tickerText').textContent =
-    `${msg}  |  PIPELINE STATUS LIVE  |  JARVIS STATION / PHASE 0  |  `;
-}
-
-// ═══════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  log('info', 'Jarvis Station initializing...');
-  log('info', `Target: ${CONFIG.railwayUrl}`);
-  startUptime();
-  connect();
-  // Fallback REST poll every 30s if WS drops
-  setInterval(() => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      fetchPipelineStatus();
-      fetchNotifications();
+  _roomColors(status) {
+    switch (status) {
+      case 'green': return { fill: 0x0d1a10, border: 0x3a7d44, text: '#4caf60', dot: 0x3a7d44 };
+      case 'red':   return { fill: 0x1a0d0d, border: 0x8b2020, text: '#c0392b', dot: 0x8b2020 };
+      default:      return { fill: 0x111111, border: 0x2a2218, text: '#d4b86a', dot: 0x7a5e10 };
     }
-  }, 30000);
-});
-</script>
+  }
 
+  setRoomStatus(roomId, status) {
+    this.roomStatuses[roomId] = status;
+    this.drawRooms();
+  }
+
+  _onRoomTap(room, status) {
+    const statusLabel = status === 'green' ? 'ACTIVE' : status === 'red' ? 'ERROR' : 'IDLE';
+    const tasks = room.tasks.length ? room.tasks.join(', ') : 'no active tasks';
+    HUDLayer.showTooltip(`${room.label.replace('\n',' ')}  [${statusLabel}]\n${tasks}`);
+    log('station', `Room tapped: ${room.id} (${statusLabel})`);
+  }
+}
+
+// ============================================================
+//  MISSIONS - HTML overlay, Phaser just manages transition
+// ============================================================
+const Missions = {
+  chains: [],
+
+  async load() {
+    const sel = document.getElementById('chain-selector');
+    sel.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">LOADING CHAINS...</div>';
+    try {
+      const data = await apiGet('/api/chain/list');
+      this.chains = data.chains || [];
+      this._renderChainList();
+      log('missions', `${this.chains.length} chains loaded`);
+    } catch (e) {
+      sel.innerHTML = `<div style="color:var(--red);font-size:11px;padding:20px;text-align:center;">${escHtml(e.message)}</div>`;
+      log('missions', `Failed to load chains: ${e.message}`);
+    }
+  },
+
+  _renderChainList() {
+    const sel = document.getElementById('chain-selector');
+    const sv  = document.getElementById('step-view');
+    sel.style.display = '';
+    sv.classList.remove('active');
+
+    if (!this.chains.length) {
+      sel.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">NO CHAINS CONFIGURED</div>';
+      return;
+    }
+
+    sel.innerHTML = '';
+    this.chains.forEach(chain => {
+      const btn = document.createElement('button');
+      btn.className = 'chain-btn';
+      const platform = chain.platform || chain.chain_id?.split('_')[0] || '';
+      const iconMap   = { reddit: '&#9650;', gumroad: '&#9670;', quora: '&#9642;', x: '&#8416;', twitter: '&#8416;' };
+      const icon      = iconMap[platform] || '&#9671;';
+      btn.innerHTML   = `
+        <div>
+          <div class="chain-name">${icon} &nbsp;${escHtml(chain.name || chain.chain_id)}</div>
+          <div class="chain-meta">${chain.step_count || 0} steps &nbsp;|&nbsp; ${escHtml(platform.toUpperCase() || 'MANUAL')}</div>
+        </div>
+        <span class="chain-arrow">&#8250;</span>`;
+      btn.onclick = () => this._startChain(chain);
+      sel.appendChild(btn);
+    });
+  },
+
+  async _startChain(chain) {
+    log('chain', `Starting chain: ${chain.chain_id}`);
+    try {
+      const result = await apiPost('/api/chain/start', { chain_id: chain.chain_id });
+      currentRunId  = result.run_id;
+      currentChain  = chain;
+      currentSteps  = result.steps || [];
+      this._renderStepView(chain, result);
+      log('chain', `Run started: ${currentRunId}`);
+    } catch (e) {
+      log('chain', `Start failed: ${e.message}`);
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  _renderStepView(chain, runResult) {
+    const sel  = document.getElementById('chain-selector');
+    const sv   = document.getElementById('step-view');
+    const title= document.getElementById('stepChainTitle');
+    const scroll = document.getElementById('steps-scroll');
+
+    sel.style.display = 'none';
+    sv.classList.add('active');
+    title.textContent = (chain.name || chain.chain_id).toUpperCase();
+
+    scroll.innerHTML = '';
+    currentSteps.forEach((step, idx) => {
+      scroll.appendChild(this._buildStepCard(step, idx));
+    });
+  },
+
+  _buildStepCard(step, idx) {
+    const card   = document.createElement('div');
+    const isManual = step.type === 'manual';
+    card.className = `step-card ${isManual ? 'manual' : 'auto'}`;
+    card.id        = `step-card-${idx}`;
+
+    const content = step.generated_content || step.content || '';
+    const platform = currentChain?.platform || '';
+
+    let actionsHtml = '';
+    if (isManual) {
+      const link = this._buildDeepLink(platform, content, step);
+      actionsHtml = `
+        <div class="step-actions">
+          ${content ? `<button class="step-btn btn-copy" onclick="Missions._copyContent(${idx}, this)">COPY</button>` : ''}
+          ${link    ? `<button class="step-btn btn-link" onclick="Missions._openLink('${escHtml(link)}')">OPEN ${escHtml(platform.toUpperCase() || 'LINK')}</button>` : ''}
+          <button class="step-btn btn-done"  onclick="Missions._recordEvent(${idx}, 'done',  this)">DONE</button>
+          <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${idx}, 'stuck', this)">STUCK</button>
+        </div>
+        ${step.workaround ? `<div class="step-workaround">${escHtml(step.workaround)}</div>` : ''}`;
+    } else {
+      actionsHtml = `<div class="step-status-msg">AUTOMATED &nbsp;&#9644;&nbsp; RUNNING ON SERVER</div>`;
+    }
+
+    card.innerHTML = `
+      <div class="step-header">
+        <span class="step-num">STEP ${idx + 1}</span>
+        <span class="step-type-badge ${isManual ? 'badge-manual' : 'badge-auto'}">${isManual ? 'MANUAL' : 'AUTO'}</span>
+      </div>
+      <div class="step-title">${escHtml(step.name || step.label || `Step ${idx + 1}`)}</div>
+      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
+      ${content ? `<div class="step-content-block" id="step-content-${idx}">${escHtml(content)}</div>` : ''}
+      ${actionsHtml}`;
+
+    return card;
+  },
+
+  _buildDeepLink(platform, content, step) {
+    const p = (platform || '').toLowerCase();
+    const sub = step.params?.subreddit || '';
+    if (p === 'reddit')    return CONFIG.deepLinks.reddit(sub, content.split('\n')[0], content);
+    if (p === 'x' || p === 'twitter') return CONFIG.deepLinks.x(content);
+    if (p === 'pinterest') return CONFIG.deepLinks.pinterest(content);
+    if (p === 'quora')     return CONFIG.deepLinks.quora();
+    if (p === 'gumroad')   return CONFIG.deepLinks.gumroad();
+    return null;
+  },
+
+  async _copyContent(stepIdx, btn) {
+    const el = document.getElementById(`step-content-${stepIdx}`);
+    if (!el) return;
+    const text = el.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      // execCommand fallback for older iOS
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity  = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const orig = btn.textContent;
+    btn.textContent = 'COPIED';
+    btn.style.color = 'var(--green-hi)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+    log('missions', `Step ${stepIdx + 1} content copied`);
+  },
+
+  _openLink(url) {
+    window.open(url, '_blank', 'noopener');
+    log('missions', `Opened: ${url.slice(0, 60)}...`);
+  },
+
+  async _recordEvent(stepIdx, eventType, btn) {
+    if (!currentRunId) return;
+    const card = document.getElementById(`step-card-${stepIdx}`);
+
+    try {
+      await apiPost('/api/chain/event', {
+        run_id:     currentRunId,
+        step_index: stepIdx,
+        event_type: eventType,
+        payload:    {}
+      });
+
+      if (eventType === 'done') {
+        if (card) {
+          card.classList.remove('manual', 'stuck');
+          card.classList.add('done');
+          const badge = card.querySelector('.step-type-badge');
+          if (badge) { badge.className = 'step-type-badge badge-done'; badge.textContent = 'DONE'; }
+          const actions = card.querySelector('.step-actions');
+          if (actions) actions.innerHTML = '<div class="step-status-msg" style="color:var(--green-hi);">&#10003; COMPLETED</div>';
+        }
+        log('chain', `Step ${stepIdx + 1} marked done`);
+      } else {
+        if (card) {
+          card.classList.add('stuck');
+          const badge = card.querySelector('.step-type-badge');
+          if (badge) { badge.className = 'step-type-badge badge-stuck'; badge.textContent = 'STUCK'; }
+        }
+        log('chain', `Step ${stepIdx + 1} marked stuck`);
+        HUDLayer.showTooltip('Marked as stuck. Try rephrasing or check the workaround note.');
+      }
+    } catch (e) {
+      log('chain', `Event record failed: ${e.message}`);
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  }
+};
+
+// Back button handler
+document.getElementById('stepBackBtn').addEventListener('click', () => {
+  currentRunId = null;
+  currentChain = null;
+  currentSteps = [];
+  Missions._renderChainList();
+});
+
+// ============================================================
+//  SCENE MANAGER
+// ============================================================
+const SceneManager = {
+  current: 'station',
+  game:    null,
+
+  init() {
+    document.getElementById('loading-msg').style.display = 'flex';
+
+    // Boot Phaser
+    try {
+      this.game = new Phaser.Game({
+        type:        Phaser.AUTO,
+        parent:      'phaser-mount',
+        transparent: true,
+        backgroundColor: 0x0d0d0d,
+        scale: {
+          mode:   Phaser.Scale.RESIZE,
+          parent: 'phaser-mount',
+          width:  '100%',
+          height: '100%'
+        },
+        scene: [StationScene],
+        audio: { noAudio: true }
+      });
+      log('sys', 'Phaser 3.60 initialized');
+    } catch (e) {
+      log('sys', `Phaser init failed: ${e.message}. CSS fallback active.`);
+      this._renderCssFallback();
+    }
+
+    // Start WebSocket
+    connectWS();
+
+    // Initial REST poll (immediate)
+    setTimeout(async () => {
+      try {
+        const data = await apiGet('/api/pipeline/status');
+        HUDLayer.updateStats({ pipeline: data });
+      } catch (_) {}
+    }, 500);
+
+    // Switch to station view
+    this.switch('station');
+  },
+
+  switch(scene) {
+    this.current = scene;
+
+    // Update nav
+    ['station','missions','log'].forEach(s => {
+      document.getElementById('nav' + s.charAt(0).toUpperCase() + s.slice(1))
+        .classList.toggle('active', s === scene);
+    });
+
+    // Show/hide panels
+    const mOverlay = document.getElementById('missions-overlay');
+    const logPanel = document.getElementById('log-panel');
+    const pMount   = document.getElementById('phaser-mount');
+
+    mOverlay.classList.remove('active');
+    logPanel.classList.remove('active');
+
+    if (scene === 'station') {
+      pMount.style.display = '';
+      log('sys', 'Station view activated');
+
+    } else if (scene === 'missions') {
+      pMount.style.display = 'none';
+      mOverlay.classList.add('active');
+      Missions.load();
+      log('sys', 'Missions view activated');
+
+    } else if (scene === 'log') {
+      pMount.style.display = '';
+      logPanel.classList.add('active');
+      log('sys', 'Log view activated');
+    }
+  },
+
+  // CSS fallback if Phaser fails to load
+  _renderCssFallback() {
+    const mount = document.getElementById('phaser-mount');
+    mount.style.cssText = 'display:grid;padding:10px;gap:8px;overflow:auto;';
+    const cols = window.innerWidth < 500 ? 2 : 4;
+    mount.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+    CONFIG.rooms.forEach(room => {
+      const el = document.createElement('div');
+      el.style.cssText = 'background:#111;border:1px solid #2a2218;border-radius:4px;padding:16px 8px;text-align:center;color:#d4b86a;font-size:11px;min-height:80px;display:flex;align-items:center;justify-content:center;';
+      el.textContent = room.label.replace('\n',' ');
+      mount.appendChild(el);
+    });
+  }
+};
+
+// ============================================================
+//  BOOT
+// ============================================================
+window.addEventListener('load', () => SceneManager.init());
+</script>
 </body>
 </html>
