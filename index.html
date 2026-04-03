@@ -350,6 +350,52 @@ body::before {
   margin-bottom: 10px;
 }
 
+.step-nav-block {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--green);
+  border-radius: 3px;
+  background: rgba(58,125,68,0.05);
+}
+
+.nav-label {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--green-hi);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.nav-url-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.nav-url-display {
+  flex: 1;
+  font-size: 10px;
+  color: var(--text-dim);
+  word-break: break-all;
+  min-width: 0;
+}
+
+.btn-copy-url {
+  background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green-hi);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.btn-copy-url:active { background: rgba(58,125,68,0.3); }
+
 .step-bank-title {
   background: #0a0a0a;
   border: 1px solid var(--amber);
@@ -1101,13 +1147,20 @@ const Missions = {
     }
     const platform = currentChain?.platform || '';
 
+    // Compute nav link before actionsHtml so it's available for nav block in card.innerHTML
+    const navLink = isManual ? this._buildDeepLink(platform, content, step, _bankTitle, _bankSub) : null;
+    // Display URL shows host+path only (no query params) -- keeps it readable on mobile
+    let navDisplayUrl = '';
+    if (navLink) {
+      try { const u = new URL(navLink); navDisplayUrl = u.hostname + u.pathname; }
+      catch(_) { navDisplayUrl = navLink.slice(0, 60); }
+    }
+
     let actionsHtml = '';
     if (isManual) {
-      const link = this._buildDeepLink(platform, content, step, _bankTitle, _bankSub);
       actionsHtml = `
         <div class="step-actions">
-          ${content ? `<button class="step-btn btn-copy" onclick="Missions._copyContent(${idx}, this)">COPY</button>` : ''}
-          ${link    ? `<button class="step-btn btn-link" onclick="Missions._openLink('${escHtml(link)}')">OPEN ${escHtml(platform.toUpperCase() || 'LINK')}</button>` : ''}
+          ${content ? `<button class="step-btn btn-copy" onclick="Missions._copyContent(${idx}, this)">COPY BODY</button>` : ''}
           <button class="step-btn btn-done"  onclick="Missions._recordEvent(${idx}, 'done',  this)">DONE</button>
           <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${idx}, 'stuck', this)">STUCK</button>
         </div>
@@ -1123,6 +1176,14 @@ const Missions = {
       </div>
       <div class="step-title">${escHtml(step.name || step.label || `Step ${idx + 1}`)}</div>
       ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
+      ${navLink ? `<div class="step-nav-block">
+        <span class="nav-label">NAVIGATE TO</span>
+        <div class="nav-url-row">
+          <span class="nav-url-display" id="step-nav-url-${idx}" data-full="${escHtml(navLink)}">${escHtml(navDisplayUrl)}</span>
+          <button class="btn-copy-url" onclick="Missions._copyNav(${idx}, this)">COPY URL</button>
+          <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('step-nav-url-${idx}').dataset.full)">OPEN</button>
+        </div>
+      </div>` : ''}
       ${_bankTitle ? `<div class="step-bank-title"><span class="bank-label">TITLE</span>${escHtml(_bankTitle)}</div>` : ''}
       ${content ? `<div class="step-content-block" id="step-content-${idx}">${escHtml(content)}</div>` : ''}
       ${actionsHtml}`;
@@ -1164,6 +1225,30 @@ const Missions = {
     btn.style.color = 'var(--green-hi)';
     setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
     log('missions', `Step ${stepIdx + 1} content copied`);
+  },
+
+  // Copies the full pre-filled URL from the nav block (data-full attribute)
+  async _copyNav(stepIdx, btn) {
+    const el = document.getElementById(`step-nav-url-${stepIdx}`);
+    if (!el) return;
+    const url = el.dataset.full || el.textContent;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch(_) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity  = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const orig = btn.textContent;
+    btn.textContent = 'COPIED';
+    btn.style.color = 'var(--green-hi)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
+    log('missions', `Step ${stepIdx + 1} nav URL copied`);
   },
 
   _openLink(url) {
