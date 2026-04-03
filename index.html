@@ -738,7 +738,7 @@ const CONFIG = {
   // Platform deep link builders
   deepLinks: {
     reddit:    (sub, title, text) =>
-      `https://www.reddit.com/r/${sub || 'smallbusiness'}/submit?title=${encodeURIComponent(title||'')}&text=${encodeURIComponent(text||'')}`,
+      `https://www.reddit.com/r/${sub || 'smallbusiness'}/submit`,
     x:         (text) =>
       `https://twitter.com/intent/tweet?text=${encodeURIComponent((text||'').slice(0,280))}`,
     pinterest: (desc) =>
