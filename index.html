@@ -1145,7 +1145,13 @@ const Missions = {
         content    = post.body   || post.content || '';
       }
     }
-    const platform = currentChain?.platform || '';
+    // Infer platform from chain_id if not explicitly set in chain config
+    const _chainId = (currentChain?.chain_id || currentChain?.id || '').toLowerCase();
+    const platform = currentChain?.platform ||
+      (_chainId.includes('reddit')  ? 'reddit'  :
+       _chainId.includes('quora')   ? 'quora'   :
+       _chainId.includes('gumroad') ? 'gumroad' :
+       _chainId.includes('pinterest') ? 'pinterest' : '');
 
     // Compute nav link before actionsHtml so it's available for nav block in card.innerHTML
     const navLink = isManual ? this._buildDeepLink(platform, content, step, _bankTitle, _bankSub) : null;
