@@ -512,6 +512,107 @@ body::before {
   letter-spacing: 1px;
 }
 
+/* ---- ADR-005: PER-FIELD CARD ---- */
+.per-field-card .pf-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(201,162,39,0.1);
+}
+.per-field-card .pf-row:last-of-type { border-bottom: none; }
+.pf-label {
+  flex-shrink: 0;
+  min-width: 80px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--amber);
+  font-weight: 600;
+  padding-top: 2px;
+}
+.pf-value {
+  flex: 1;
+  word-break: break-word;
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.5;
+  max-height: 100px;
+  overflow-y: auto;
+}
+.pf-copy { flex-shrink: 0; }
+.pf-thumb-note {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  padding: 6px 8px;
+  border: 1px dashed rgba(201,162,39,0.2);
+  border-radius: 4px;
+}
+.pf-fields-block {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+/* ---- ADR-005: AUTO-COMPLETED STEP (collapsed) ---- */
+.step-auto-done {
+  padding: 8px 12px;
+  border-left: 3px solid var(--green-hi);
+  background: rgba(76,175,96,0.04);
+  margin-bottom: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-auto-done .auto-check {
+  color: var(--green-hi);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.step-auto-done .auto-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--green-hi);
+  flex: 1;
+}
+.step-auto-done .auto-detail {
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+/* ---- ADR-005: CHAIN PROGRESS IN LIST ---- */
+.chain-progress {
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+.chain-progress .done-count { color: var(--green-hi); font-weight: bold; }
+
+/* ---- ADR-005: RATE LIMIT WARNING ---- */
+.step-rate-limit {
+  padding: 12px;
+  background: rgba(255,165,0,0.06);
+  border-left: 3px solid #c97a20;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #c9a227;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+/* ---- ADR-005: PUBLISHED STATUS BADGE ---- */
+.badge-published {
+  background: #0d1a10;
+  color: var(--green-hi);
+  border: 1px solid var(--green);
+}
+
 /* ---- LOG PANEL ---- */
 #log-panel {
   position: absolute;
@@ -1141,7 +1242,7 @@ const Missions = {
     try {
       const data = await apiGet('/api/chain/list');
       this.chains = data.chains || [];
-      this._renderChainList();
+      await this._renderChainList();
       log('missions', `${this.chains.length} chains loaded`);
     } catch (e) {
       sel.innerHTML = `<div style="color:var(--red);font-size:11px;padding:20px;text-align:center;">${escHtml(e.message)}</div>`;
@@ -1149,7 +1250,7 @@ const Missions = {
     }
   },
 
-  _renderChainList() {
+  async _renderChainList() {
     const sel = document.getElementById('chain-selector');
     const sv  = document.getElementById('step-view');
     sel.style.display = '';
@@ -1161,16 +1262,37 @@ const Missions = {
     }
 
     sel.innerHTML = '';
+    // ADR-005: Fetch progress for all chains in parallel (graceful failure)
+    const progressMap = {};
+    try {
+      const progressPromises = this.chains.map(async (chain) => {
+        try {
+          const data = await apiGet(`/api/chain/resume?chain_id=${chain.chain_id}`);
+          if (data && data.run_id && data.step_progress) {
+            const done = data.step_progress.filter(s => s.status === 'done').length;
+            const total = data.step_progress.length;
+            progressMap[chain.chain_id] = { done, total };
+          }
+        } catch (_) { /* resume endpoint not deployed yet, ignore */ }
+      });
+      await Promise.all(progressPromises);
+    } catch (_) {}
+
     this.chains.forEach(chain => {
       const btn = document.createElement('button');
       btn.className = 'chain-btn';
       const platform = chain.platform || chain.chain_id?.split('_')[0] || '';
       const iconMap   = { reddit: '&#9650;', gumroad: '&#9670;', quora: '&#9642;', x: '&#8416;', twitter: '&#8416;' };
       const icon      = iconMap[platform] || '&#9671;';
+      const prog      = progressMap[chain.chain_id];
+      const progressHtml = prog
+        ? `<div class="chain-progress"><span class="done-count">${prog.done}</span> / ${prog.total} done</div>`
+        : '';
       btn.innerHTML   = `
         <div>
           <div class="chain-name">${icon} &nbsp;${escHtml(chain.name || chain.chain_id)}</div>
           <div class="chain-meta">${chain.step_count || 0} steps &nbsp;|&nbsp; ${escHtml(platform.toUpperCase() || 'MANUAL')}</div>
+          ${progressHtml}
         </div>
         <span class="chain-arrow">&#8250;</span>`;
       btn.onclick = () => this._startChain(chain);
@@ -1178,25 +1300,54 @@ const Missions = {
     });
   },
 
+  // ADR-005: Try to resume an active run first, fall back to starting fresh.
+  // This enables progress persistence across page reloads and sessions.
   async _startChain(chain) {
-    log('chain', `Starting chain: ${chain.chain_id}`);
+    log('chain', `Loading chain: ${chain.chain_id}`);
+    currentChain = chain;
+
     try {
-      const result = await apiPost('/api/chain/start', { chain_id: chain.chain_id });
-      currentRunId  = result.run_id;
-      currentChain  = chain;
-      currentSteps  = result.steps || [];
-      this._renderStepView(chain, result);
-      log('chain', `Run started: ${currentRunId}`);
+      // Try resume first (graceful no-op if endpoint doesn't exist yet)
+      let resumed = false;
+      try {
+        const resumeData = await apiGet(`/api/chain/resume?chain_id=${chain.chain_id}`);
+        if (resumeData && resumeData.run_id) {
+          currentRunId = resumeData.run_id;
+          currentSteps = resumeData.steps || [];
+          // Apply step progress to mark completed steps
+          const progress = resumeData.step_progress || [];
+          progress.forEach(sp => {
+            if (sp.status === 'done' && currentSteps[sp.index]) {
+              currentSteps[sp.index]._completed = true;
+              currentSteps[sp.index]._completed_at = sp.completed_at;
+            }
+          });
+          resumed = true;
+          log('chain', `Resumed run: ${currentRunId} (${progress.filter(s => s.status === 'done').length} steps done)`);
+        }
+      } catch (_) {
+        // /api/chain/resume not deployed yet, fall through to start
+      }
+
+      // No active run, start fresh
+      if (!resumed) {
+        const result = await apiPost('/api/chain/start', { chain_id: chain.chain_id });
+        currentRunId = result.run_id;
+        currentSteps = result.steps || [];
+        log('chain', `Run started: ${currentRunId}`);
+      }
+
+      this._renderStepView(chain);
     } catch (e) {
-      log('chain', `Start failed: ${e.message}`);
+      log('chain', `Chain load failed: ${e.message}`);
       HUDLayer.showTooltip(`Error: ${e.message}`);
     }
   },
 
-  _renderStepView(chain, runResult) {
-    const sel  = document.getElementById('chain-selector');
-    const sv   = document.getElementById('step-view');
-    const title= document.getElementById('stepChainTitle');
+  _renderStepView(chain) {
+    const sel    = document.getElementById('chain-selector');
+    const sv     = document.getElementById('step-view');
+    const title  = document.getElementById('stepChainTitle');
     const scroll = document.getElementById('steps-scroll');
 
     sel.style.display = 'none';
@@ -1205,24 +1356,162 @@ const Missions = {
 
     scroll.innerHTML = '';
     currentSteps.forEach((step, idx) => {
-      scroll.appendChild(this._buildStepCard(step, idx));
+      scroll.appendChild(this._renderStep(step, idx));
     });
   },
 
+  // ADR-005: Single entry point for all step rendering.
+  // Routes by explicit card_type first (long-term design system pattern),
+  // then by content-shape detection (backward compat for configs without card_type).
+  _renderStep(step, idx) {
+    // 1. Auto-completed steps render as collapsed one-liners
+    if (step._auto_done) return this._buildAutoCompletedCard(step, idx);
+
+    // 2. Rate-limited steps show warning card
+    if (step._rate_limited) return this._buildRateLimitCard(step, idx);
+
+    // 3. Explicit card_type from config (long-term pattern, set up for future)
+    const cardType = step.card_type || null;
+    if (cardType === 'per_field')         return this._buildPerFieldCard(step, idx);
+    if (cardType === 'multi_target')      return this._buildMultiTargetContainer(step, idx, step.default_content?.posts || []);
+    if (cardType === 'progress_summary')  return this._buildStepCard(step, idx); // FUTURE: dedicated progress card
+
+    // 4. Content-shape detection (backward compat - no config changes needed)
+    if (step.default_content?.product)    return this._buildPerFieldCard(step, idx);
+    const posts = step.default_content?.posts || [];
+    const hasTargets = posts.some(p => Array.isArray(p.targets) && p.targets.length > 0);
+    if (hasTargets && step.type === 'manual') return this._buildMultiTargetContainer(step, idx, posts);
+
+    // 5. Default: standard step card
+    return this._buildStepCard(step, idx);
+  },
+
+  // ADR-005: Collapsed one-liner for auto-completed steps
+  _buildAutoCompletedCard(step, idx) {
+    const card = document.createElement('div');
+    card.className = 'step-auto-done';
+    card.id = `step-card-${idx}`;
+    const result = step._executor_result || {};
+    const detail = result.message || result.selected_id || '';
+    card.innerHTML = `
+      <span class="auto-check">&#10003;</span>
+      <span class="auto-label">${escHtml(step.name || `Step ${idx + 1}`)}</span>
+      ${detail ? `<span class="auto-detail">${escHtml(String(detail).slice(0, 60))}</span>` : ''}`;
+    return card;
+  },
+
+  // ADR-005: Rate limit warning card
+  _buildRateLimitCard(step, idx) {
+    const card = document.createElement('div');
+    card.className = 'step-rate-limit';
+    card.id = `step-card-${idx}`;
+    const info = step._rate_limit_info || {};
+    const nextAt = info.next_allowed_at || 'later';
+    card.innerHTML = `
+      <div style="font-weight:bold;margin-bottom:4px;letter-spacing:1px;">RATE LIMIT</div>
+      <div>${escHtml(step.instruction || 'Maximum actions reached for today. Come back tomorrow.')}</div>
+      ${info.count ? `<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">${info.count} of ${info.max} used today. Next available: ${escHtml(nextAt)}</div>` : ''}`;
+    return card;
+  },
+
+  // ADR-005: Per-field copy card for structured data entry (Gumroad bundles, etc.)
+  _buildPerFieldCard(step, idx) {
+    const card = document.createElement('div');
+    card.className = 'step-card manual per-field-card';
+    card.id = `step-card-${idx}`;
+
+    const product = step.default_content?.product || {};
+    const config = step.card_config || {};
+
+    // Fields to show: explicit config, or auto-detect from product keys
+    const fields = config.fields || Object.keys(product).filter(k =>
+      !k.startsWith('_') && !['id','status','gumroad_url','thumbnail','thumbnail_drive_path'].includes(k)
+    );
+    const labels = config.field_labels || {};
+
+    // Status badge
+    const isPublished = product.status === 'published';
+    const statusBadge = isPublished
+      ? '<span class="step-type-badge badge-published">PUBLISHED</span>'
+      : '<span class="step-type-badge badge-manual">PENDING</span>';
+
+    // Build per-field rows
+    let fieldsHtml = '';
+    fields.forEach(field => {
+      const value = product[field] || '';
+      if (!value) return;
+      const label = labels[field] || field.replace(/_/g, ' ').toUpperCase();
+      const fieldId = `pf-${idx}-${field}`;
+      fieldsHtml += `
+        <div class="pf-row">
+          <span class="pf-label">${escHtml(label)}</span>
+          <span class="pf-value" id="${fieldId}">${escHtml(value)}</span>
+          <button class="btn-copy-url pf-copy" onclick="Missions._copyContentSub('${fieldId}', this)">COPY</button>
+        </div>`;
+    });
+
+    // Thumbnail note
+    const thumbPath = product.thumbnail_drive_path || '';
+    const thumbNote = thumbPath
+      ? `<div class="pf-thumb-note">THUMBNAIL: Open Google Drive &gt; ${escHtml(thumbPath)}</div>`
+      : '';
+
+    // Published URL note
+    const pubUrl = product.gumroad_url || '';
+    const pubNote = pubUrl
+      ? `<div style="margin-top:6px;font-size:10px;color:var(--green-hi);letter-spacing:0.5px;">LIVE: ${escHtml(pubUrl)}</div>`
+      : '';
+
+    // Deep link for navigation
+    const _chainId = (currentChain?.chain_id || currentChain?.id || '').toLowerCase();
+    const platform = currentChain?.platform ||
+      (_chainId.includes('gumroad') ? 'gumroad' :
+       _chainId.includes('reddit')  ? 'reddit'  :
+       _chainId.includes('quora')   ? 'quora'   : '');
+    const navLink = this._buildDeepLink(platform, '', step, '', '');
+    let navDisplayUrl = '';
+    if (navLink) {
+      try { const u = new URL(navLink); navDisplayUrl = u.hostname + u.pathname; }
+      catch(_) { navDisplayUrl = navLink; }
+    }
+
+    card.innerHTML = `
+      <div class="step-header">
+        <span class="step-num">STEP ${idx + 1}</span>
+        ${statusBadge}
+      </div>
+      <div class="step-title">${escHtml(step.name || `Step ${idx + 1}`)}</div>
+      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
+      ${(!isPublished && navLink) ? `<div class="step-nav-block">
+        <span class="nav-label">NAVIGATE TO</span>
+        <div class="nav-url-row">
+          <span class="nav-url-display" id="step-nav-url-${idx}" data-full="${escHtml(navLink)}">${escHtml(navDisplayUrl)}</span>
+          <button class="btn-copy-url" onclick="Missions._copyNav(${idx}, this)">COPY URL</button>
+          <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('step-nav-url-${idx}').dataset.full)">OPEN</button>
+        </div>
+      </div>` : ''}
+      <div class="pf-fields-block">
+        ${fieldsHtml}
+      </div>
+      ${thumbNote}
+      ${pubNote}
+      <div class="step-actions">
+        ${isPublished
+          ? '<div class="step-status-msg" style="color:var(--green-hi);">&#10003; PUBLISHED</div>'
+          : `<button class="step-btn btn-done" onclick="Missions._recordEvent(${idx}, 'done', this, {product_id:'${escHtml(product.id || '')}', action:'published'})">DONE</button>
+             <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${idx}, 'stuck', this, {product_id:'${escHtml(product.id || '')}', reason:'blocked'})">STUCK</button>`}
+      </div>
+      ${step.workaround ? `<div class="step-workaround">${escHtml(step.workaround)}</div>` : ''}`;
+
+    return card;
+  },
+
   _buildStepCard(step, idx) {
-    // ADR-004: if any post in default_content has a targets array, render multi-target sub-cards
+    // Legacy card - used for steps without card_type or product data
     const posts = step.default_content?.posts || [];
     const hasTargets = posts.some(p => Array.isArray(p.targets) && p.targets.length > 0);
     if (hasTargets && step.type === 'manual') {
       return this._buildMultiTargetContainer(step, idx, posts);
-    }
-
-    // Gumroad per-field renderer: triggers when step has default_content.product (not posts).
-    // Renders NAME, PRICE, TAGLINE, DESCRIPTION as separate labeled copy blocks.
-    // FUTURE: published status flag per product. Trigger: chain_content_injector Phase 2 activation.
-    // FUTURE: auto-publish step replaces manual when Gumroad API unblocked. Trigger: Railway egress proxy resolved.
-    if (step.type === 'manual' && step.default_content?.product) {
-      return this._buildGumroadCard(step, idx, step.default_content.product);
     }
 
     const card   = document.createElement('div');
@@ -1294,64 +1583,6 @@ const Missions = {
       </div>` : ''}
       ${content ? `<div class="step-content-block" id="step-content-${idx}">${escHtml(content)}</div>` : ''}
       ${actionsHtml}`;
-
-    return card;
-  },
-
-  // Gumroad per-field card renderer.
-  // Renders one card per bundle step with labeled COPY buttons for NAME, PRICE, TAGLINE, DESCRIPTION.
-  // Thumbnail note reminds user to upload manually (file upload cannot be automated via this chain).
-  // Called from _buildStepCard when step.default_content.product is present.
-  // FUTURE: add "PUBLISHED" badge when product.status === 'published'. Trigger: chain_content_injector Phase 2.
-  // FUTURE: replace with automated step when Gumroad API unblocked. Trigger: Railway egress proxy resolved.
-  _buildGumroadCard(step, idx, product) {
-    const card = document.createElement('div');
-    card.className = 'step-card manual';
-    card.id = `step-card-${idx}`;
-
-    const navUrl    = 'https://gumroad.com/products/new';
-    const nameId    = `gum-name-${idx}`;
-    const priceId   = `gum-price-${idx}`;
-    const taglineId = `gum-tagline-${idx}`;
-    const descId    = `gum-desc-${idx}`;
-
-    card.innerHTML = `
-      <div class="step-header">
-        <span class="step-num">STEP ${idx + 1}</span>
-        <span class="step-type-badge badge-manual">MANUAL</span>
-      </div>
-      <div class="step-title">${escHtml(step.name || 'Publish Product')}</div>
-      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
-      <div class="step-nav-block">
-        <span class="nav-label">NAVIGATE TO</span>
-        <div class="nav-url-row">
-          <span class="nav-url-display" id="step-nav-url-${idx}" data-full="${navUrl}">gumroad.com/products/new</span>
-          <button class="btn-copy-url" onclick="Missions._copyNav(${idx}, this)">COPY URL</button>
-          <button class="step-btn btn-link" onclick="Missions._openLink('${navUrl}')">OPEN</button>
-        </div>
-      </div>
-      ${product.name ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;margin-top:8px;">
-        <span class="bank-label" style="flex-shrink:0;">NAME</span>
-        <span id="${nameId}" style="flex:1;word-break:break-word;">${escHtml(product.name)}</span>
-        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${nameId}', this)">COPY</button>
-      </div>` : ''}
-      ${product.price ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;margin-top:4px;">
-        <span class="bank-label" style="flex-shrink:0;">PRICE</span>
-        <span id="${priceId}" style="flex:1;word-break:break-word;">$${escHtml(product.price)}</span>
-        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${priceId}', this)">COPY</button>
-      </div>` : ''}
-      ${product.tagline ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;margin-top:4px;">
-        <span class="bank-label" style="flex-shrink:0;">TAGLINE</span>
-        <span id="${taglineId}" style="flex:1;word-break:break-word;">${escHtml(product.tagline)}</span>
-        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${taglineId}', this)">COPY</button>
-      </div>` : ''}
-      ${product.description ? `<div class="step-content-block" id="${descId}" style="white-space:pre-wrap;">${escHtml(product.description)}</div>` : ''}
-      ${product.thumbnail ? `<div class="step-workaround" style="margin-top:8px;">THUMBNAIL: Upload <strong>${escHtml(product.thumbnail)}</strong> from your tradespro-guide/thumbnails/ folder. File upload is manual.</div>` : ''}
-      <div class="step-actions">
-        ${product.description ? `<button class="step-btn btn-copy" onclick="Missions._copyContentSub('${descId}', this)">COPY DESC</button>` : ''}
-        <button class="step-btn btn-done"  onclick="Missions._recordEvent(${idx}, 'done',  this)">DONE</button>
-        <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${idx}, 'stuck', this)">STUCK</button>
-      </div>`;
 
     return card;
   },
