@@ -550,7 +550,71 @@ body::before {
   border: 1px solid var(--amber-dim);
   border-radius: 4px;
   background: rgba(201,162,39,0.06);
-  line-height: 1.5;
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+/* ---- BUNDLE CHECKLIST ---- */
+.pf-checklist-block {
+  margin: 10px 0;
+  border: 1px solid var(--amber-dim);
+  border-radius: 4px;
+  background: rgba(201,162,39,0.04);
+  padding: 8px 10px;
+}
+.pf-checklist-header {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--amber);
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pf-checklist-count {
+  font-size: 10px;
+  color: var(--green-hi);
+  font-weight: 700;
+}
+.pf-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(201,162,39,0.08);
+  cursor: pointer;
+  user-select: none;
+}
+.pf-check-item:last-of-type { border-bottom: none; }
+.pf-check-box {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--amber-dim);
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.pf-check-item.checked .pf-check-box {
+  border-color: var(--green-hi);
+  background: rgba(76,175,96,0.15);
+  color: var(--green-hi);
+}
+.pf-check-label {
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.4;
+  flex: 1;
+  transition: all 0.15s;
+}
+.pf-check-item.checked .pf-check-label {
+  color: var(--text-dim);
+  text-decoration: line-through;
 }
 .pf-fields-block {
   background: #0a0a0a;
@@ -1426,10 +1490,16 @@ const Missions = {
     const product = step.default_content?.product || {};
     const config = step.card_config || {};
 
-    // Fields to show: explicit config, or auto-detect from product keys
-    const fields = config.fields || Object.keys(product).filter(k =>
-      !k.startsWith('_') && !['id','status','gumroad_url','thumbnail','thumbnail_drive_path'].includes(k)
-    );
+    // Hardcoded field order ensures description is always above summary,
+    // regardless of API response ordering. card_config.fields takes priority
+    // if present, otherwise fall back to this canonical order.
+    const FIELD_ORDER = ['name','price','description','summary','call_to_action','tags','url_slug','bundle_products'];
+    const EXCLUDED = ['id','status','gumroad_url','thumbnail','thumbnail_drive_path','bundle_products'];
+    const fields = config.fields ||
+      FIELD_ORDER.filter(f => product[f] && !f.startsWith('_'))
+                 .concat(Object.keys(product).filter(k =>
+                   !k.startsWith('_') && !EXCLUDED.includes(k) && !FIELD_ORDER.includes(k)
+                 ));
     const labels = config.field_labels || {};
 
     // Status badge
@@ -1438,9 +1508,35 @@ const Missions = {
       ? '<span class="step-type-badge badge-published">PUBLISHED</span>'
       : '<span class="step-type-badge badge-manual">PENDING</span>';
 
-    // Build per-field rows
+    // Bundle checklist (rendered separately below the copy fields)
+    const bundleProducts = product.bundle_products
+      ? product.bundle_products.split('|').map(s => s.trim()).filter(Boolean)
+      : [];
+    let checklistHtml = '';
+    if (bundleProducts.length > 0) {
+      const checklistId = `cl-${idx}`;
+      const countId = `cl-count-${idx}`;
+      const items = bundleProducts.map((name, i) => {
+        const itemId = `${checklistId}-${i}`;
+        return `<div class="pf-check-item" id="${itemId}" onclick="Missions._toggleCheck('${itemId}','${countId}',${bundleProducts.length})">
+          <div class="pf-check-box"></div>
+          <span class="pf-check-label">${escHtml(name)}</span>
+        </div>`;
+      }).join('');
+      checklistHtml = `
+        <div class="pf-checklist-block">
+          <div class="pf-checklist-header">
+            <span>ADD TO BUNDLE</span>
+            <span class="pf-checklist-count" id="${countId}">0 / ${bundleProducts.length}</span>
+          </div>
+          ${items}
+        </div>`;
+    }
+
+    // Build per-field rows (skip bundle_products - rendered as checklist above)
     let fieldsHtml = '';
-    fields.forEach(field => {
+    const copyFields = fields.filter(f => f !== 'bundle_products');
+    copyFields.forEach(field => {
       const value = product[field] || '';
       if (!value) return;
       const label = labels[field] || field.replace(/_/g, ' ').toUpperCase();
@@ -1493,6 +1589,7 @@ const Missions = {
           <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('step-nav-url-${idx}').dataset.full)">OPEN</button>
         </div>
       </div>` : ''}
+      ${checklistHtml}
       <div class="pf-fields-block">
         ${fieldsHtml}
       </div>
@@ -1757,6 +1854,20 @@ const Missions = {
   },
 
   // ADR-004: copy body content for a sub-card (uses full element ID)
+  // Bundle checklist toggle - in-memory only, persists while page is open
+  _toggleCheck(itemId, countId, total) {
+    const el = document.getElementById(itemId);
+    if (!el) return;
+    el.classList.toggle('checked');
+    const parent = el.closest('.pf-checklist-block');
+    if (!parent) return;
+    const checked = parent.querySelectorAll('.pf-check-item.checked').length;
+    const countEl = document.getElementById(countId);
+    if (countEl) countEl.textContent = `${checked} / ${total}`;
+    const box = el.querySelector('.pf-check-box');
+    if (box) box.textContent = el.classList.contains('checked') ? '✓' : '';
+  },
+
   async _copyContentSub(contentId, btn) {
     const el = document.getElementById(contentId);
     if (!el) return;
