@@ -680,6 +680,83 @@ body::before {
   border: 1px solid var(--green);
 }
 
+/* ---- SIDE QUESTS ---- */
+.side-quest-section {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.side-quest-header {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  padding: 0 4px 10px 4px;
+}
+.side-quest-card {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.side-quest-card.claimed {
+  opacity: 0.5;
+  border-color: var(--green);
+}
+.sq-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.sq-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+.sq-tag {
+  display: inline-block;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+.sq-tag-claim  { background: #1a1500; color: #f0c040; border: 1px solid #7a6010; }
+.sq-tag-action { background: #0d1a10; color: var(--green-hi); border: 1px solid var(--green); }
+.sq-tag-create { background: #100d1a; color: #a580f0; border: 1px solid #6040a0; }
+.sq-link {
+  display: block;
+  font-size: 11px;
+  color: var(--accent);
+  margin-bottom: 10px;
+  word-break: break-all;
+  text-decoration: none;
+}
+.sq-link:hover { text-decoration: underline; }
+.sq-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sq-btn {
+  flex: 1;
+  min-width: 80px;
+  padding: 8px 0;
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.sq-btn-done  { background: var(--green); color: #000; }
+.sq-btn-done:active { opacity: 0.8; }
+.sq-claimed-badge {
+  font-size: 11px;
+  color: var(--green-hi);
+  letter-spacing: 1px;
+  padding: 4px 0;
+}
+
 /* ---- LOG PANEL ---- */
 #log-panel {
   position: absolute;
@@ -1365,6 +1442,9 @@ const Missions = {
       btn.onclick = () => this._startChain(chain);
       sel.appendChild(btn);
     });
+
+    // Side quest panel - rendered below chain list
+    SideQuests.render(sel);
   },
 
   // ADR-005: Try to resume an active run first, fall back to starting fresh.
@@ -1935,6 +2015,116 @@ const Missions = {
       log('chain', `Event record failed: ${e.message}`);
       HUDLayer.showTooltip(`Error: ${e.message}`);
     }
+  }
+};
+
+// ============================================================
+//  SIDE QUESTS
+//  Retroactive claim cards for tasks done outside chain runner.
+//  DONE fires step_done event with completed_before_tracking flag.
+//  XP/tokens wired when game system backend is live.
+//  FUTURE: load from configs/side_quests.json. Trigger: 5+ side quest types defined.
+// ============================================================
+const SideQuests = {
+  // Claimed state persisted in localStorage key 'sq_claimed'
+  _claimed() {
+    try { return JSON.parse(localStorage.getItem('sq_claimed') || '{}'); } catch { return {}; }
+  },
+  _setClaimed(id) {
+    const c = this._claimed(); c[id] = new Date().toISOString();
+    try { localStorage.setItem('sq_claimed', JSON.stringify(c)); } catch {}
+  },
+
+  quests: [
+    {
+      id: 'sq-hvac-bundle',
+      title: 'HVAC Bundle - Claim XP',
+      meta: 'Published before reward tracking was live. Confirm to claim your points.',
+      tag: 'RETROACTIVE CLAIM', tagClass: 'sq-tag-claim',
+      url: 'https://gogopaschal.gumroad.com/l/nnzizf',
+      urlLabel: 'gogopaschal.gumroad.com/l/nnzizf (LIVE)',
+      btnLabel: 'CLAIM XP',
+      completedBeforeTracking: true
+    },
+    {
+      id: 'sq-electricians-bundle',
+      title: 'Electricians Bundle - Publish Draft',
+      meta: 'Draft exists on Gumroad. Open the link, review fields, click Publish.',
+      tag: 'ONE CLICK', tagClass: 'sq-tag-action',
+      url: 'https://gogopaschal.gumroad.com/l/ixovod',
+      urlLabel: 'gogopaschal.gumroad.com/l/ixovod (DRAFT)',
+      btnLabel: 'MARK PUBLISHED',
+      completedBeforeTracking: false
+    },
+    {
+      id: 'sq-contractors-bundle',
+      title: 'Contractors Bundle - Create + Publish',
+      meta: 'Does not exist yet. Go to gumroad.com/products/new, select BUNDLE, copy fields from the Gumroad Publish chain in Missions.',
+      tag: 'CREATE FROM SCRATCH', tagClass: 'sq-tag-create',
+      url: 'https://app.gumroad.com/products/new',
+      urlLabel: 'gumroad.com/products/new',
+      btnLabel: 'MARK PUBLISHED',
+      completedBeforeTracking: false
+    }
+  ],
+
+  render(container) {
+    const claimed = this._claimed();
+    // Only show if at least one quest is unclaimed
+    const hasUnclaimed = this.quests.some(q => !claimed[q.id]);
+    if (!hasUnclaimed) return;
+
+    const section = document.createElement('div');
+    section.className = 'side-quest-section';
+    section.innerHTML = '<div class="side-quest-header">SIDE QUESTS</div>';
+
+    this.quests.forEach(q => {
+      const isClaimed = !!claimed[q.id];
+      const card = document.createElement('div');
+      card.className = 'side-quest-card' + (isClaimed ? ' claimed' : '');
+      card.innerHTML = `
+        <div class="sq-title">${escHtml(q.title)}</div>
+        <div class="sq-meta">${escHtml(q.meta)}</div>
+        <span class="sq-tag ${q.tagClass}">${q.tag}</span>
+        <a class="sq-link" href="${q.url}" target="_blank">${escHtml(q.urlLabel)}</a>
+        <div class="sq-actions">
+          ${isClaimed
+            ? `<div class="sq-claimed-badge">&#10003; DONE - XP queued for when game system is live</div>`
+            : `<button class="sq-btn sq-btn-done" data-id="${escHtml(q.id)}">${escHtml(q.btnLabel)}</button>`
+          }
+        </div>`;
+      section.appendChild(card);
+    });
+
+    // Wire DONE buttons
+    section.querySelectorAll('.sq-btn-done').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const quest = this.quests.find(q => q.id === id);
+        if (!quest) return;
+        btn.disabled = true;
+        btn.textContent = 'SAVING...';
+        try {
+          // Fire step_done event - XP will be awarded when game backend is built
+          await apiPost('/api/event', {
+            event_type: 'step_done',
+            source: 'side_quest',
+            mission_id: id,
+            step_index: 0,
+            completed_before_tracking: quest.completedBeforeTracking,
+            result: quest.title
+          });
+        } catch (_) {
+          // Event endpoint may not exist yet - that's fine, local claim still recorded
+        }
+        this._setClaimed(id);
+        HUDLayer.showTooltip('Marked done. XP queued for game system launch.');
+        // Re-render chain list to refresh side quest panel
+        await Missions._renderChainList();
+      });
+    });
+
+    container.appendChild(section);
   }
 };
 
