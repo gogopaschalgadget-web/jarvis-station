@@ -869,6 +869,36 @@ body::before {
   animation: fadein 0.2s ease;
 }
 
+/* ---- XP HUD WIDGET ---- */
+#xp-hud {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 8px);
+  right: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 999;
+  pointer-events: none;
+}
+#xp-hud #xp-rank {
+  color: var(--green-hi);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#xp-hud #xp-bar-label {
+  color: var(--text-dim);
+}
+#xp-hud #xp-tokens {
+  color: var(--amber);
+}
+
 /* ---- LOADING INDICATOR ---- */
 #loading-msg {
   position: absolute;
@@ -955,6 +985,13 @@ body::before {
 
     <!-- Room tooltip -->
     <div id="room-tooltip"></div>
+
+    <!-- XP HUD widget - persistent XP/token/rank display, updated on every WS game_state tick -->
+    <div id="xp-hud" style="display:none;">
+      <span id="xp-rank"></span>
+      <span id="xp-bar-label"></span>
+      <span id="xp-tokens"></span>
+    </div>
 
   </div><!-- /main-area -->
 
@@ -1152,6 +1189,19 @@ const HUDLayer = {
     el.style.display = 'block';
     clearTimeout(el._timer);
     el._timer = setTimeout(() => { el.style.display = 'none'; }, duration);
+  },
+
+  updatePlayer(player) {
+    if (!player) return;
+    const hud = document.getElementById('xp-hud');
+    if (!hud) return;
+    hud.style.display = 'flex';
+    const rank = document.getElementById('xp-rank');
+    const bar  = document.getElementById('xp-bar-label');
+    const tok  = document.getElementById('xp-tokens');
+    if (rank) rank.textContent = player.rank || 'Recruit';
+    if (bar)  bar.textContent  = (player.xp || 0) + ' / ' + (player.next_level_xp || 500) + ' XP';
+    if (tok)  tok.textContent  = (player.tokens || 0) + ' T';
   }
 };
 
@@ -1217,6 +1267,7 @@ function handleMessage(msg) {
     case 'game_state':
     case 'connected':
       HUDLayer.updateStats(msg);
+      if (msg.player) HUDLayer.updatePlayer(msg.player);
       if (msg.pipeline) HUDLayer.updateRoomDots(msg.pipeline.running);
       if (msg.chains)   log('ws', `${msg.chains.length} chains loaded`);
       document.getElementById('loading-msg').style.display = 'none';
