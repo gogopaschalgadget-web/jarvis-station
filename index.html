@@ -2001,6 +2001,18 @@ const Missions = {
         }
         const sub = extraPayload?.subreddit ? ` (r/${extraPayload.subreddit})` : '';
         log('chain', `Step ${stepIdx + 1}${sub} marked done`);
+        // XP award -- silent fail, does not block DONE
+        try {
+          await apiPost('/api/game/xp/add', {
+            source:       'step_done',
+            xp_amount:    5,
+            token_amount: 1,
+            mission_id:   currentChain?.chain_id || currentRunId,
+            step_index:   stepIdx
+          });
+          HUDLayer.showTooltip('+5 XP, +1 Token');
+        } catch (_) {}
+        // FUTURE: mission_complete bonus (+44 XP). Trigger: chain_runner /api/chain/event response includes all_done:true.
       } else {
         if (card) {
           card.classList.add('stuck');
@@ -2104,21 +2116,21 @@ const SideQuests = {
         if (!quest) return;
         btn.disabled = true;
         btn.textContent = 'SAVING...';
-        try {
-          // Fire step_done event - XP will be awarded when game backend is built
-          await apiPost('/api/event', {
-            event_type: 'step_done',
-            source: 'side_quest',
-            mission_id: id,
-            step_index: 0,
-            completed_before_tracking: quest.completedBeforeTracking,
-            result: quest.title
-          });
-        } catch (_) {
-          // Event endpoint may not exist yet - that's fine, local claim still recorded
-        }
+        const xpAmt = quest.completedBeforeTracking ? 10 : 5;
         this._setClaimed(id);
-        HUDLayer.showTooltip('Marked done. XP queued for game system launch.');
+        try {
+          await apiPost('/api/game/xp/add', {
+            source:                    'side_quest_claim',
+            xp_amount:                 xpAmt,
+            token_amount:              1,
+            mission_id:                id,
+            step_index:                0,
+            completed_before_tracking: quest.completedBeforeTracking
+          });
+          HUDLayer.showTooltip(`+${xpAmt} XP claimed!`);
+        } catch (_) {
+          HUDLayer.showTooltip('Claimed.');
+        }
         // Re-render chain list to refresh side quest panel
         await Missions._renderChainList();
       });
