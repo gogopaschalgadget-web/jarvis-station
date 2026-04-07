@@ -1346,6 +1346,39 @@ body::before {
 }
 
 
+
+/* P2-B: Resume banner shown when localStorage has active mission state */
+.resume-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: rgba(79,140,255,0.08);
+  border: 1px solid rgba(79,140,255,0.3);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+.resume-banner .resume-chain-name {
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.resume-banner .resume-btn {
+  padding: 5px 12px;
+  background: rgba(79,140,255,0.15);
+  border: 1px solid rgba(79,140,255,0.4);
+  border-radius: 3px;
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+.resume-banner .resume-btn:active { background: rgba(79,140,255,0.3); }
 </style>
 </head>
 <body>
@@ -1653,7 +1686,7 @@ body::before {
       <span>LOG</span>
     </button>
     <button class="nav-btn" id="navSeo" onclick="SceneManager.switch('seo')">
-      <span class="nav-icon">&#9678;</span>
+      <span class="nav-icon">&#128269;</span>
       <span>SEO</span>
     </button>
   </div>
@@ -1756,12 +1789,18 @@ const MissionState = {
   restore() {
     try {
       const data = JSON.parse(localStorage.getItem(this._key) || '{}');
-      if (data.runId && data.chain) {
+      // Option 3: 24h TTL -- stale state auto-expires so abandoned chains don't block new runs
+      const TTL_MS = 24 * 60 * 60 * 1000;
+      const age = data.savedAt ? Date.now() - new Date(data.savedAt).getTime() : Infinity;
+      if (data.runId && data.chain && age < TTL_MS) {
         currentRunId = data.runId;
         currentChain = data.chain;
         currentSteps = data.steps || [];
         log('state', 'Restored mission state from localStorage');
         return true;
+      } else if (data.runId && age >= TTL_MS) {
+        this.clear();
+        log('state', 'localStorage state expired (>24h), cleared');
       }
     } catch (e) {
       log('state', 'localStorage restore failed: ' + e.message);
@@ -2148,6 +2187,17 @@ const Missions = {
     }
 
     sel.innerHTML = '';
+
+    // P2-B: Show resume banner if localStorage has an active mission state
+    if (currentChain && currentRunId && currentSteps.length) {
+      const banner = document.createElement('div');
+      banner.className = 'resume-banner';
+      banner.innerHTML = `
+        <span>ACTIVE RUN: <span class="resume-chain-name">${escHtml(currentChain.name || currentChain.chain_id)}</span></span>
+        <button class="resume-btn" onclick="Missions._resumeFromCache()">RESUME &#8250;</button>`;
+      sel.appendChild(banner);
+    }
+
     // ADR-005: Fetch progress for all chains in parallel (graceful failure)
     const progressMap = {};
     try {
@@ -2191,7 +2241,20 @@ const Missions = {
 
   // ADR-005: Try to resume an active run first, fall back to starting fresh.
   // This enables progress persistence across page reloads and sessions.
+  // P2-B: Resume from localStorage cache without calling API
+  _resumeFromCache() {
+    if (!currentChain || !currentRunId || !currentSteps.length) return;
+    log('chain', `Resuming from localStorage: ${currentChain.chain_id} run ${currentRunId}`);
+    this._renderStepView(currentChain);
+  },
+
   async _startChain(chain) {
+    // P2-B: If localStorage has state for THIS chain, use it instead of calling API start
+    if (currentRunId && currentChain?.chain_id === chain.chain_id && currentSteps.length) {
+      log('chain', `Using cached state for ${chain.chain_id}: run ${currentRunId}`);
+      this._renderStepView(chain);
+      return;
+    }
     log('chain', `Loading chain: ${chain.chain_id}`);
     currentChain = chain;
 
@@ -2740,10 +2803,11 @@ const Missions = {
     const card = document.getElementById(cardId);
 
     try {
-      await apiPost('/api/chain/event', {
+      // Option 3 fix: capture result for future all_done check; send step_done to match chain_runner.py
+      const evtResult = await apiPost('/api/chain/event', {
         run_id:     currentRunId,
         step_index: stepIdx,
-        event_type: eventType,
+        event_type: eventType === 'done' ? 'step_done' : eventType,
         payload:    extraPayload || {}
       });
 
@@ -2770,6 +2834,14 @@ const Missions = {
           HUDLayer.showTooltip('+5 XP, +1 Token');
         } catch (_) {}
         // FUTURE: mission_complete bonus (+44 XP). Trigger: chain_runner /api/chain/event response includes all_done:true.
+        // Option 3: Only clear localStorage when Railway confirms all_done. Otherwise save updated state.
+        // FUTURE: replace with evtResult.all_done check. Trigger: Era 1 Signal Engine + /api/chain/event returns all_done.
+        if (evtResult && evtResult.all_done) {
+          MissionState.clear();
+        } else if (currentSteps[stepIdx]) {
+          currentSteps[stepIdx]._completed = true;
+          MissionState.save();
+        }
       } else {
         if (card) {
           card.classList.add('stuck');
@@ -3020,11 +3092,6 @@ const SceneManager = {
     // Start WebSocket
     connectWS();
 
-    // Fallback: hide loading after 3s even if WS never connects
-    setTimeout(() => {
-      document.getElementById('loading-msg').style.display = 'none';
-    }, 3000);
-
     // Initial REST poll (immediate)
     setTimeout(async () => {
       try {
@@ -3069,12 +3136,16 @@ const SceneManager = {
       pMount.style.display = '';
       logPanel.classList.add('active');
       log('sys', 'Log view activated');
+    }
+  
+
     } else if (scene === 'seo') {
       pMount.style.display = 'none';
+      mOverlay.classList.remove('active');
+      logPanel.classList.remove('active');
       document.getElementById('seo-panel').classList.add('active');
       log('sys', 'SEO Command Center activated');
-    }
-  },
+},
 
   // CSS fallback if Phaser fails to load
   _renderCssFallback() {
