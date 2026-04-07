@@ -1076,6 +1076,276 @@ body::before {
   .stat-val  { font-size: 13px; }
   .logo-text { display: none; }
 }
+/* ============================================================
+   SEO COMMAND CENTER STYLING
+   ============================================================ */
+
+#seo-panel {
+  position: absolute;
+  inset: var(--nav-h) 0 var(--hud-h) 0;
+  background: var(--bg);
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#seo-panel.active {
+  display: flex;
+}
+
+.seo-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  text-transform: uppercase;
+  background: rgba(0,0,0,0.3);
+  flex-shrink: 0;
+}
+
+#seo-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.seo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.seo-section-title {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--amber);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+/* Checklist */
+.seo-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 6px 0;
+  border-left: 2px solid var(--text-dim);
+  padding-left: 8px;
+}
+
+.checklist-item.done {
+  color: var(--green-hi);
+  border-left-color: var(--green-hi);
+}
+
+.checklist-item.pending {
+  color: var(--amber-dim);
+  border-left-color: var(--amber-dim);
+}
+
+.check-mark {
+  font-weight: bold;
+  min-width: 12px;
+}
+
+/* Site Status Cards */
+.seo-sites {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.seo-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.seo-card:hover {
+  border-color: var(--amber-dim);
+  background: rgba(201, 162, 39, 0.05);
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--amber);
+  letter-spacing: 1px;
+}
+
+.card-url a {
+  font-size: 11px;
+  color: var(--green-hi);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border 0.2s;
+}
+
+.card-url a:hover {
+  border-bottom-color: var(--green-hi);
+}
+
+.card-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.status-indicator {
+  font-size: 14px;
+}
+
+.status-indicator.done {
+  color: var(--green-hi);
+}
+
+.card-score {
+  font-size: 11px;
+  color: var(--amber);
+  padding: 4px 0;
+}
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.btn-small {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 10px;
+  font-family: var(--mono);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  text-decoration: none;
+  text-align: center;
+  display: block;
+}
+
+.btn-small:hover {
+  background: var(--amber-lo);
+  border-color: var(--amber-dim);
+  color: var(--amber);
+}
+
+/* Quick Actions */
+.seo-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 12px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  font-family: var(--mono);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  text-decoration: none;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  background: var(--green);
+  border-color: var(--green-hi);
+  color: var(--bg);
+}
+
+/* Keywords */
+.seo-keywords {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.keyword-vertical {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.keyword-title {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--amber);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.keyword-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.keyword-list li {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding-left: 8px;
+  border-left: 2px solid var(--text-dim);
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .seo-sites {
+    grid-template-columns: 1fr;
+  }
+
+  .seo-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .seo-keywords {
+    grid-template-columns: 1fr;
+  }
+
+  #seo-content {
+    padding: 12px;
+    gap: 16px;
+  }
+}
+
+
 </style>
 </head>
 <body>
@@ -1137,6 +1407,200 @@ body::before {
     <!-- Log panel -->
     <div id="log-panel">
       <div class="log-header">// COMMS &nbsp;&nbsp; ACTIVITY LOG</div>
+
+    <!-- SEO Command Center panel -->
+    <div id="seo-panel">
+      <div class="seo-header">// SEO &nbsp;&nbsp; COMMAND CENTER</div>
+      <div id="seo-content">
+        
+        <!-- SEO Checklist -->
+        <div class="seo-section">
+          <div class="seo-section-title">DEPLOYMENT CHECKLIST</div>
+          <div class="seo-checklist">
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>Sitemaps deployed (all 5 sites)</span>
+            </div>
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>robots.txt deployed (all 5 sites)</span>
+            </div>
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>.nojekyll files (all 5 sites)</span>
+            </div>
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>On-page SEO (title, meta desc, canonical, OG, Twitter Cards)</span>
+            </div>
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>Schema.org markup (Organization, Article)</span>
+            </div>
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>SEO engine built (seo_engine.py)</span>
+            </div>
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>QC rules configured (qc_rules_seo.json)</span>
+            </div>
+            <div class="checklist-item done">
+              <span class="check-mark">✓</span>
+              <span>Keyword database (seo_keywords.json)</span>
+            </div>
+            <div class="checklist-item pending">
+              <span class="check-mark">-</span>
+              <span>Google Search Console verified (TradesPro done, 4 remaining)</span>
+            </div>
+            <div class="checklist-item pending">
+              <span class="check-mark">-</span>
+              <span>First indexed pages in Google</span>
+            </div>
+            <div class="checklist-item pending">
+              <span class="check-mark">-</span>
+              <span>Content refresh cycle (90-day cadence)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Site Status Cards -->
+        <div class="seo-section">
+          <div class="seo-section-title">SITE STATUS</div>
+          <div class="seo-sites">
+            <div class="seo-card">
+              <div class="card-title">TradesPro</div>
+              <div class="card-url">
+                <a href="https://gogopaschalgadget-web.github.io/tradespro-guide" target="_blank">View Site</a>
+              </div>
+              <div class="card-status">
+                <span class="status-indicator done">●</span>
+                <span>Sitemap OK</span>
+              </div>
+              <div class="card-score">Score: 85</div>
+              <div class="card-actions">
+                <a href="https://search.google.com/search-console?resource_id=https%3A%2F%2Fgogopaschalgadget-web.github.io%2Ftradespro-guide%2F" target="_blank" class="btn-small">GSC</a>
+                <button class="btn-small" onclick="alert('Run audit feature coming soon')">Audit</button>
+              </div>
+            </div>
+
+            <div class="seo-card">
+              <div class="card-title">EduSpark</div>
+              <div class="card-url">
+                <a href="https://gogopaschalgadget-web.github.io/eduspark" target="_blank">View Site</a>
+              </div>
+              <div class="card-status">
+                <span class="status-indicator done">●</span>
+                <span>Sitemap OK</span>
+              </div>
+              <div class="card-score">Score: 78</div>
+              <div class="card-actions">
+                <a href="https://search.google.com/search-console?resource_id=https%3A%2F%2Fgogopaschalgadget-web.github.io%2Feduspark%2F" target="_blank" class="btn-small">GSC</a>
+                <button class="btn-small" onclick="alert('Run audit feature coming soon')">Audit</button>
+              </div>
+            </div>
+
+            <div class="seo-card">
+              <div class="card-title">ClaimCheck</div>
+              <div class="card-url">
+                <a href="https://gogopaschalgadget-web.github.io/claimcheck" target="_blank">View Site</a>
+              </div>
+              <div class="card-status">
+                <span class="status-indicator done">●</span>
+                <span>Sitemap OK</span>
+              </div>
+              <div class="card-score">Score: 82</div>
+              <div class="card-actions">
+                <a href="https://search.google.com/search-console?resource_id=https%3A%2F%2Fgogopaschalgadget-web.github.io%2Fclaimcheck%2F" target="_blank" class="btn-small">GSC</a>
+                <button class="btn-small" onclick="alert('Run audit feature coming soon')">Audit</button>
+              </div>
+            </div>
+
+            <div class="seo-card">
+              <div class="card-title">Root Hub</div>
+              <div class="card-url">
+                <a href="https://gogopaschalgadget-web.github.io/root-hub" target="_blank">View Site</a>
+              </div>
+              <div class="card-status">
+                <span class="status-indicator done">●</span>
+                <span>Sitemap OK</span>
+              </div>
+              <div class="card-score">Score: 80</div>
+              <div class="card-actions">
+                <a href="https://search.google.com/search-console?resource_id=https%3A%2F%2Fgogopaschalgadget-web.github.io%2Froot-hub%2F" target="_blank" class="btn-small">GSC</a>
+                <button class="btn-small" onclick="alert('Run audit feature coming soon')">Audit</button>
+              </div>
+            </div>
+
+            <div class="seo-card">
+              <div class="card-title">DreamForge AI</div>
+              <div class="card-url">
+                <a href="https://gogopaschalgadget-web.github.io/dreamforge-ai" target="_blank">View Site</a>
+              </div>
+              <div class="card-status">
+                <span class="status-indicator done">●</span>
+                <span>Sitemap OK</span>
+              </div>
+              <div class="card-score">Score: 76</div>
+              <div class="card-actions">
+                <a href="https://search.google.com/search-console?resource_id=https%3A%2F%2Fgogopaschalgadget-web.github.io%2Fdreamforge-ai%2F" target="_blank" class="btn-small">GSC</a>
+                <button class="btn-small" onclick="alert('Run audit feature coming soon')">Audit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="seo-section">
+          <div class="seo-section-title">QUICK ACTIONS</div>
+          <div class="seo-actions">
+            <a href="https://search.google.com/search-console" target="_blank" class="action-btn">Google Search Console</a>
+            <a href="https://pagespeed.web.dev/" target="_blank" class="action-btn">PageSpeed Insights</a>
+            <a href="https://search.google.com/test/rich-results" target="_blank" class="action-btn">Rich Results Test</a>
+            <a href="https://validator.schema.org/" target="_blank" class="action-btn">Schema Validator</a>
+          </div>
+        </div>
+
+        <!-- Keywords -->
+        <div class="seo-section">
+          <div class="seo-section-title">TARGET KEYWORDS</div>
+          <div class="seo-keywords">
+            <div class="keyword-vertical">
+              <div class="keyword-title">TradesPro</div>
+              <ul class="keyword-list">
+                <li>how to start a roofing business</li>
+                <li>plumber pricing guide</li>
+                <li>HVAC contractor marketing</li>
+                <li>electrician business insurance</li>
+                <li>contractor bid template</li>
+              </ul>
+            </div>
+            <div class="keyword-vertical">
+              <div class="keyword-title">EduSpark</div>
+              <ul class="keyword-list">
+                <li>free printable math worksheets</li>
+                <li>teach reading kindergarten</li>
+                <li>5th grade science projects</li>
+                <li>homeschool curriculum K-5</li>
+                <li>2nd grade spelling words</li>
+              </ul>
+            </div>
+            <div class="keyword-vertical">
+              <div class="keyword-title">ClaimCheck</div>
+              <ul class="keyword-list">
+                <li>how to file insurance claim</li>
+                <li>average settlement slip and fall</li>
+                <li>denied insurance claim</li>
+                <li>water damage insurance claim</li>
+                <li>how long insurance claim takes</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
       <div id="log-entries"></div>
     </div>
 
@@ -1187,6 +1651,10 @@ body::before {
     <button class="nav-btn" id="navLog" onclick="SceneManager.switch('log')">
       <span class="nav-icon">&#9654;&#9474;</span>
       <span>LOG</span>
+    </button>
+    <button class="nav-btn" id="navSeo" onclick="SceneManager.switch('seo')">
+      <span class="nav-icon">&#128269;</span>
+      <span>SEO</span>
     </button>
   </div>
 
@@ -2568,7 +3036,7 @@ const SceneManager = {
     this.current = scene;
 
     // Update nav
-    ['station','missions','log'].forEach(s => {
+    ['station','missions','log','seo'].forEach(s => {
       document.getElementById('nav' + s.charAt(0).toUpperCase() + s.slice(1))
         .classList.toggle('active', s === scene);
     });
@@ -2580,6 +3048,7 @@ const SceneManager = {
 
     mOverlay.classList.remove('active');
     logPanel.classList.remove('active');
+    document.getElementById('seo-panel').classList.remove('active');
 
     if (scene === 'station') {
       pMount.style.display = '';
@@ -2596,7 +3065,15 @@ const SceneManager = {
       logPanel.classList.add('active');
       log('sys', 'Log view activated');
     }
-  },
+  
+
+    } else if (scene === 'seo') {
+      pMount.style.display = 'none';
+      mOverlay.classList.remove('active');
+      logPanel.classList.remove('active');
+      document.getElementById('seo-panel').classList.add('active');
+      log('sys', 'SEO Command Center activated');
+},
 
   // CSS fallback if Phaser fails to load
   _renderCssFallback() {
