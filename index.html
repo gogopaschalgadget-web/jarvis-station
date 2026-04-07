@@ -1653,7 +1653,7 @@ body::before {
       <span>LOG</span>
     </button>
     <button class="nav-btn" id="navSeo" onclick="SceneManager.switch('seo')">
-      <span class="nav-icon">&#128269;</span>
+      <span class="nav-icon">&#9678;</span>
       <span>SEO</span>
     </button>
   </div>
@@ -3020,6 +3020,11 @@ const SceneManager = {
     // Start WebSocket
     connectWS();
 
+    // Fallback: hide loading after 3s even if WS never connects
+    setTimeout(() => {
+      document.getElementById('loading-msg').style.display = 'none';
+    }, 3000);
+
     // Initial REST poll (immediate)
     setTimeout(async () => {
       try {
@@ -3064,16 +3069,12 @@ const SceneManager = {
       pMount.style.display = '';
       logPanel.classList.add('active');
       log('sys', 'Log view activated');
-    }
-  
-
     } else if (scene === 'seo') {
       pMount.style.display = 'none';
-      mOverlay.classList.remove('active');
-      logPanel.classList.remove('active');
       document.getElementById('seo-panel').classList.add('active');
       log('sys', 'SEO Command Center activated');
-},
+    }
+  },
 
   // CSS fallback if Phaser fails to load
   _renderCssFallback() {
