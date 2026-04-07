@@ -1686,7 +1686,7 @@ body::before {
       <span>LOG</span>
     </button>
     <button class="nav-btn" id="navSeo" onclick="SceneManager.switch('seo')">
-      <span class="nav-icon">&#128269;</span>
+      <span class="nav-icon">&#9678;</span>
       <span>SEO</span>
     </button>
   </div>
@@ -3063,6 +3063,15 @@ const SceneManager = {
 
   init() {
     document.getElementById('loading-msg').style.display = 'flex';
+
+    // 3-second fallback: hide INITIALIZING even if WS never connects
+    setTimeout(() => {
+      const lm = document.getElementById('loading-msg');
+      if (lm && lm.style.display !== 'none') {
+        lm.style.display = 'none';
+        log('sys', 'Loading timeout: hiding INITIALIZING after 3s');
+      }
+    }, 3000);
 
     // P2-B: Restore mission state from localStorage if available
     MissionState.restore();
