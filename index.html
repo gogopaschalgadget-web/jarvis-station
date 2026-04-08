@@ -1171,6 +1171,41 @@ body::before {
   font-family: var(--mono);
 }
 
+/* Generate Missions Bar */
+.generate-missions-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.gen-btn {
+  flex: 1;
+  min-width: 60px;
+  padding: 10px 6px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all 0.2s;
+}
+.gen-btn:hover, .gen-btn:active {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: rgba(201,162,39,0.08);
+}
+.gen-btn.loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.gen-btn .gen-icon { font-size: 14px; display: block; margin-bottom: 3px; }
+
 /* Custom Mission Form */
 .custom-mission-form {
   background: var(--panel);
@@ -2692,6 +2727,10 @@ const Missions = {
     sel.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">LOADING MISSIONS...</div>';
     try {
       // Load config and missions in parallel
+      // FUTURE: Local-first missions from bundled chain configs (Option 2).
+      //   Load mission data from local JSON, only sync state changes to Railway.
+      //   Eliminates deploy-gap 404s and enables full offline mission browsing.
+      //   Trigger: Phase 1B build (chain config integration).
       const [data, typesData] = await Promise.all([
         apiGet('/api/mission/list'),
         apiGet('/api/mission/types/config').catch(() => ({}))
@@ -2743,6 +2782,9 @@ const Missions = {
       this._renderCompletedMissions(content);
     }
     sel.appendChild(content);
+
+    // Generate missions bar (above custom form)
+    sel.appendChild(this._buildGenerateBar());
 
     // Custom mission form at bottom
     sel.appendChild(this._buildCustomForm());
@@ -2914,6 +2956,45 @@ const Missions = {
       <span class="cc-time">${escHtml(time)}</span>
       <button class="mc-btn-undo" style="margin-left:8px;padding:4px 8px;min-height:28px;" onclick="Missions._undo('${escHtml(m.id)}')">UNDO</button>`;
     return card;
+  },
+
+  _buildGenerateBar() {
+    const bar = document.createElement('div');
+    bar.className = 'generate-missions-bar';
+    const types = [
+      { id: 'reddit_post', label: 'Reddit', icon: 'R' },
+      { id: 'quora_answer', label: 'Quora', icon: 'Q' },
+      { id: 'gumroad_publish', label: 'Gumroad', icon: 'G' },
+      { id: 'seo_task', label: 'SEO', icon: 'S' }
+    ];
+    types.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'gen-btn';
+      btn.id = 'gen-' + t.id;
+      btn.innerHTML = '<span class="gen-icon">' + t.icon + '</span>' + t.label;
+      btn.onclick = () => this._generateMissions(t.id, btn);
+      bar.appendChild(btn);
+    });
+    return bar;
+  },
+
+  async _generateMissions(missionType, btn) {
+    btn.classList.add('loading');
+    btn.innerHTML = btn.querySelector('.gen-icon').outerHTML + 'LOADING...';
+    try {
+      const result = await apiPost('/api/mission/generate', { mission_type: missionType, count: 5 });
+      if (result.error) {
+        HUDLayer.showTooltip('Error: ' + result.error);
+      } else {
+        const msg = (result.passed_qc || 0) + ' missions created';
+        HUDLayer.showTooltip(msg);
+        await this.load();
+      }
+    } catch (e) {
+      HUDLayer.showTooltip('Generate failed: ' + e.message);
+    }
+    // Restore button (load() already re-renders, but in case of error)
+    btn.classList.remove('loading');
   },
 
   _buildCustomForm() {
