@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#c9a227">
+<title>JARVIS STATION - Offline</title>
+<style>
+/* Inline styles matching jarvis-station current amber/dark theme.
+   Cannot reference CSS variables from index.html since this is a separate file.
+   Uses CURRENT palette (Courier New, amber), NOT future design system (SF Pro, iOS blue). */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: #0d0d0d;
+  color: #d4b86a;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* scanline overlay to match main app */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 2px,
+    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.offline-container {
+  padding: 32px;
+  max-width: 360px;
+}
+
+.offline-icon {
+  font-size: 48px;
+  color: #c9a227;
+  margin-bottom: 24px;
+}
+
+.offline-title {
+  font-size: 18px;
+  color: #c9a227;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.offline-message {
+  font-size: 13px;
+  color: #5a4a25;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.offline-status {
+  font-size: 11px;
+  color: #7a5e10;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Pulsing dot animation for "reconnecting" indicator */
+.pulse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #c9a227;
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: pulse 1.5s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Accessibility: respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot {
+    animation: none;
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+</style>
+</head>
+<body>
+<div class="offline-container">
+  <div class="offline-icon" role="img" aria-label="Jarvis Station is offline">&#9678;</div>
+  <div class="offline-title">JARVIS OFFLINE</div>
+  <div class="offline-message">
+    Signal lost. Cached missions and game state are preserved.
+    The station will reconnect automatically when your network returns.
+  </div>
+  <div class="offline-status" aria-live="polite">
+    <span class="pulse-dot" aria-hidden="true"></span>SCANNING FOR SIGNAL
+  </div>
+</div>
+<script>
+// Auto-reload when connection returns.
+// Debounced: wait 1.5s after online event, then verify with a real fetch
+// before reloading. Prevents rapid reload loops on flaky networks.
+(function() {
+  var reloadTimer = null;
+
+  window.addEventListener('online', function() {
+    if (reloadTimer) clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(function() {
+      // Verify actual connectivity with a lightweight fetch before reloading.
+      // Timestamp query param bypasses SW precache (cache:'no-store' only
+      // affects browser HTTP cache, not service worker interception).
+      fetch('/jarvis-station/manifest.json?_t=' + Date.now(), { cache: 'no-store' })
+        .then(function(resp) {
+          if (resp.ok) {
+            window.location.reload();
+          }
+        })
+        .catch(function() {
+          // Network reported online but server unreachable. Stay on offline page.
+          // Will retry on next online event.
+        });
+    }, 1500);
+  });
+})();
+</script>
+</body>
+</html>

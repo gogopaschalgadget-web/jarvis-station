@@ -2,7 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="Jarvis Station: autonomous revenue engine command center with missions, game HUD, and AI chat.">
+<meta name="theme-color" content="#c9a227">
+<!-- PWA manifest -->
+<link rel="manifest" href="manifest.json">
+<!-- Apple PWA meta tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="JARVIS">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- Favicon -->
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <title>JARVIS STATION</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
 <style>
@@ -757,6 +768,453 @@ body::before {
   padding: 4px 0;
 }
 
+/* ============================================================
+   MISSION FRAMEWORK V2 (ADR-010)
+   ============================================================ */
+
+/* Mission Browser tabs */
+.mission-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.mission-tab {
+  flex: 1;
+  padding: 10px 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.mission-tab.active {
+  color: var(--amber);
+  border-bottom-color: var(--amber);
+}
+.mission-tab .tab-count {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+.mission-tab.active .tab-count { color: var(--amber-dim); }
+
+/* Held badge */
+.held-badge {
+  display: inline-block;
+  background: var(--amber-lo);
+  border: 1px solid var(--amber-dim);
+  color: var(--amber);
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+
+/* Category headers */
+.mission-category-header {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  padding: 8px 0 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+/* Mission Card v2 */
+.mission-card {
+  background: var(--panel);
+  border: 1px solid var(--amber-dim);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.mission-card.completed { border-color: var(--green); opacity: 0.7; }
+.mission-card.stuck { border-color: var(--red); }
+.mission-card.failed { border-color: var(--red-hi); }
+.mission-card.stale { animation: stalePulse 3s ease-in-out infinite; }
+
+@keyframes stalePulse {
+  0%,100% { border-color: var(--amber-dim); }
+  50% { border-color: var(--amber); box-shadow: 0 0 6px rgba(201,162,39,0.3); }
+}
+
+.mc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.mc-type-badge {
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-weight: 700;
+}
+.mc-badge-active { background: var(--amber-lo); border: 1px solid var(--amber-dim); color: var(--amber); }
+.mc-badge-completed { background: rgba(58,125,68,0.2); border: 1px solid var(--green); color: var(--green-hi); }
+.mc-badge-stuck { background: rgba(139,32,32,0.2); border: 1px solid var(--red); color: var(--red-hi); }
+.mc-badge-failed { background: rgba(192,57,43,0.3); border: 1px solid var(--red-hi); color: #ff6b6b; }
+
+.mc-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.mc-timer {
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+/* Mission card image */
+.mc-image {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.mc-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  loading: lazy;
+}
+
+/* Nav block (reuse existing pattern) */
+.mc-nav-block {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.mc-nav-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.mc-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mc-nav-url {
+  flex: 1;
+  font-size: 10px;
+  color: var(--amber);
+  word-break: break-all;
+}
+
+/* Copyable field block */
+.mc-field {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.mc-field-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+.mc-field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.mc-field-value {
+  flex: 1;
+  font-size: 11px;
+  word-break: break-word;
+  line-height: 1.4;
+}
+.mc-field-content {
+  font-size: 11px;
+  word-break: break-word;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+/* Action buttons */
+.mc-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.mc-btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.mc-btn-done { background: var(--green); color: #000; }
+.mc-btn-done:active { opacity: 0.8; }
+.mc-btn-stuck { background: var(--red); color: #fff; }
+.mc-btn-stuck:active { opacity: 0.8; }
+.mc-btn-copy { background: var(--amber-lo); border: 1px solid var(--amber-dim); color: var(--amber); }
+.mc-btn-copy:active { opacity: 0.8; }
+.mc-btn-undo { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 10px; }
+.mc-btn-reissue { background: var(--amber-lo); border: 1px solid var(--amber-dim); color: var(--amber); }
+.mc-btn-dismiss { background: transparent; border: 1px solid var(--red); color: var(--red-hi); }
+
+/* Completed card (collapsed) */
+.completed-card {
+  background: var(--panel);
+  border-left: 3px solid var(--green);
+  border-radius: 0 4px 4px 0;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cc-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.cc-check { color: var(--green-hi); font-size: 12px; }
+.cc-title { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-time { font-size: 9px; color: var(--text-dim); flex-shrink: 0; }
+
+/* PIN Modal */
+.pin-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+}
+.pin-modal-overlay.active { display: flex; }
+.pin-modal {
+  background: var(--panel);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  padding: 24px 20px;
+  width: 260px;
+  text-align: center;
+}
+.pin-modal-title {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  margin-bottom: 16px;
+}
+.pin-digits {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.pin-digit {
+  width: 44px;
+  height: 44px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--amber);
+  font-size: 18px;
+  font-family: var(--mono);
+  text-align: center;
+  caret-color: var(--amber);
+}
+.pin-digit:focus { border-color: var(--amber); outline: none; }
+.pin-modal-actions {
+  display: flex;
+  gap: 8px;
+}
+.pin-btn-confirm {
+  flex: 1;
+  min-height: 40px;
+  background: var(--green);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.pin-btn-cancel {
+  flex: 1;
+  min-height: 40px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.pin-error { color: var(--red-hi); font-size: 10px; margin-top: 8px; display: none; }
+
+/* Stuck Modal */
+.stuck-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+}
+.stuck-modal-overlay.active { display: flex; }
+.stuck-modal {
+  background: var(--panel);
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  padding: 24px 20px;
+  width: 300px;
+}
+.stuck-modal-title {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--red-hi);
+  margin-bottom: 16px;
+  text-align: center;
+}
+.stuck-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.stuck-category.selected {
+  border-color: var(--red);
+  background: rgba(139,32,32,0.15);
+}
+.stuck-radio {
+  width: 14px; height: 14px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.stuck-category.selected .stuck-radio {
+  background: var(--red-hi);
+  border-color: var(--red-hi);
+}
+.stuck-textarea {
+  width: 100%;
+  min-height: 60px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 8px;
+  margin-top: 10px;
+  resize: vertical;
+}
+.stuck-textarea:focus { border-color: var(--red); outline: none; }
+.stuck-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.stuck-btn-submit {
+  flex: 1;
+  min-height: 40px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.stuck-btn-cancel {
+  flex: 1;
+  min-height: 40px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+
+/* Custom Mission Form */
+.custom-mission-form {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.cmf-header {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.cmf-header:hover { color: var(--amber); }
+.cmf-fields { display: none; }
+.cmf-fields.open { display: block; }
+.cmf-select, .cmf-input {
+  width: 100%;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.cmf-select:focus, .cmf-input:focus { border-color: var(--amber); outline: none; }
+.cmf-submit {
+  width: 100%;
+  min-height: 40px;
+  background: var(--amber-lo);
+  border: 1px solid var(--amber-dim);
+  color: var(--amber);
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+
 /* ---- LOG PANEL ---- */
 #log-panel {
   position: absolute;
@@ -1082,7 +1540,7 @@ body::before {
 
 #seo-panel {
   position: absolute;
-  inset: 0;
+  inset: var(--nav-h) 0 var(--hud-h) 0;
   background: var(--bg);
   color: var(--text);
   border-top: 1px solid var(--border);
@@ -1090,7 +1548,6 @@ body::before {
   display: none;
   flex-direction: column;
   overflow: hidden;
-  z-index: 10;
 }
 
 #seo-panel.active {
@@ -1347,39 +1804,6 @@ body::before {
 }
 
 
-
-/* P2-B: Resume banner shown when localStorage has active mission state */
-.resume-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  margin-bottom: 10px;
-  background: rgba(79,140,255,0.08);
-  border: 1px solid rgba(79,140,255,0.3);
-  border-radius: 4px;
-  font-size: 11px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-}
-.resume-banner .resume-chain-name {
-  color: var(--accent);
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-.resume-banner .resume-btn {
-  padding: 5px 12px;
-  background: rgba(79,140,255,0.15);
-  border: 1px solid rgba(79,140,255,0.4);
-  border-radius: 3px;
-  color: var(--accent);
-  font-size: 10px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.2s;
-}
-.resume-banner .resume-btn:active { background: rgba(79,140,255,0.3); }
 </style>
 </head>
 <body>
@@ -1441,8 +1865,6 @@ body::before {
     <!-- Log panel -->
     <div id="log-panel">
       <div class="log-header">// COMMS &nbsp;&nbsp; ACTIVITY LOG</div>
-      <div id="log-entries"></div>
-    </div>
 
     <!-- SEO Command Center panel -->
     <div id="seo-panel">
@@ -1637,6 +2059,9 @@ body::before {
       </div>
     </div>
 
+      <div id="log-entries"></div>
+    </div>
+
     <!-- Room tooltip -->
     <div id="room-tooltip"></div>
 
@@ -1665,6 +2090,37 @@ body::before {
         <div class="milestones">
           <div class="milestone-title">MILESTONES</div>
           <div id="milestones-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PIN Modal (ADR-010) -->
+    <div class="pin-modal-overlay" id="pin-modal">
+      <div class="pin-modal">
+        <div class="pin-modal-title">CONFIRM ACTION</div>
+        <div class="pin-digits">
+          <input class="pin-digit" type="tel" maxlength="1" data-idx="0" inputmode="numeric">
+          <input class="pin-digit" type="tel" maxlength="1" data-idx="1" inputmode="numeric">
+          <input class="pin-digit" type="tel" maxlength="1" data-idx="2" inputmode="numeric">
+          <input class="pin-digit" type="tel" maxlength="1" data-idx="3" inputmode="numeric">
+        </div>
+        <div class="pin-error" id="pin-error">INCORRECT PIN</div>
+        <div class="pin-modal-actions">
+          <button class="pin-btn-confirm" id="pin-confirm">CONFIRM</button>
+          <button class="pin-btn-cancel" id="pin-cancel">CANCEL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stuck Modal (ADR-010) -->
+    <div class="stuck-modal-overlay" id="stuck-modal">
+      <div class="stuck-modal">
+        <div class="stuck-modal-title">WHAT WENT WRONG?</div>
+        <div id="stuck-categories"></div>
+        <textarea class="stuck-textarea" id="stuck-details" placeholder="Details (optional)..."></textarea>
+        <div class="stuck-modal-actions">
+          <button class="stuck-btn-submit" id="stuck-submit">SUBMIT</button>
+          <button class="stuck-btn-cancel" id="stuck-cancel">CANCEL</button>
         </div>
       </div>
     </div>
@@ -1761,52 +2217,15 @@ let reconnectTimer= null;
 let reconnects    = 0;
 let pollTimer     = null;
 let activeTasks   = [];    // from game_state (Phase 2: per-room)
-let currentRunId  = null;  // active chain run
-let currentChain  = null;  // chain config for active run
-let currentSteps  = [];    // steps for active run
+// ADR-010: chain state removed, missions use server persistence
 
 // ============================================================
-//  MISSION STATE PERSISTENCE (P2-B)
-//  localStorage saves/restores mission state across page reloads
+//  MISSION STATE (ADR-010: server-side persistence)
+//  Server is source of truth. No localStorage for mission state.
 // ============================================================
 const MissionState = {
-  _key: 'jarvis_mission_state',
-
-  save() {
-    try {
-      const state = {
-        runId: currentRunId,
-        chain: currentChain,
-        steps: currentSteps,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(this._key, JSON.stringify(state));
-    } catch (e) {
-      log('state', 'localStorage save failed: ' + e.message);
-    }
-  },
-
-  restore() {
-    try {
-      const data = JSON.parse(localStorage.getItem(this._key) || '{}');
-      // Option 3: 24h TTL -- stale state auto-expires so abandoned chains don't block new runs
-      const TTL_MS = 24 * 60 * 60 * 1000;
-      const age = data.savedAt ? Date.now() - new Date(data.savedAt).getTime() : Infinity;
-      if (data.runId && data.chain && age < TTL_MS) {
-        currentRunId = data.runId;
-        currentChain = data.chain;
-        currentSteps = data.steps || [];
-        log('state', 'Restored mission state from localStorage');
-        return true;
-      } else if (data.runId && age >= TTL_MS) {
-        this.clear();
-        log('state', 'localStorage state expired (>24h), cleared');
-      }
-    } catch (e) {
-      log('state', 'localStorage restore failed: ' + e.message);
-    }
-    return false;
-  },
+  save() { /* No-op: server handles persistence via /api/mission/* */ },
+  restore() { return false; /* Server state loaded via Missions.load() */ },
 
   clear() {
     try {
@@ -2005,9 +2424,7 @@ function handleMessage(msg) {
 
     case 'chain_update':
       log('chain', `Chain update: ${JSON.stringify(msg.data || {}).slice(0,80)}`);
-      if (currentRunId && msg.data && msg.data.run_id === currentRunId) {
-        renderStepStatus(msg.data);
-      }
+      // ADR-010: chain_update handled by server-side missions now
       break;
 
     case 'notification':
@@ -2156,543 +2573,494 @@ class StationScene extends Phaser.Scene {
 }
 
 // ============================================================
-//  MISSIONS - HTML overlay, Phaser just manages transition
+//  MISSION FRAMEWORK V2 (ADR-010)
+//  Server-side persistence, card-per-action model, QC gate,
+//  PIN-protected actions, stuck feedback loop.
 // ============================================================
+const MissionTypesConfig = {};  // Loaded from /api/mission/types/config
+
+const PinModal = {
+  _resolve: null,
+  _pin: '0122',
+
+  show() {
+    return new Promise((resolve) => {
+      this._resolve = resolve;
+      const modal = document.getElementById('pin-modal');
+      modal.classList.add('active');
+      document.getElementById('pin-error').style.display = 'none';
+      const digits = modal.querySelectorAll('.pin-digit');
+      digits.forEach(d => { d.value = ''; });
+      digits[0].focus();
+      // Auto-advance on input
+      digits.forEach((d, i) => {
+        d.oninput = () => {
+          if (d.value && i < 3) digits[i + 1].focus();
+        };
+        d.onkeydown = (e) => {
+          if (e.key === 'Backspace' && !d.value && i > 0) digits[i - 1].focus();
+        };
+      });
+    });
+  },
+
+  _getPin() {
+    const digits = document.querySelectorAll('#pin-modal .pin-digit');
+    return Array.from(digits).map(d => d.value).join('');
+  },
+
+  init() {
+    document.getElementById('pin-confirm').onclick = () => {
+      const pin = this._getPin();
+      if (pin === this._pin) {
+        document.getElementById('pin-modal').classList.remove('active');
+        if (this._resolve) this._resolve(pin);
+      } else {
+        document.getElementById('pin-error').style.display = 'block';
+        const digits = document.querySelectorAll('#pin-modal .pin-digit');
+        digits.forEach(d => { d.value = ''; });
+        digits[0].focus();
+      }
+    };
+    document.getElementById('pin-cancel').onclick = () => {
+      document.getElementById('pin-modal').classList.remove('active');
+      if (this._resolve) this._resolve(null);
+    };
+  }
+};
+
+const StuckModal = {
+  _resolve: null,
+  _missionType: '',
+
+  show(missionType) {
+    return new Promise((resolve) => {
+      this._resolve = resolve;
+      this._missionType = missionType;
+      const modal = document.getElementById('stuck-modal');
+      modal.classList.add('active');
+      document.getElementById('stuck-details').value = '';
+      // Render per-type categories
+      const catEl = document.getElementById('stuck-categories');
+      const cfg = MissionTypesConfig[missionType] || {};
+      const cats = cfg.stuck_categories || [
+        {id: 'platform_issue', label: 'Platform issue'},
+        {id: 'content_quality', label: 'Content quality'},
+        {id: 'instructions_unclear', label: 'Instructions unclear'},
+        {id: 'other', label: 'Other'}
+      ];
+      catEl.innerHTML = cats.map(c =>
+        `<div class="stuck-category" data-id="${escHtml(c.id)}" onclick="StuckModal._selectCat(this)">
+          <div class="stuck-radio"></div>
+          <span>${escHtml(c.label)}</span>
+        </div>`
+      ).join('');
+    });
+  },
+
+  _selectCat(el) {
+    document.querySelectorAll('#stuck-categories .stuck-category').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  },
+
+  _getSelection() {
+    const sel = document.querySelector('#stuck-categories .stuck-category.selected');
+    return sel ? sel.dataset.id : 'other';
+  },
+
+  init() {
+    document.getElementById('stuck-submit').onclick = () => {
+      const category = this._getSelection();
+      const text = document.getElementById('stuck-details').value.trim();
+      document.getElementById('stuck-modal').classList.remove('active');
+      if (this._resolve) this._resolve({ category, text: text || 'No details provided', type: category });
+    };
+    document.getElementById('stuck-cancel').onclick = () => {
+      document.getElementById('stuck-modal').classList.remove('active');
+      if (this._resolve) this._resolve(null);
+    };
+  }
+};
+
 const Missions = {
-  chains: [],
+  data: { active: [], completed: [], stuck: [], failed: [], pending_qc: [], expired: [] },
+  activeTab: 'active',
+  heldCount: 0,
 
   async load() {
     const sel = document.getElementById('chain-selector');
-    sel.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">LOADING CHAINS...</div>';
+    sel.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">LOADING MISSIONS...</div>';
     try {
-      const data = await apiGet('/api/chain/list');
-      this.chains = data.chains || [];
-      await this._renderChainList();
-      log('missions', `${this.chains.length} chains loaded`);
+      // Load config and missions in parallel
+      const [data, typesData] = await Promise.all([
+        apiGet('/api/mission/list'),
+        apiGet('/api/mission/types/config').catch(() => ({}))
+      ]);
+      Object.assign(MissionTypesConfig, typesData);
+      this.data = data;
+      // Check held count
+      try {
+        const held = await apiGet('/api/mission/held');
+        this.heldCount = (held.held || []).length;
+      } catch (_) { this.heldCount = 0; }
+      this._render();
+      const total = (data.active||[]).length + (data.completed||[]).length + (data.stuck||[]).length + (data.failed||[]).length;
+      log('missions', `${total} missions loaded`);
     } catch (e) {
       sel.innerHTML = `<div style="color:var(--red);font-size:11px;padding:20px;text-align:center;">${escHtml(e.message)}</div>`;
-      log('missions', `Failed to load chains: ${e.message}`);
+      log('missions', `Failed to load: ${e.message}`);
     }
   },
 
-  async _renderChainList() {
+  _render() {
     const sel = document.getElementById('chain-selector');
-    const sv  = document.getElementById('step-view');
-    sel.style.display = '';
+    sel.innerHTML = '';
+    const sv = document.getElementById('step-view');
     sv.classList.remove('active');
 
-    if (!this.chains.length) {
-      sel.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">NO CHAINS CONFIGURED</div>';
-      return;
-    }
+    // Tabs: ACTIVE / DONE
+    const tabs = document.createElement('div');
+    tabs.className = 'mission-tabs';
+    const activeCount = (this.data.active||[]).length + (this.data.stuck||[]).length + (this.data.failed||[]).length;
+    const doneCount = (this.data.completed||[]).length;
+    const heldHtml = this.heldCount > 0 ? `<span class="held-badge" onclick="Missions._showHeld()">HELD (${this.heldCount})</span>` : '';
+    tabs.innerHTML = `
+      <button class="mission-tab ${this.activeTab==='active'?'active':''}" onclick="Missions._switchTab('active')">
+        ACTIVE <span class="tab-count">${activeCount}</span> ${heldHtml}
+      </button>
+      <button class="mission-tab ${this.activeTab==='done'?'active':''}" onclick="Missions._switchTab('done')">
+        DONE <span class="tab-count">${doneCount}</span>
+      </button>`;
+    sel.appendChild(tabs);
 
-    sel.innerHTML = '';
+    // Content area
+    const content = document.createElement('div');
+    content.style.cssText = 'overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;padding:0 2px;';
 
-    // P2-B: Show resume banner if localStorage has an active mission state
-    if (currentChain && currentRunId && currentSteps.length) {
-      const banner = document.createElement('div');
-      banner.className = 'resume-banner';
-      banner.innerHTML = `
-        <span>ACTIVE RUN: <span class="resume-chain-name">${escHtml(currentChain.name || currentChain.chain_id)}</span></span>
-        <button class="resume-btn" onclick="Missions._resumeFromCache()">RESUME &#8250;</button>`;
-      sel.appendChild(banner);
-    }
-
-    // ADR-005: Fetch progress for all chains in parallel (graceful failure)
-    const progressMap = {};
-    try {
-      const progressPromises = this.chains.map(async (chain) => {
-        try {
-          const data = await apiGet(`/api/chain/resume?chain_id=${chain.chain_id}`);
-          if (data && data.run_id && data.step_progress) {
-            const done = data.step_progress.filter(s => s.status === 'done').length;
-            const total = data.step_progress.length;
-            progressMap[chain.chain_id] = { done, total };
-          }
-        } catch (_) { /* resume endpoint not deployed yet, ignore */ }
-      });
-      await Promise.all(progressPromises);
-    } catch (_) {}
-
-    this.chains.forEach(chain => {
-      const btn = document.createElement('button');
-      btn.className = 'chain-btn';
-      const platform = chain.platform || chain.chain_id?.split('_')[0] || '';
-      const iconMap   = { reddit: '&#9650;', gumroad: '&#9670;', quora: '&#9642;', x: '&#8416;', twitter: '&#8416;' };
-      const icon      = iconMap[platform] || '&#9671;';
-      const prog      = progressMap[chain.chain_id];
-      const progressHtml = prog
-        ? `<div class="chain-progress"><span class="done-count">${prog.done}</span> / ${prog.total} done</div>`
-        : '';
-      btn.innerHTML   = `
-        <div>
-          <div class="chain-name">${icon} &nbsp;${escHtml(chain.name || chain.chain_id)}</div>
-          <div class="chain-meta">${chain.step_count || 0} steps &nbsp;|&nbsp; ${escHtml(platform.toUpperCase() || 'MANUAL')}</div>
-          ${progressHtml}
-        </div>
-        <span class="chain-arrow">&#8250;</span>`;
-      btn.onclick = () => this._startChain(chain);
-      sel.appendChild(btn);
-    });
-
-    // Side quest panel - rendered below chain list
-    SideQuests.render(sel);
-  },
-
-  // ADR-005: Try to resume an active run first, fall back to starting fresh.
-  // This enables progress persistence across page reloads and sessions.
-  // P2-B: Resume from localStorage cache without calling API
-  _resumeFromCache() {
-    if (!currentChain || !currentRunId || !currentSteps.length) return;
-    log('chain', `Resuming from localStorage: ${currentChain.chain_id} run ${currentRunId}`);
-    this._renderStepView(currentChain);
-  },
-
-  async _startChain(chain) {
-    // P2-B: If localStorage has state for THIS chain, use it instead of calling API start
-    if (currentRunId && currentChain?.chain_id === chain.chain_id && currentSteps.length) {
-      log('chain', `Using cached state for ${chain.chain_id}: run ${currentRunId}`);
-      this._renderStepView(chain);
-      return;
-    }
-    log('chain', `Loading chain: ${chain.chain_id}`);
-    currentChain = chain;
-
-    try {
-      // Try resume first (graceful no-op if endpoint doesn't exist yet)
-      let resumed = false;
-      try {
-        const resumeData = await apiGet(`/api/chain/resume?chain_id=${chain.chain_id}`);
-        if (resumeData && resumeData.run_id) {
-          currentRunId = resumeData.run_id;
-          currentSteps = resumeData.steps || [];
-          // Apply step progress to mark completed steps
-          const progress = resumeData.step_progress || [];
-          progress.forEach(sp => {
-            if (sp.status === 'done' && currentSteps[sp.index]) {
-              currentSteps[sp.index]._completed = true;
-              currentSteps[sp.index]._completed_at = sp.completed_at;
-            }
-          });
-          resumed = true;
-          log('chain', `Resumed run: ${currentRunId} (${progress.filter(s => s.status === 'done').length} steps done)`);
-        }
-      } catch (_) {
-        // /api/chain/resume not deployed yet, fall through to start
-      }
-
-      // No active run, start fresh
-      if (!resumed) {
-        const result = await apiPost('/api/chain/start', { chain_id: chain.chain_id });
-        currentRunId = result.run_id;
-        currentSteps = result.steps || [];
-        log('chain', `Run started: ${currentRunId}`);
-      }
-
-      // P2-B: Save mission state to localStorage so it persists across reloads
-      MissionState.save();
-
-      this._renderStepView(chain);
-    } catch (e) {
-      log('chain', `Chain load failed: ${e.message}`);
-      HUDLayer.showTooltip(`Error: ${e.message}`);
-    }
-  },
-
-  _renderStepView(chain) {
-    const sel    = document.getElementById('chain-selector');
-    const sv     = document.getElementById('step-view');
-    const title  = document.getElementById('stepChainTitle');
-    const scroll = document.getElementById('steps-scroll');
-
-    sel.style.display = 'none';
-    sv.classList.add('active');
-    title.textContent = (chain.name || chain.chain_id).toUpperCase();
-
-    scroll.innerHTML = '';
-    currentSteps.forEach((step, idx) => {
-      scroll.appendChild(this._renderStep(step, idx));
-    });
-  },
-
-  // P2-A NOTE: Reddit post templates should be value-first, not sales-focused.
-  // Backend post templates are configured in /api/chain/start response.
-  // Update reddit_post.json templates to educate/inform first, sell last.
-
-  // ADR-005: Single entry point for all step rendering.
-  // Routes by explicit card_type first (long-term design system pattern),
-  // then by content-shape detection (backward compat for configs without card_type).
-  _renderStep(step, idx) {
-    // 1. Auto-completed steps render as collapsed one-liners
-    if (step._auto_done) return this._buildAutoCompletedCard(step, idx);
-
-    // 2. Rate-limited steps show warning card
-    if (step._rate_limited) return this._buildRateLimitCard(step, idx);
-
-    // 3. Explicit card_type from config (long-term pattern, set up for future)
-    const cardType = step.card_type || null;
-    if (cardType === 'per_field')         return this._buildPerFieldCard(step, idx);
-    if (cardType === 'multi_target')      return this._buildMultiTargetContainer(step, idx, step.default_content?.posts || []);
-    if (cardType === 'progress_summary')  return this._buildStepCard(step, idx); // FUTURE: dedicated progress card
-
-    // 4. Content-shape detection (backward compat - no config changes needed)
-    if (step.default_content?.product)    return this._buildPerFieldCard(step, idx);
-    const posts = step.default_content?.posts || [];
-    const hasTargets = posts.some(p => Array.isArray(p.targets) && p.targets.length > 0);
-    if (hasTargets && step.type === 'manual') return this._buildMultiTargetContainer(step, idx, posts);
-
-    // 5. Default: standard step card
-    return this._buildStepCard(step, idx);
-  },
-
-  // ADR-005: Collapsed one-liner for auto-completed steps
-  _buildAutoCompletedCard(step, idx) {
-    const card = document.createElement('div');
-    card.className = 'step-auto-done';
-    card.id = `step-card-${idx}`;
-    const result = step._executor_result || {};
-    const detail = result.message || result.selected_id || '';
-    card.innerHTML = `
-      <span class="auto-check">&#10003;</span>
-      <span class="auto-label">${escHtml(step.name || `Step ${idx + 1}`)}</span>
-      ${detail ? `<span class="auto-detail">${escHtml(String(detail).slice(0, 60))}</span>` : ''}`;
-    return card;
-  },
-
-  // ADR-005: Rate limit warning card
-  _buildRateLimitCard(step, idx) {
-    const card = document.createElement('div');
-    card.className = 'step-rate-limit';
-    card.id = `step-card-${idx}`;
-    const info = step._rate_limit_info || {};
-    const nextAt = info.next_allowed_at || 'later';
-    card.innerHTML = `
-      <div style="font-weight:bold;margin-bottom:4px;letter-spacing:1px;">RATE LIMIT</div>
-      <div>${escHtml(step.instruction || 'Maximum actions reached for today. Come back tomorrow.')}</div>
-      ${info.count ? `<div style="margin-top:6px;font-size:10px;color:var(--text-dim);">${info.count} of ${info.max} used today. Next available: ${escHtml(nextAt)}</div>` : ''}`;
-    return card;
-  },
-
-  // ADR-005: Per-field copy card for structured data entry (Gumroad bundles, etc.)
-  _buildPerFieldCard(step, idx) {
-    const card = document.createElement('div');
-    card.className = 'step-card manual per-field-card';
-    card.id = `step-card-${idx}`;
-
-    const product = step.default_content?.product || {};
-    const config = step.card_config || {};
-
-    // Hardcoded field order ensures description is always above summary,
-    // regardless of API response ordering. card_config.fields takes priority
-    // if present, otherwise fall back to this canonical order.
-    const FIELD_ORDER = ['name','price','description','summary','call_to_action','tags','url_slug','bundle_products'];
-    const EXCLUDED = ['id','status','gumroad_url','thumbnail','thumbnail_drive_path','bundle_products'];
-    const fields = config.fields ||
-      FIELD_ORDER.filter(f => product[f] && !f.startsWith('_'))
-                 .concat(Object.keys(product).filter(k =>
-                   !k.startsWith('_') && !EXCLUDED.includes(k) && !FIELD_ORDER.includes(k)
-                 ));
-    const labels = config.field_labels || {};
-
-    // Status badge
-    const isPublished = product.status === 'published';
-    const statusBadge = isPublished
-      ? '<span class="step-type-badge badge-published">PUBLISHED</span>'
-      : '<span class="step-type-badge badge-manual">PENDING</span>';
-
-    // Bundle checklist (rendered separately below the copy fields)
-    const bundleProducts = product.bundle_products
-      ? product.bundle_products.split('|').map(s => s.trim()).filter(Boolean)
-      : [];
-    let checklistHtml = '';
-    if (bundleProducts.length > 0) {
-      const checklistId = `cl-${idx}`;
-      const countId = `cl-count-${idx}`;
-      const items = bundleProducts.map((name, i) => {
-        const itemId = `${checklistId}-${i}`;
-        return `<div class="pf-check-item" id="${itemId}" onclick="Missions._toggleCheck('${itemId}','${countId}',${bundleProducts.length})">
-          <div class="pf-check-box"></div>
-          <span class="pf-check-label">${escHtml(name)}</span>
-        </div>`;
-      }).join('');
-      checklistHtml = `
-        <div class="pf-checklist-block">
-          <div class="pf-checklist-header">
-            <span>ADD TO BUNDLE</span>
-            <span class="pf-checklist-count" id="${countId}">0 / ${bundleProducts.length}</span>
-          </div>
-          ${items}
-        </div>`;
-    }
-
-    // Build per-field rows (skip bundle_products - rendered as checklist above)
-    let fieldsHtml = '';
-    const copyFields = fields.filter(f => f !== 'bundle_products');
-    copyFields.forEach(field => {
-      const value = product[field] || '';
-      if (!value) return;
-      const label = labels[field] || field.replace(/_/g, ' ').toUpperCase();
-      const fieldId = `pf-${idx}-${field}`;
-      fieldsHtml += `
-        <div class="pf-row">
-          <span class="pf-label">${escHtml(label)}</span>
-          <span class="pf-value" id="${fieldId}">${escHtml(value)}</span>
-          <button class="btn-copy-url pf-copy" onclick="Missions._copyContentSub('${fieldId}', this)">COPY</button>
-        </div>`;
-    });
-
-    // Thumbnail note
-    const thumbPath = product.thumbnail_drive_path || '';
-    const thumbNote = thumbPath
-      ? `<div class="pf-thumb-note">THUMBNAIL: Open Google Drive &gt; ${escHtml(thumbPath)}</div>`
-      : '';
-
-    // Published URL note
-    const pubUrl = product.gumroad_url || '';
-    const pubNote = pubUrl
-      ? `<div style="margin-top:6px;font-size:10px;color:var(--green-hi);letter-spacing:0.5px;">LIVE: ${escHtml(pubUrl)}</div>`
-      : '';
-
-    // Deep link for navigation
-    const _chainId = (currentChain?.chain_id || currentChain?.id || '').toLowerCase();
-    const platform = currentChain?.platform ||
-      (_chainId.includes('gumroad') ? 'gumroad' :
-       _chainId.includes('reddit')  ? 'reddit'  :
-       _chainId.includes('quora')   ? 'quora'   : '');
-    const navLink = this._buildDeepLink(platform, '', step, '', '');
-    let navDisplayUrl = '';
-    if (navLink) {
-      try { const u = new URL(navLink); navDisplayUrl = u.hostname + u.pathname; }
-      catch(_) { navDisplayUrl = navLink; }
-    }
-
-    card.innerHTML = `
-      <div class="step-header">
-        <span class="step-num">STEP ${idx + 1}</span>
-        ${statusBadge}
-      </div>
-      <div class="step-title">${escHtml(step.name || `Step ${idx + 1}`)}</div>
-      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
-      ${(!isPublished && navLink) ? `<div class="step-nav-block">
-        <span class="nav-label">NAVIGATE TO</span>
-        <div class="nav-url-row">
-          <span class="nav-url-display" id="step-nav-url-${idx}" data-full="${escHtml(navLink)}">${escHtml(navDisplayUrl)}</span>
-          <button class="btn-copy-url" onclick="Missions._copyNav(${idx}, this)">COPY URL</button>
-          <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('step-nav-url-${idx}').dataset.full)">OPEN</button>
-        </div>
-      </div>` : ''}
-      ${checklistHtml}
-      <div class="pf-fields-block">
-        ${fieldsHtml}
-      </div>
-      ${thumbNote}
-      ${pubNote}
-      <div class="step-actions">
-        ${isPublished
-          ? '<div class="step-status-msg" style="color:var(--green-hi);">&#10003; PUBLISHED</div>'
-          : `<button class="step-btn btn-done" onclick="Missions._recordEvent(${idx}, 'done', this, {product_id:'${escHtml(product.id || '')}', action:'published'})">DONE</button>
-             <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${idx}, 'stuck', this, {product_id:'${escHtml(product.id || '')}', reason:'blocked'})">STUCK</button>`}
-      </div>
-      ${step.workaround ? `<div class="step-workaround">${escHtml(step.workaround)}</div>` : ''}`;
-
-    return card;
-  },
-
-  _buildStepCard(step, idx) {
-    // Legacy card - used for steps without card_type or product data
-    const posts = step.default_content?.posts || [];
-    const hasTargets = posts.some(p => Array.isArray(p.targets) && p.targets.length > 0);
-    if (hasTargets && step.type === 'manual') {
-      return this._buildMultiTargetContainer(step, idx, posts);
-    }
-
-    const card   = document.createElement('div');
-    const isManual = step.type === 'manual';
-    card.className = `step-card ${isManual ? 'manual' : 'auto'}`;
-    card.id        = `step-card-${idx}`;
-
-    // Resolve content: generated_content first, then default_content bank (used when no executor exists)
-    let content = step.generated_content || step.content || '';
-    let _bankTitle = '';  // Reddit title field (separate from body)
-    let _bankSub   = '';  // Reddit subreddit from bank post
-    if (!content && step.default_content?.posts) {
-      const post = step.default_content.posts.find(p => p.status === 'approved') || step.default_content.posts[0];
-      if (post) {
-        _bankTitle = post.title  || '';
-        _bankSub   = post.subreddit || '';
-        content    = post.body   || post.content || '';
-      }
-    }
-    // Infer platform from chain_id if not explicitly set in chain config
-    const _chainId = (currentChain?.chain_id || currentChain?.id || '').toLowerCase();
-    const platform = currentChain?.platform ||
-      (_chainId.includes('reddit')  ? 'reddit'  :
-       _chainId.includes('quora')   ? 'quora'   :
-       _chainId.includes('gumroad') ? 'gumroad' :
-       _chainId.includes('pinterest') ? 'pinterest' : '');
-
-    // Compute nav link before actionsHtml so it's available for nav block in card.innerHTML
-    const navLink = isManual ? this._buildDeepLink(platform, content, step, _bankTitle, _bankSub) : null;
-    // Display URL shows host+path only (no query params) -- keeps it readable on mobile
-    let navDisplayUrl = '';
-    if (navLink) {
-      try { const u = new URL(navLink); navDisplayUrl = u.hostname + u.pathname; }
-      catch(_) { navDisplayUrl = navLink.slice(0, 60); }
-    }
-
-    let actionsHtml = '';
-    if (isManual) {
-      actionsHtml = `
-        <div class="step-actions">
-          ${content ? `<button class="step-btn btn-copy" onclick="Missions._copyContent(${idx}, this)">COPY BODY</button>` : ''}
-          <button class="step-btn btn-done"  onclick="Missions._recordEvent(${idx}, 'done',  this)">DONE</button>
-          <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${idx}, 'stuck', this)">STUCK</button>
-        </div>
-        ${step.workaround ? `<div class="step-workaround">${escHtml(step.workaround)}</div>` : ''}`;
+    if (this.activeTab === 'active') {
+      this._renderActiveMissions(content);
     } else {
-      actionsHtml = `<div class="step-status-msg">AUTOMATED &nbsp;&#9644;&nbsp; RUNNING ON SERVER</div>`;
+      this._renderCompletedMissions(content);
+    }
+    sel.appendChild(content);
+
+    // Custom mission form at bottom
+    sel.appendChild(this._buildCustomForm());
+  },
+
+  _switchTab(tab) {
+    this.activeTab = tab;
+    this._render();
+  },
+
+  _renderActiveMissions(container) {
+    const missions = [
+      ...(this.data.active || []),
+      ...(this.data.stuck || []),
+      ...(this.data.failed || [])
+    ];
+
+    if (!missions.length) {
+      container.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">NO ACTIVE MISSIONS<br><br><span style="font-size:10px;">Generate missions from the server or submit a custom target below.</span></div>';
+      return;
     }
 
-    card.innerHTML = `
-      <div class="step-header">
-        <span class="step-num">STEP ${idx + 1}</span>
-        <span class="step-type-badge ${isManual ? 'badge-manual' : 'badge-auto'}">${isManual ? 'MANUAL' : 'AUTO'}</span>
-      </div>
-      <div class="step-title">${escHtml(step.name || step.label || `Step ${idx + 1}`)}</div>
-      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}
-      ${navLink ? `<div class="step-nav-block">
-        <span class="nav-label">NAVIGATE TO</span>
-        <div class="nav-url-row">
-          <span class="nav-url-display" id="step-nav-url-${idx}" data-full="${escHtml(navLink)}">${escHtml(navDisplayUrl)}</span>
-          <button class="btn-copy-url" onclick="Missions._copyNav(${idx}, this)">COPY URL</button>
-          <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('step-nav-url-${idx}').dataset.full)">OPEN</button>
+    // Group by category
+    const groups = {};
+    missions.forEach(m => {
+      const cat = m.category || 'Other';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(m);
+    });
+
+    Object.entries(groups).forEach(([cat, items]) => {
+      const header = document.createElement('div');
+      header.className = 'mission-category-header';
+      header.textContent = `${cat.toUpperCase()} (${items.length} active)`;
+      container.appendChild(header);
+      items.forEach(m => container.appendChild(this._buildMissionCard(m)));
+    });
+  },
+
+  _renderCompletedMissions(container) {
+    const completed = this.data.completed || [];
+    if (!completed.length) {
+      container.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">NO COMPLETED MISSIONS YET</div>';
+      return;
+    }
+    completed.forEach(m => container.appendChild(this._buildCompletedCard(m)));
+  },
+
+  // ── Card Builders ──────────────────────────────────────────
+
+  _buildMissionCard(m) {
+    const card = document.createElement('div');
+    const statusClass = m.status === 'failed' ? 'failed' : m.status === 'stuck' ? 'stuck' : '';
+    const staleClass = m.is_stale ? 'stale' : '';
+    card.className = `mission-card ${statusClass} ${staleClass}`.trim();
+    card.id = `mc-${m.id}`;
+
+    const badgeMap = {
+      active: '<span class="mc-type-badge mc-badge-active">ACTIVE</span>',
+      stuck: '<span class="mc-type-badge mc-badge-stuck">STUCK</span>',
+      failed: '<span class="mc-type-badge mc-badge-failed">FAILED</span>'
+    };
+    const badge = badgeMap[m.status] || badgeMap.active;
+    const content = m.content || {};
+    const fields = content.fields || {};
+    const fieldOrder = content.field_order || Object.keys(fields);
+    const fieldLabels = content.field_labels || {};
+
+    // Nav block
+    const navUrl = content.nav_url || '';
+    let navDisplayUrl = '';
+    if (navUrl) {
+      try { const u = new URL(navUrl); navDisplayUrl = u.hostname + u.pathname; }
+      catch(_) { navDisplayUrl = navUrl.slice(0, 60); }
+    }
+    const navHtml = navUrl ? `
+      <div class="mc-nav-block">
+        <div class="mc-nav-label">NAVIGATE TO</div>
+        <div class="mc-nav-row">
+          <span class="mc-nav-url" id="mc-nav-${m.id}" data-full="${escHtml(navUrl)}">${escHtml(navDisplayUrl)}</span>
+          <button class="mc-btn-copy" style="min-height:32px;flex:0;padding:0 8px;" onclick="Missions._copy('mc-nav-${m.id}', this, true)">COPY</button>
+          <button class="mc-btn-copy" style="min-height:32px;flex:0;padding:0 8px;" onclick="Missions._openLink('${escHtml(navUrl)}')">OPEN</button>
         </div>
-      </div>` : ''}
-      ${_bankTitle ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;">
-        <span class="bank-label" style="flex-shrink:0;">TITLE</span>
-        <span id="step-title-text-${idx}" style="flex:1;word-break:break-word;">${escHtml(_bankTitle)}</span>
-        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('step-title-text-${idx}', this)">COPY</button>
-      </div>` : ''}
-      ${content ? `<div class="step-content-block" id="step-content-${idx}">${escHtml(content)}</div>` : ''}
+      </div>` : '';
+
+    // Title field (copyable)
+    const title = content.title || '';
+    const titleHtml = title ? `
+      <div class="mc-field">
+        <div class="mc-field-label">TITLE</div>
+        <div class="mc-field-row">
+          <span class="mc-field-value" id="mc-title-${m.id}">${escHtml(title)}</span>
+          <button class="mc-btn-copy" style="min-height:28px;flex:0;padding:0 8px;" onclick="Missions._copy('mc-title-${m.id}', this)">COPY</button>
+        </div>
+      </div>` : '';
+
+    // Body field (copyable, scrollable)
+    const body = content.body || '';
+    const bodyHtml = body ? `
+      <div class="mc-field">
+        <div class="mc-field-label">BODY</div>
+        <div class="mc-field-content" id="mc-body-${m.id}">${escHtml(body)}</div>
+        <button class="mc-btn-copy" style="min-height:32px;width:100%;margin-top:6px;" onclick="Missions._copy('mc-body-${m.id}', this)">COPY BODY</button>
+      </div>` : '';
+
+    // Per-field cards (for Gumroad-style missions)
+    let perFieldHtml = '';
+    if (fieldOrder.length > 0 && Object.keys(fields).length > 0) {
+      fieldOrder.forEach(f => {
+        const val = fields[f] || '';
+        if (!val) return;
+        const label = fieldLabels[f] || f.replace(/_/g, ' ').toUpperCase();
+        perFieldHtml += `
+          <div class="mc-field">
+            <div class="mc-field-label">${escHtml(label)}</div>
+            <div class="mc-field-row">
+              <span class="mc-field-value" id="mc-f-${m.id}-${f}">${escHtml(val)}</span>
+              <button class="mc-btn-copy" style="min-height:28px;flex:0;padding:0 8px;" onclick="Missions._copy('mc-f-${m.id}-${f}', this)">COPY</button>
+            </div>
+          </div>`;
+      });
+    }
+
+    // Actions based on status
+    let actionsHtml = '';
+    if (m.status === 'failed') {
+      actionsHtml = `
+        <div class="mc-actions">
+          <button class="mc-btn mc-btn-reissue" onclick="Missions._reissue('${escHtml(m.id)}')">REISSUE</button>
+          <button class="mc-btn mc-btn-dismiss" onclick="Missions._dismiss('${escHtml(m.id)}')">DISMISS</button>
+        </div>`;
+    } else {
+      actionsHtml = `
+        <div class="mc-actions">
+          <button class="mc-btn mc-btn-done" onclick="Missions._done('${escHtml(m.id)}')">DONE</button>
+          <button class="mc-btn mc-btn-stuck" onclick="Missions._stuck('${escHtml(m.id)}', '${escHtml(m.mission_type)}')">STUCK</button>
+        </div>`;
+    }
+
+    // Stuck count indicator
+    const stuckInfo = m.stuck_count > 0 ? `<div style="font-size:9px;color:var(--red-hi);margin-top:4px;">STUCK ${m.stuck_count}/3</div>` : '';
+
+    card.innerHTML = `
+      <div class="mc-header">
+        <span style="font-size:9px;letter-spacing:1px;color:var(--text-dim);">${escHtml(m.category || m.mission_type)}</span>
+        ${badge}
+      </div>
+      <div class="mc-title">${escHtml(m.title)}</div>
+      <div class="mc-timer">${escHtml(m.time_ago || '')}</div>
+      ${navHtml}
+      ${titleHtml}
+      ${bodyHtml}
+      ${perFieldHtml}
+      ${stuckInfo}
       ${actionsHtml}`;
 
     return card;
   },
 
-  // ADR-004: renders a container card with N sub-cards, one per active target subreddit
-  _buildMultiTargetContainer(step, idx, posts) {
-    const container = document.createElement('div');
-    container.className = 'step-multi-container';
-    container.id = `step-card-${idx}`;
-
-    // Step header + instruction
-    const headerDiv = document.createElement('div');
-    headerDiv.className = 'step-multi-header';
-    headerDiv.innerHTML = `
-      <div class="step-header">
-        <span class="step-num">STEP ${idx + 1}</span>
-        <span class="step-type-badge badge-manual">MANUAL</span>
-      </div>
-      <div class="step-title">${escHtml(step.name || `Step ${idx + 1}`)}</div>
-      ${step.instruction ? `<div class="step-instruction">${escHtml(step.instruction)}</div>` : ''}`;
-    container.appendChild(headerDiv);
-
-    // Render sub-cards for each approved post's active targets
-    posts.forEach((post, postIdx) => {
-      if (post.status !== 'approved') return;
-      const activeTargets = (post.targets || []).filter(t => t.status === 'active');
-      activeTargets.forEach((target, targetIdx) => {
-        container.appendChild(this._buildSubCard(step, idx, post, target, postIdx, targetIdx));
-      });
-    });
-
-    // Workaround note at the bottom of the container
-    if (step.workaround) {
-      const wa = document.createElement('div');
-      wa.className = 'step-workaround';
-      wa.textContent = step.workaround;
-      container.appendChild(wa);
-    }
-
-    return container;
-  },
-
-  // ADR-004: renders a single sub-card for one target subreddit within a multi-target step
-  _buildSubCard(step, stepIdx, post, target, postIdx, targetIdx) {
+  _buildCompletedCard(m) {
     const card = document.createElement('div');
-    card.className = 'step-card manual step-sub-card';
-    card.id = `step-card-${stepIdx}-${postIdx}-${targetIdx}`;
-
-    const sub = (target.subreddit || '').replace(/^r\//i, '');
-    const navLink = `https://www.reddit.com/r/${sub}/submit`;
-    const navDisplayUrl = `www.reddit.com/r/${sub}/submit`;
-    const postId = escHtml(post.id || '');
-    const subEsc = escHtml(sub);
-    const contentId = `sub-content-${stepIdx}-${postIdx}-${targetIdx}`;
-    const navUrlId  = `sub-nav-url-${stepIdx}-${postIdx}-${targetIdx}`;
-    const cardSuffix = `${stepIdx}-${postIdx}-${targetIdx}`;
-
-    const titleId = `sub-title-${stepIdx}-${postIdx}-${targetIdx}`;
+    card.className = 'completed-card';
+    const time = m.completed_at ? new Date(m.completed_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
     card.innerHTML = `
-      <div class="sub-card-header">
-        <span class="sub-label">r/${subEsc}</span>
+      <div class="cc-left">
+        <span class="cc-check">&#10003;</span>
+        <span class="cc-title">${escHtml(m.title)}</span>
       </div>
-      <div class="step-nav-block">
-        <span class="nav-label">NAVIGATE TO</span>
-        <div class="nav-url-row">
-          <span class="nav-url-display" id="${navUrlId}" data-full="${escHtml(navLink)}">${escHtml(navDisplayUrl)}</span>
-          <button class="btn-copy-url" onclick="Missions._copyNavSub('${cardSuffix}', this)">COPY URL</button>
-          <button class="step-btn btn-link" onclick="Missions._openLink(document.getElementById('${navUrlId}').dataset.full)">OPEN</button>
-        </div>
-      </div>
-      ${post.title ? `<div class="step-bank-title" style="display:flex;align-items:flex-start;gap:6px;">
-        <span class="bank-label" style="flex-shrink:0;">TITLE</span>
-        <span id="${titleId}" style="flex:1;word-break:break-word;">${escHtml(post.title)}</span>
-        <button class="btn-copy-url" style="flex-shrink:0;" onclick="Missions._copyContentSub('${titleId}', this)">COPY</button>
-      </div>` : ''}
-      ${(post.body || post.content) ? `<div class="step-content-block" id="${contentId}">${escHtml(post.body || post.content || '')}</div>` : ''}
-      <div class="step-actions">
-        ${(post.body || post.content) ? `<button class="step-btn btn-copy" onclick="Missions._copyContentSub('${contentId}', this)">COPY BODY</button>` : ''}
-        <button class="step-btn btn-done"  onclick="Missions._recordEvent(${stepIdx}, 'done',  this, {subreddit:'${subEsc}', post_id:'${postId}', action:'posted'}, '${cardSuffix}')">DONE</button>
-        <button class="step-btn btn-stuck" onclick="Missions._recordEvent(${stepIdx}, 'stuck', this, {subreddit:'${subEsc}', post_id:'${postId}', reason:'rejected'}, '${cardSuffix}')">STUCK</button>
-      </div>`;
-
+      <span class="cc-time">${escHtml(time)}</span>
+      <button class="mc-btn-undo" style="margin-left:8px;padding:4px 8px;min-height:28px;" onclick="Missions._undo('${escHtml(m.id)}')">UNDO</button>`;
     return card;
   },
 
-  _buildDeepLink(platform, content, step, titleOverride, subOverride) {
-    const p     = (platform || '').toLowerCase();
-    // Strip r/ prefix if present -- chain configs store "r/SubName" but URL builder adds its own r/
-    const sub   = (subOverride || step.params?.subreddit || '').replace(/^r\//i, '');
-    const title = titleOverride || content.split('\n')[0];
-    // P2-C: For "Record Results" steps, use step.post_url if available (backend must provide)
-    // Otherwise use reddit user profile. Fallback: standard submit link.
-    if (p === 'reddit') {
-      if (step.post_url) return step.post_url;
-      if (step.name && step.name.toLowerCase().includes('record')) {
-        return `https://www.reddit.com/user/me/submitted`;
+  _buildCustomForm() {
+    const form = document.createElement('div');
+    form.className = 'custom-mission-form';
+    form.innerHTML = `
+      <div class="cmf-header" onclick="this.nextElementSibling.classList.toggle('open')">+ SUBMIT CUSTOM MISSION</div>
+      <div class="cmf-fields">
+        <select class="cmf-select" id="cmf-type">
+          <option value="reddit_post">Reddit Post</option>
+          <option value="quora_answer">Quora Answer</option>
+          <option value="gumroad_publish">Gumroad Publish</option>
+        </select>
+        <input class="cmf-input" id="cmf-target" placeholder="Target (e.g. r/buildinpublic)">
+        <input class="cmf-input" id="cmf-note" placeholder="Note (optional)">
+        <button class="cmf-submit" onclick="Missions._submitCustom()">SUBMIT</button>
+      </div>`;
+    return form;
+  },
+
+  // ── Actions ──────────────────────────────────────────────────
+
+  async _done(missionId) {
+    const pin = await PinModal.show();
+    if (!pin) return;
+    try {
+      const result = await apiPost('/api/mission/done', { mission_id: missionId, pin, payload: {} });
+      if (result.success) {
+        HUDLayer.showTooltip(`+${result.xp_awarded} XP, +${result.tokens_awarded} Token`);
+        log('missions', `Mission done: ${missionId}`);
+        this.load(); // Refresh
+      } else {
+        HUDLayer.showTooltip(result.error || 'Failed');
       }
-      return CONFIG.deepLinks.reddit(sub, title, content);
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
     }
-    if (p === 'x' || p === 'twitter') return CONFIG.deepLinks.x(content);
-    if (p === 'pinterest') return CONFIG.deepLinks.pinterest(content);
-    if (p === 'quora')     return CONFIG.deepLinks.quora();
-    if (p === 'gumroad')   return CONFIG.deepLinks.gumroad();
-    return null;
   },
 
-  async _copyContent(stepIdx, btn) {
-    const el = document.getElementById(`step-content-${stepIdx}`);
+  async _stuck(missionId, missionType) {
+    const feedback = await StuckModal.show(missionType);
+    if (!feedback) return;
+    try {
+      const result = await apiPost('/api/mission/stuck', { mission_id: missionId, feedback });
+      HUDLayer.showTooltip(`Stuck recorded (${result.stuck_count}/3)`);
+      log('missions', `Mission stuck: ${missionId} (${result.mission_status})`);
+      this.load();
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  async _undo(missionId) {
+    const pin = await PinModal.show();
+    if (!pin) return;
+    try {
+      const result = await apiPost('/api/mission/undo', { mission_id: missionId, pin });
+      if (result.success) {
+        HUDLayer.showTooltip(`Undone. -${result.xp_deducted} XP`);
+        log('missions', `Mission undone: ${missionId}`);
+        this.load();
+      } else {
+        HUDLayer.showTooltip(result.error || 'Failed');
+      }
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  async _reissue(missionId) {
+    const pin = await PinModal.show();
+    if (!pin) return;
+    try {
+      const result = await apiPost('/api/mission/reissue', { mission_id: missionId, pin });
+      if (result.success) {
+        HUDLayer.showTooltip('Mission reissued');
+        log('missions', `Reissued: ${missionId} -> ${result.new_mission_id}`);
+        this.load();
+      }
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  async _dismiss(missionId) {
+    const pin = await PinModal.show();
+    if (!pin) return;
+    try {
+      await apiPost('/api/mission/dismiss', { mission_id: missionId, pin });
+      HUDLayer.showTooltip('Mission dismissed');
+      log('missions', `Dismissed: ${missionId}`);
+      this.load();
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  async _submitCustom() {
+    const type = document.getElementById('cmf-type').value;
+    const target = document.getElementById('cmf-target').value.trim();
+    const note = document.getElementById('cmf-note').value.trim();
+    if (!target) { HUDLayer.showTooltip('Target is required'); return; }
+    try {
+      const result = await apiPost('/api/mission/custom', { mission_type: type, target, note });
+      if (result.success) {
+        HUDLayer.showTooltip('Custom mission created');
+        document.getElementById('cmf-target').value = '';
+        document.getElementById('cmf-note').value = '';
+        this.load();
+      }
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  async _showHeld() {
+    try {
+      const result = await apiGet('/api/mission/held');
+      const held = result.held || [];
+      if (!held.length) { HUDLayer.showTooltip('No held missions'); return; }
+      // Simple alert-style display for held missions
+      const names = held.map(h => `${h.title} (score: ${h.quality_score})`).join('\n');
+      if (confirm(`HELD MISSIONS (${held.length}):\n\n${names}\n\nApprove all?`)) {
+        for (const h of held) {
+          const pin = await PinModal.show();
+          if (!pin) break;
+          await apiPost('/api/mission/approve', { mission_id: h.id, pin });
+        }
+        this.load();
+      }
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  // ── Utilities ─────────────────────────────────────────────────
+
+  async _copy(elementId, btn, isDataFull) {
+    const el = document.getElementById(elementId);
     if (!el) return;
-    const text = el.textContent;
+    const text = isDataFull ? (el.dataset.full || el.textContent) : el.textContent;
     try {
       await navigator.clipboard.writeText(text);
     } catch (_) {
-      // execCommand fallback for older iOS
       const ta = document.createElement('textarea');
       ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity  = '0';
+      ta.style.cssText = 'position:fixed;opacity:0;';
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');
@@ -2702,357 +3070,14 @@ const Missions = {
     btn.textContent = 'COPIED';
     btn.style.color = 'var(--green-hi)';
     setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
-    log('missions', `Step ${stepIdx + 1} content copied`);
-  },
-
-  // Copies the full pre-filled URL from the nav block (data-full attribute)
-  async _copyNav(stepIdx, btn) {
-    const el = document.getElementById(`step-nav-url-${stepIdx}`);
-    if (!el) return;
-    const url = el.dataset.full || el.textContent;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch(_) {
-      const ta = document.createElement('textarea');
-      ta.value = url;
-      ta.style.position = 'fixed';
-      ta.style.opacity  = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    const orig = btn.textContent;
-    btn.textContent = 'COPIED';
-    btn.style.color = 'var(--green-hi)';
-    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
-    log('missions', `Step ${stepIdx + 1} nav URL copied`);
-  },
-
-  // ADR-004: copy URL for a sub-card nav block (uses element ID suffix string)
-  async _copyNavSub(cardSuffix, btn) {
-    const el = document.getElementById(`sub-nav-url-${cardSuffix}`);
-    if (!el) return;
-    const url = el.dataset.full || el.textContent;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch(_) {
-      const ta = document.createElement('textarea');
-      ta.value = url;
-      ta.style.position = 'fixed';
-      ta.style.opacity  = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    const orig = btn.textContent;
-    btn.textContent = 'COPIED';
-    btn.style.color = 'var(--green-hi)';
-    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
-    log('missions', `Sub-card ${cardSuffix} nav URL copied`);
-  },
-
-  // ADR-004: copy body content for a sub-card (uses full element ID)
-  // Bundle checklist toggle - in-memory only, persists while page is open
-  _toggleCheck(itemId, countId, total) {
-    const el = document.getElementById(itemId);
-    if (!el) return;
-    el.classList.toggle('checked');
-    const parent = el.closest('.pf-checklist-block');
-    if (!parent) return;
-    const checked = parent.querySelectorAll('.pf-check-item.checked').length;
-    const countEl = document.getElementById(countId);
-    if (countEl) countEl.textContent = `${checked} / ${total}`;
-    const box = el.querySelector('.pf-check-box');
-    if (box) box.textContent = el.classList.contains('checked') ? '✓' : '';
-  },
-
-  async _copyContentSub(contentId, btn) {
-    const el = document.getElementById(contentId);
-    if (!el) return;
-    const text = el.textContent;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (_) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity  = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    const orig = btn.textContent;
-    btn.textContent = 'COPIED';
-    btn.style.color = 'var(--green-hi)';
-    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 1500);
-    log('missions', `Sub-card content copied`);
+    log('missions', 'Copied to clipboard');
   },
 
   _openLink(url) {
     window.open(url, '_blank', 'noopener');
     log('missions', `Opened: ${url.slice(0, 60)}...`);
-  },
-
-  // ADR-004: extraPayload optional {subreddit, post_id, action/reason}. cardSuffix optional for sub-cards.
-  async _recordEvent(stepIdx, eventType, btn, extraPayload, cardSuffix) {
-    if (!currentRunId) return;
-    const cardId = cardSuffix ? `step-card-${cardSuffix}` : `step-card-${stepIdx}`;
-    const card = document.getElementById(cardId);
-
-    try {
-      // Option 3 fix: capture result for future all_done check; send step_done to match chain_runner.py
-      const evtResult = await apiPost('/api/chain/event', {
-        run_id:     currentRunId,
-        step_index: stepIdx,
-        event_type: eventType === 'done' ? 'step_done' : eventType,
-        payload:    extraPayload || {}
-      });
-
-      if (eventType === 'done') {
-        if (card) {
-          card.classList.remove('manual', 'stuck');
-          card.classList.add('done');
-          const badge = card.querySelector('.step-type-badge');
-          if (badge) { badge.className = 'step-type-badge badge-done'; badge.textContent = 'DONE'; }
-          const actions = card.querySelector('.step-actions');
-          if (actions) actions.innerHTML = '<div class="step-status-msg" style="color:var(--green-hi);">&#10003; COMPLETED</div>';
-        }
-        const sub = extraPayload?.subreddit ? ` (r/${extraPayload.subreddit})` : '';
-        log('chain', `Step ${stepIdx + 1}${sub} marked done`);
-        // XP award -- silent fail, does not block DONE
-        try {
-          await apiPost('/api/game/xp/add', {
-            source:       'step_done',
-            xp_amount:    5,
-            token_amount: 1,
-            mission_id:   currentChain?.chain_id || currentRunId,
-            step_index:   stepIdx
-          });
-          HUDLayer.showTooltip('+5 XP, +1 Token');
-        } catch (_) {}
-        // FUTURE: mission_complete bonus (+44 XP). Trigger: chain_runner /api/chain/event response includes all_done:true.
-        // Option 3: Only clear localStorage when Railway confirms all_done. Otherwise save updated state.
-        // FUTURE: replace with evtResult.all_done check. Trigger: Era 1 Signal Engine + /api/chain/event returns all_done.
-        if (evtResult && evtResult.all_done) {
-          MissionState.clear();
-        } else if (currentSteps[stepIdx]) {
-          currentSteps[stepIdx]._completed = true;
-          MissionState.save();
-        }
-      } else {
-        if (card) {
-          card.classList.add('stuck');
-          const badge = card.querySelector('.step-type-badge');
-          if (badge) { badge.className = 'step-type-badge badge-stuck'; badge.textContent = 'STUCK'; }
-        }
-        const sub = extraPayload?.subreddit ? ` (r/${extraPayload.subreddit})` : '';
-        log('chain', `Step ${stepIdx + 1}${sub} marked stuck`);
-        HUDLayer.showTooltip('Marked as stuck. Try rephrasing or check the workaround note.');
-      }
-    } catch (e) {
-      log('chain', `Event record failed: ${e.message}`);
-      HUDLayer.showTooltip(`Error: ${e.message}`);
-    }
   }
 };
-
-// ============================================================
-//  PROGRESSION MODAL (P2-D)
-//  Shows rank ladder, XP progress, and milestones
-// ============================================================
-const Progression = {
-  ranks: [
-    { name: 'Recruit', minXp: 0, desc: 'Welcome to Jarvis Station' },
-    { name: 'Operative', minXp: 500, desc: 'Completed first mission' },
-    { name: 'Agent', minXp: 1500, desc: 'Multiple chains executed' },
-    { name: 'Specialist', minXp: 3500, desc: 'Advanced task completion' },
-    { name: 'Commander', minXp: 7000, desc: 'Leadership and mastery' },
-  ],
-
-  milestones: [
-    { xp: 100, label: 'First steps', icon: '...' },
-    { xp: 500, label: 'Reach Operative', icon: '...' },
-    { xp: 1000, label: 'Veteran milestone', icon: '...' },
-    { xp: 3000, label: 'Specialist rank', icon: '...' },
-    { xp: 7000, label: 'Commander elite', icon: '...' },
-  ],
-
-  show() {
-    const modal = document.getElementById('progression-modal');
-    if (!modal) return;
-    modal.classList.add('active');
-    this._render();
-  },
-
-  hide() {
-    const modal = document.getElementById('progression-modal');
-    if (!modal) return;
-    modal.classList.remove('active');
-  },
-
-  _render() {
-    const currentPlayer = currentGameState?.player || {};
-    const currentXp = currentPlayer.xp || 0;
-    const rankName = currentPlayer.rank || 'Recruit';
-
-    const ladder = document.getElementById('rank-ladder');
-    const progressText = document.getElementById('xp-progress-text');
-    const barFill = document.getElementById('xp-bar-fill');
-    const milestonesList = document.getElementById('milestones-list');
-
-    if (!ladder) return;
-
-    ladder.innerHTML = '';
-    this.ranks.forEach(rank => {
-      const div = document.createElement('div');
-      div.className = 'rank-item' + (rank.name === rankName ? ' current' : '');
-      div.innerHTML = `<div class="rank-item-name">${rank.name}</div>
-        <div class="rank-item-xp">${rank.minXp} XP - ${rank.desc}</div>`;
-      ladder.appendChild(div);
-    });
-
-    const currentRank = this.ranks.find(r => r.name === rankName) || this.ranks[0];
-    const nextRank = this.ranks.find(r => r.minXp > currentRank.minXp) || this.ranks[this.ranks.length - 1];
-    const nextXp = nextRank.minXp;
-    const xpInRank = currentXp - currentRank.minXp;
-    const xpToNext = nextXp - currentRank.minXp;
-    const progress = Math.max(0, Math.min(100, (xpInRank / xpToNext) * 100));
-
-    if (barFill) barFill.style.width = progress + '%';
-    if (progressText) progressText.textContent = currentXp + ' / ' + nextXp + ' XP';
-
-    if (milestonesList) {
-      milestonesList.innerHTML = '';
-      this.milestones.forEach(milestone => {
-        const li = document.createElement('div');
-        li.className = 'milestone-item' + (currentXp >= milestone.xp ? ' unlocked' : '');
-        li.textContent = milestone.label + ' (' + milestone.xp + ' XP)';
-        milestonesList.appendChild(li);
-      });
-    }
-  }
-};
-
-// ============================================================
-//  SIDE QUESTS
-//  Retroactive claim cards for tasks done outside chain runner.
-//  DONE fires step_done event with completed_before_tracking flag.
-//  XP/tokens wired when game system backend is live.
-//  FUTURE: load from configs/side_quests.json. Trigger: 5+ side quest types defined.
-// ============================================================
-const SideQuests = {
-  // Claimed state persisted in localStorage key 'sq_claimed'
-  _claimed() {
-    try { return JSON.parse(localStorage.getItem('sq_claimed') || '{}'); } catch { return {}; }
-  },
-  _setClaimed(id) {
-    const c = this._claimed(); c[id] = new Date().toISOString();
-    try { localStorage.setItem('sq_claimed', JSON.stringify(c)); } catch {}
-  },
-
-  quests: [
-    {
-      id: 'sq-hvac-bundle',
-      title: 'HVAC Bundle - Claim XP',
-      meta: 'Published before reward tracking was live. Confirm to claim your points.',
-      tag: 'RETROACTIVE CLAIM', tagClass: 'sq-tag-claim',
-      url: 'https://gogopaschal.gumroad.com/l/nnzizf',
-      urlLabel: 'gogopaschal.gumroad.com/l/nnzizf (LIVE)',
-      btnLabel: 'CLAIM XP',
-      completedBeforeTracking: true
-    },
-    {
-      id: 'sq-electricians-bundle',
-      title: 'Electricians Bundle - Publish Draft',
-      meta: 'Draft exists on Gumroad. Open the link, review fields, click Publish.',
-      tag: 'ONE CLICK', tagClass: 'sq-tag-action',
-      url: 'https://gogopaschal.gumroad.com/l/ixovod',
-      urlLabel: 'gogopaschal.gumroad.com/l/ixovod (DRAFT)',
-      btnLabel: 'MARK PUBLISHED',
-      completedBeforeTracking: false
-    },
-    {
-      id: 'sq-contractors-bundle',
-      title: 'Contractors Bundle - Create + Publish',
-      meta: 'Does not exist yet. Go to gumroad.com/products/new, select BUNDLE, copy fields from the Gumroad Publish chain in Missions.',
-      tag: 'CREATE FROM SCRATCH', tagClass: 'sq-tag-create',
-      url: 'https://app.gumroad.com/products/new',
-      urlLabel: 'gumroad.com/products/new',
-      btnLabel: 'MARK PUBLISHED',
-      completedBeforeTracking: false
-    }
-  ],
-
-  render(container) {
-    const claimed = this._claimed();
-    // Only show if at least one quest is unclaimed
-    const hasUnclaimed = this.quests.some(q => !claimed[q.id]);
-    if (!hasUnclaimed) return;
-
-    const section = document.createElement('div');
-    section.className = 'side-quest-section';
-    section.innerHTML = '<div class="side-quest-header">SIDE QUESTS</div>';
-
-    this.quests.forEach(q => {
-      const isClaimed = !!claimed[q.id];
-      const card = document.createElement('div');
-      card.className = 'side-quest-card' + (isClaimed ? ' claimed' : '');
-      card.innerHTML = `
-        <div class="sq-title">${escHtml(q.title)}</div>
-        <div class="sq-meta">${escHtml(q.meta)}</div>
-        <span class="sq-tag ${q.tagClass}">${q.tag}</span>
-        <a class="sq-link" href="${q.url}" target="_blank">${escHtml(q.urlLabel)}</a>
-        <div class="sq-actions">
-          ${isClaimed
-            ? `<div class="sq-claimed-badge">&#10003; DONE - XP queued for when game system is live</div>`
-            : `<button class="sq-btn sq-btn-done" data-id="${escHtml(q.id)}">${escHtml(q.btnLabel)}</button>`
-          }
-        </div>`;
-      section.appendChild(card);
-    });
-
-    // Wire DONE buttons
-    section.querySelectorAll('.sq-btn-done').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        const quest = this.quests.find(q => q.id === id);
-        if (!quest) return;
-        btn.disabled = true;
-        btn.textContent = 'SAVING...';
-        const xpAmt = quest.completedBeforeTracking ? 10 : 5;
-        this._setClaimed(id);
-        try {
-          await apiPost('/api/game/xp/add', {
-            source:                    'side_quest_claim',
-            xp_amount:                 xpAmt,
-            token_amount:              1,
-            mission_id:                id,
-            step_index:                0,
-            completed_before_tracking: quest.completedBeforeTracking
-          });
-          HUDLayer.showTooltip(`+${xpAmt} XP claimed!`);
-        } catch (_) {
-          HUDLayer.showTooltip('Claimed.');
-        }
-        // Re-render chain list to refresh side quest panel
-        await Missions._renderChainList();
-      });
-    });
-
-    container.appendChild(section);
-  }
-};
-
-// Back button handler
-document.getElementById('stepBackBtn').addEventListener('click', () => {
-  currentRunId = null;
-  currentChain = null;
-  currentSteps = [];
-  Missions._renderChainList();
-});
 
 // ============================================================
 //  SCENE MANAGER
@@ -3064,17 +3089,9 @@ const SceneManager = {
   init() {
     document.getElementById('loading-msg').style.display = 'flex';
 
-    // 3-second fallback: hide INITIALIZING even if WS never connects
-    setTimeout(() => {
-      const lm = document.getElementById('loading-msg');
-      if (lm && lm.style.display !== 'none') {
-        lm.style.display = 'none';
-        log('sys', 'Loading timeout: hiding INITIALIZING after 3s');
-      }
-    }, 3000);
-
-    // P2-B: Restore mission state from localStorage if available
-    MissionState.restore();
+    // ADR-010: Init mission modals
+    PinModal.init();
+    StuckModal.init();
 
     // Boot Phaser
     try {
@@ -3100,6 +3117,11 @@ const SceneManager = {
 
     // Start WebSocket
     connectWS();
+
+    // Fallback: hide loading after 3s even if WS never connects
+    setTimeout(() => {
+      document.getElementById('loading-msg').style.display = 'none';
+    }, 3000);
 
     // Initial REST poll (immediate)
     setTimeout(async () => {
@@ -3147,8 +3169,6 @@ const SceneManager = {
       log('sys', 'Log view activated');
     } else if (scene === 'seo') {
       pMount.style.display = 'none';
-      mOverlay.classList.remove('active');
-      logPanel.classList.remove('active');
       document.getElementById('seo-panel').classList.add('active');
       log('sys', 'SEO Command Center activated');
     }
@@ -3176,6 +3196,33 @@ window.addEventListener('load', () => {
   RoomData.init();
   SceneManager.init();
 });
+</script>
+<!-- ============================================================
+     SERVICE WORKER REGISTRATION
+     Audit fix #5: feature detection before register().
+     Architecture note: SW is pure cache layer. No business logic.
+     iOS Capacitor WKWebView will NOT run this SW. That is fine
+     because Capacitor bundles assets natively on iOS.
+     Android Capacitor WebView DOES support SW.
+     FUTURE: Add Capacitor platform detection guard when wrapping
+     with Capacitor (Phase 4). Trigger: npx cap init run.
+     Per CAPACITOR_DEEP_DIVE_REFERENCE.md Sec 5.2.
+     ============================================================ -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js', { scope: '/jarvis-station/' })
+      .then(function(reg) {
+        console.log('[PWA] Service worker registered, scope:', reg.scope);
+        // Check for updates periodically (every 60 minutes)
+        setInterval(function() { reg.update(); }, 60 * 60 * 1000);
+      })
+      .catch(function(err) {
+        console.warn('[PWA] Service worker registration failed:', err.message);
+        // App continues to work without SW, just no offline caching
+      });
+  });
+}
 </script>
 </body>
 </html>
