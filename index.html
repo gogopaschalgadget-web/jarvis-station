@@ -1001,80 +1001,129 @@ body::before {
 .cc-title { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cc-time { font-size: 9px; color: var(--text-dim); flex-shrink: 0; }
 
-/* PIN Modal */
-.pin-modal-overlay {
+/* Swipe Confirm (Forge Temple 40K) */
+.swipe-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.92);
   z-index: 500;
   align-items: center;
   justify-content: center;
 }
-.pin-modal-overlay.active { display: flex; }
-.pin-modal {
-  background: var(--panel);
-  border: 1px solid var(--amber);
-  border-radius: 6px;
-  padding: 24px 20px;
-  width: 260px;
-  text-align: center;
+.swipe-overlay.active { display: flex; }
+.swipe-panel {
+  background: linear-gradient(to bottom, #1a0a00, #0d0500);
+  border: 2px solid #3d3d3d;
+  border-image: linear-gradient(135deg, #ff6600, #c8a84e, #ff6600) 1;
+  padding: 24px;
+  width: 300px;
+  max-width: 90vw;
+  position: relative;
+  box-shadow: inset 0 0 40px rgba(255,102,0,0.2), 0 0 60px rgba(0,0,0,0.8);
 }
-.pin-modal-title {
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--amber);
-  margin-bottom: 16px;
+.swipe-panel::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 2px, transparent 2px, transparent 4px);
+  pointer-events: none; z-index: 1;
 }
-.pin-digits {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 16px;
+.swipe-panel-content { position: relative; z-index: 2; }
+.swipe-title {
+  font-family: 'Cinzel', serif; font-size: 14px; color: #c8a84e;
+  text-align: center; letter-spacing: 2px; margin-bottom: 4px;
+  text-shadow: 0 0 12px rgba(200,168,78,0.4);
 }
-.pin-digit {
-  width: 44px;
-  height: 44px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--amber);
-  font-size: 18px;
-  font-family: var(--mono);
-  text-align: center;
-  caret-color: var(--amber);
+.swipe-subtitle {
+  font-size: 9px; color: #ff6600; text-align: center;
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px;
 }
-.pin-digit:focus { border-color: var(--amber); outline: none; }
-.pin-modal-actions {
-  display: flex;
-  gap: 8px;
+.swipe-status {
+  text-align: center; font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: #664400; font-weight: bold;
+  margin-bottom: 12px; min-height: 18px;
 }
-.pin-btn-confirm {
-  flex: 1;
-  min-height: 40px;
-  background: var(--green);
-  color: #000;
-  border: none;
-  border-radius: 4px;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: var(--mono);
+.swipe-status.complete { color: #c8a84e; }
+.forge-swipe-track {
+  background: linear-gradient(90deg, #1a0a00 0%, #330a00 100%);
+  border: 2px solid #660000; border-radius: 4px; height: 60px;
+  position: relative; overflow: hidden; cursor: grab;
+  user-select: none; touch-action: none;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(255,102,0,0.2);
 }
-.pin-btn-cancel {
-  flex: 1;
-  min-height: 40px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  border-radius: 4px;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  cursor: pointer;
-  font-family: var(--mono);
+.forge-swipe-track.active { box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 0 40px rgba(255,102,0,0.5); }
+.forge-swipe-prompt {
+  position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  font-size: 11px; letter-spacing: 1px; color: #664400; font-weight: bold;
+  pointer-events: none; z-index: 1; text-transform: uppercase;
+  transition: opacity 0.3s;
 }
-.pin-error { color: var(--red-hi); font-size: 10px; margin-top: 8px; display: none; }
+.forge-swipe-track.dragging .forge-swipe-prompt { opacity: 0; }
+.forge-swipe-thumb {
+  position: absolute; top: 50%; left: 8px; transform: translateY(-50%);
+  width: 60px; height: 44px;
+  background: linear-gradient(135deg, #ff6600 0%, #d4af37 50%, #c8a84e 100%);
+  border-radius: 4px; cursor: grab; user-select: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #0a0a0a; letter-spacing: 1px;
+  font-family: 'Cinzel', serif;
+  box-shadow: 0 0 20px rgba(255,102,0,0.8), inset 0 0 10px rgba(255,255,255,0.3);
+  z-index: 5;
+}
+.forge-swipe-track.dragging .forge-swipe-thumb { box-shadow: 0 0 30px rgba(255,102,0,1), inset 0 0 10px rgba(255,255,255,0.3); }
+.forge-swipe-trail {
+  position: absolute; top: 50%; left: 35px; height: 4px;
+  background: linear-gradient(90deg, rgba(255,102,0,0.8), transparent);
+  pointer-events: none; border-radius: 2px;
+  box-shadow: 0 0 12px rgba(255,102,0,0.6);
+}
+.forge-glow-icon {
+  position: absolute; top: 50%; right: 50px; transform: translateY(-50%);
+  width: 40px; height: 50px; pointer-events: none;
+}
+.forge-glow-icon::before {
+  content: ''; position: absolute; width: 100%; height: 100%;
+  background: radial-gradient(ellipse 60% 100% at 50% 60%, #ff6600 0%, #ff4400 20%, #cc2200 40%, transparent 70%);
+  filter: blur(4px); z-index: 1;
+}
+.forge-glow-icon::after {
+  content: ''; position: absolute; width: 100%; height: 100%;
+  border-left: 3px solid #d4af37; border-right: 3px solid #d4af37; border-bottom: 6px solid #d4af37;
+  clip-path: polygon(50% 0%, 65% 20%, 75% 15%, 85% 35%, 80% 55%, 90% 70%, 70% 85%, 50% 95%, 30% 85%, 10% 70%, 20% 55%, 15% 35%, 25% 15%, 35% 20%);
+  z-index: 2;
+}
+.forge-swipe-track.completed {
+  background: linear-gradient(90deg, #ff6600 0%, #c8a84e 50%, #ff6600 100%);
+  border-color: #c8a84e;
+  animation: forge-flash 0.6s ease-out;
+}
+@keyframes forge-flash {
+  0% { box-shadow: inset 0 0 20px rgba(255,102,0,0.8), 0 0 60px rgba(200,168,78,0.6); }
+  100% { box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(255,102,0,0.2); }
+}
+.forge-swipe-track.completed .forge-swipe-thumb {
+  background: linear-gradient(135deg, #ffeb99 0%, #d4af37 50%, #c8a84e 100%);
+  animation: forge-thumb-pulse 0.6s ease-out;
+}
+@keyframes forge-thumb-pulse {
+  0% { transform: translateY(-50%) scale(1); box-shadow: 0 0 40px rgba(255,102,0,1); }
+  50% { transform: translateY(-50%) scale(1.15); }
+  100% { transform: translateY(-50%) scale(1); box-shadow: 0 0 20px rgba(255,102,0,0.8); }
+}
+.forge-completion-msg {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
+  color: #c8a84e; text-transform: uppercase; letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(200,168,78,0.8);
+  pointer-events: none; opacity: 0; z-index: 10;
+}
+.swipe-cancel-btn {
+  display: block; width: 100%; margin-top: 14px; padding: 10px;
+  background: transparent; color: #664400; border: 1px solid #660000;
+  border-radius: 4px; font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: 10px; letter-spacing: 2px; cursor: pointer; text-transform: uppercase;
+}
+.swipe-cancel-btn:active { background: rgba(255,102,0,0.15); }
 
 /* Stuck Modal */
 .stuck-modal-overlay {
@@ -2130,19 +2179,21 @@ body::before {
     </div>
 
     <!-- PIN Modal (ADR-010) -->
-    <div class="pin-modal-overlay" id="pin-modal">
-      <div class="pin-modal">
-        <div class="pin-modal-title">CONFIRM ACTION</div>
-        <div class="pin-digits">
-          <input class="pin-digit" type="tel" maxlength="1" data-idx="0" inputmode="numeric">
-          <input class="pin-digit" type="tel" maxlength="1" data-idx="1" inputmode="numeric">
-          <input class="pin-digit" type="tel" maxlength="1" data-idx="2" inputmode="numeric">
-          <input class="pin-digit" type="tel" maxlength="1" data-idx="3" inputmode="numeric">
-        </div>
-        <div class="pin-error" id="pin-error">INCORRECT PIN</div>
-        <div class="pin-modal-actions">
-          <button class="pin-btn-confirm" id="pin-confirm">CONFIRM</button>
-          <button class="pin-btn-cancel" id="pin-cancel">CANCEL</button>
+    <!-- Forge Temple Swipe Confirm -->
+    <div class="swipe-overlay" id="swipe-overlay">
+      <div class="swipe-panel">
+        <div class="swipe-panel-content">
+          <div class="swipe-title">CONFIRM MISSION</div>
+          <div class="swipe-subtitle">THE FORGE AWAITS</div>
+          <div class="swipe-status" id="swipe-status">SMITE</div>
+          <div class="forge-swipe-track" id="forge-swipe-track">
+            <div class="forge-swipe-prompt">SLIDE RIGHT</div>
+            <div class="forge-swipe-trail" id="forge-swipe-trail" style="display:none;"></div>
+            <div class="forge-swipe-thumb" id="forge-swipe-thumb">FORGE</div>
+            <div class="forge-glow-icon"></div>
+            <div class="forge-completion-msg" id="forge-completion-msg">THE FORGE ACCEPTS</div>
+          </div>
+          <button class="swipe-cancel-btn" id="swipe-cancel">CANCEL</button>
         </div>
       </div>
     </div>
@@ -2610,57 +2661,117 @@ class StationScene extends Phaser.Scene {
 // ============================================================
 //  MISSION FRAMEWORK V2 (ADR-010)
 //  Server-side persistence, card-per-action model, QC gate,
-//  PIN-protected actions, stuck feedback loop.
+//  swipe-to-confirm actions (Forge Temple 40K), stuck feedback loop.
 // ============================================================
 const MissionTypesConfig = {};  // Loaded from /api/mission/types/config
 
-const PinModal = {
+const SwipeConfirm = {
   _resolve: null,
-  _pin: '0122',
+  _isDragging: false,
+  _startX: 0,
+  _currentX: 0,
+  _isCompleted: false,
+  _threshold: 0.8,
 
   show() {
     return new Promise((resolve) => {
       this._resolve = resolve;
-      const modal = document.getElementById('pin-modal');
-      modal.classList.add('active');
-      document.getElementById('pin-error').style.display = 'none';
-      const digits = modal.querySelectorAll('.pin-digit');
-      digits.forEach(d => { d.value = ''; });
-      digits[0].focus();
-      // Auto-advance on input
-      digits.forEach((d, i) => {
-        d.oninput = () => {
-          if (d.value && i < 3) digits[i + 1].focus();
-        };
-        d.onkeydown = (e) => {
-          if (e.key === 'Backspace' && !d.value && i > 0) digits[i - 1].focus();
-        };
-      });
+      this._isCompleted = false;
+      const overlay = document.getElementById('swipe-overlay');
+      overlay.classList.add('active');
+      const thumb = document.getElementById('forge-swipe-thumb');
+      const track = document.getElementById('forge-swipe-track');
+      const trail = document.getElementById('forge-swipe-trail');
+      const status = document.getElementById('swipe-status');
+      const msg = document.getElementById('forge-completion-msg');
+      thumb.style.transform = 'translateY(-50%) translateX(0px)';
+      thumb.style.transition = '';
+      trail.style.display = 'none';
+      track.classList.remove('completed', 'dragging', 'active');
+      status.textContent = 'SMITE';
+      status.classList.remove('complete');
+      msg.style.opacity = '0';
     });
   },
 
-  _getPin() {
-    const digits = document.querySelectorAll('#pin-modal .pin-digit');
-    return Array.from(digits).map(d => d.value).join('');
-  },
-
   init() {
-    document.getElementById('pin-confirm').onclick = () => {
-      const pin = this._getPin();
-      if (pin === this._pin) {
-        document.getElementById('pin-modal').classList.remove('active');
-        if (this._resolve) this._resolve(pin);
+    const track = document.getElementById('forge-swipe-track');
+    const thumb = document.getElementById('forge-swipe-thumb');
+    const trail = document.getElementById('forge-swipe-trail');
+    const self = this;
+
+    const onStart = (e) => {
+      if (self._isCompleted) return;
+      self._isDragging = true;
+      self._startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      self._currentX = 0;
+      track.classList.add('dragging', 'active');
+      trail.style.display = 'block';
+      thumb.style.transition = '';
+    };
+
+    const onMove = (e) => {
+      if (!self._isDragging || self._isCompleted) return;
+      e.preventDefault();
+      const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      let drag = clientX - self._startX;
+      const maxDist = track.offsetWidth - thumb.offsetWidth - 16;
+      drag = Math.max(0, Math.min(drag, maxDist));
+      self._currentX = drag;
+      thumb.style.transform = `translateY(-50%) translateX(${drag}px)`;
+      trail.style.width = `${drag + 35}px`;
+      const progress = drag / maxDist;
+      trail.style.boxShadow = `0 0 ${12 + progress * 20}px rgba(255,102,0,${0.6 * Math.min(progress * 2, 1)})`;
+    };
+
+    const onEnd = () => {
+      if (!self._isDragging) return;
+      self._isDragging = false;
+      track.classList.remove('dragging');
+      const maxDist = track.offsetWidth - thumb.offsetWidth - 16;
+      const progress = self._currentX / maxDist;
+      if (progress >= self._threshold) {
+        self._complete();
       } else {
-        document.getElementById('pin-error').style.display = 'block';
-        const digits = document.querySelectorAll('#pin-modal .pin-digit');
-        digits.forEach(d => { d.value = ''; });
-        digits[0].focus();
+        thumb.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        thumb.style.transform = 'translateY(-50%) translateX(0px)';
+        trail.style.display = 'none';
+        track.classList.remove('active');
+        setTimeout(() => { thumb.style.transition = ''; }, 400);
       }
     };
-    document.getElementById('pin-cancel').onclick = () => {
-      document.getElementById('pin-modal').classList.remove('active');
-      if (this._resolve) this._resolve(null);
+
+    track.addEventListener('mousedown', onStart);
+    track.addEventListener('touchstart', onStart, {passive: true});
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, {passive: false});
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', onEnd);
+
+    document.getElementById('swipe-cancel').onclick = () => {
+      document.getElementById('swipe-overlay').classList.remove('active');
+      if (self._resolve) self._resolve(null);
     };
+  },
+
+  _complete() {
+    this._isCompleted = true;
+    const track = document.getElementById('forge-swipe-track');
+    const trail = document.getElementById('forge-swipe-trail');
+    const status = document.getElementById('swipe-status');
+    const msg = document.getElementById('forge-completion-msg');
+    track.classList.add('completed');
+    track.classList.remove('active');
+    trail.style.display = 'none';
+    status.textContent = 'THE FORGE ACCEPTS';
+    status.classList.add('complete');
+    msg.style.opacity = '1';
+    if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+    // Close overlay and resolve after brief dramatic pause
+    setTimeout(() => {
+      document.getElementById('swipe-overlay').classList.remove('active');
+      if (this._resolve) this._resolve(true);
+    }, 800);
   }
 };
 
@@ -3018,10 +3129,10 @@ const Missions = {
   // ── Actions ──────────────────────────────────────────────────
 
   async _done(missionId) {
-    const pin = await PinModal.show();
-    if (!pin) return;
+    const confirmed = await SwipeConfirm.show();
+    if (!confirmed) return;
     try {
-      const result = await apiPost('/api/mission/done', { mission_id: missionId, pin, payload: {} });
+      const result = await apiPost('/api/mission/done', { mission_id: missionId, payload: {} });
       if (result.success) {
         HUDLayer.showTooltip(`+${result.xp_awarded} XP, +${result.tokens_awarded} Token`);
         log('missions', `Mission done: ${missionId}`);
@@ -3048,10 +3159,10 @@ const Missions = {
   },
 
   async _undo(missionId) {
-    const pin = await PinModal.show();
-    if (!pin) return;
+    const confirmed = await SwipeConfirm.show();
+    if (!confirmed) return;
     try {
-      const result = await apiPost('/api/mission/undo', { mission_id: missionId, pin });
+      const result = await apiPost('/api/mission/undo', { mission_id: missionId });
       if (result.success) {
         HUDLayer.showTooltip(`Undone. -${result.xp_deducted} XP`);
         log('missions', `Mission undone: ${missionId}`);
@@ -3065,10 +3176,10 @@ const Missions = {
   },
 
   async _reissue(missionId) {
-    const pin = await PinModal.show();
-    if (!pin) return;
+    const confirmed = await SwipeConfirm.show();
+    if (!confirmed) return;
     try {
-      const result = await apiPost('/api/mission/reissue', { mission_id: missionId, pin });
+      const result = await apiPost('/api/mission/reissue', { mission_id: missionId });
       if (result.success) {
         HUDLayer.showTooltip('Mission reissued');
         log('missions', `Reissued: ${missionId} -> ${result.new_mission_id}`);
@@ -3080,10 +3191,10 @@ const Missions = {
   },
 
   async _dismiss(missionId) {
-    const pin = await PinModal.show();
-    if (!pin) return;
+    const confirmed = await SwipeConfirm.show();
+    if (!confirmed) return;
     try {
-      await apiPost('/api/mission/dismiss', { mission_id: missionId, pin });
+      await apiPost('/api/mission/dismiss', { mission_id: missionId });
       HUDLayer.showTooltip('Mission dismissed');
       log('missions', `Dismissed: ${missionId}`);
       this.load();
@@ -3119,9 +3230,9 @@ const Missions = {
       const names = held.map(h => `${h.title} (score: ${h.quality_score})`).join('\n');
       if (confirm(`HELD MISSIONS (${held.length}):\n\n${names}\n\nApprove all?`)) {
         for (const h of held) {
-          const pin = await PinModal.show();
-          if (!pin) break;
-          await apiPost('/api/mission/approve', { mission_id: h.id, pin });
+          const confirmed = await SwipeConfirm.show();
+          if (!confirmed) break;
+          await apiPost('/api/mission/approve', { mission_id: h.id });
         }
         this.load();
       }
@@ -3171,7 +3282,7 @@ const SceneManager = {
     document.getElementById('loading-msg').style.display = 'flex';
 
     // ADR-010: Init mission modals
-    PinModal.init();
+    SwipeConfirm.init();
     StuckModal.init();
 
     // Boot Phaser
