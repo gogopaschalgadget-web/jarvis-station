@@ -2900,9 +2900,12 @@ const Missions = {
         </div>
       </div>` : '';
 
-    // Title field (copyable)
+    // Detect quora mission (suppress title/body fields -- question is in card header, answer shown by generator)
+    const isQuoraMission = m.mission_type === 'quora_answer' || (m.id && m.id.startsWith('quora'));
+
+    // Title field (copyable) -- hidden for quora missions to avoid label confusion
     const title = content.title || '';
-    const titleHtml = title ? `
+    const titleHtml = (title && !isQuoraMission) ? `
       <div class="mc-field">
         <div class="mc-field-label">TITLE</div>
         <div class="mc-field-row">
@@ -2911,9 +2914,9 @@ const Missions = {
         </div>
       </div>` : '';
 
-    // Body field (copyable, scrollable)
+    // Body field (copyable, scrollable) -- hidden for quora missions
     const body = content.body || '';
-    const bodyHtml = body ? `
+    const bodyHtml = (body && !isQuoraMission) ? `
       <div class="mc-field">
         <div class="mc-field-label">BODY</div>
         <div class="mc-field-content" id="mc-body-${m.id}">${escHtml(body)}</div>
@@ -2922,7 +2925,7 @@ const Missions = {
 
     // Quora AI generate section (only for quora_answer missions)
     let quoraGenHtml = '';
-    if (m.mission_type === 'quora_answer' || (m.id && m.id.startsWith('quora'))) {
+    if (isQuoraMission) {
       const qTitle = escHtml(m.title || '');
       const qId = escHtml(m.id || '');
       quoraGenHtml = `
