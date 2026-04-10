@@ -841,6 +841,26 @@ body::before {
 .mission-card.failed { border-color: var(--red-hi); }
 .mission-card.stale { animation: stalePulse 3s ease-in-out infinite; }
 
+.mc-btn-generate {
+  width: 100%;
+  padding: 12px;
+  background: var(--amber);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  margin-top: 8px;
+  min-height: 44px;
+}
+.mc-btn-generate:active { opacity: 0.8; }
+.mc-quora-gen { margin-top: 8px; }
+.qgen-img { width: 100%; border-radius: 8px; margin-top: 6px; display: block; }
+.qgen-loading { text-align: center; padding: 16px; color: var(--amber); font-size: 11px; letter-spacing: 1px; }
+
 @keyframes stalePulse {
   0%,100% { border-color: var(--amber-dim); }
   50% { border-color: var(--amber); box-shadow: 0 0 6px rgba(201,162,39,0.3); }
@@ -2900,6 +2920,33 @@ const Missions = {
         <button class="mc-btn-copy" style="width:100%;margin-top:6px;" onclick="Missions._copy('mc-body-${m.id}', this)">COPY BODY</button>
       </div>` : '';
 
+    // Quora AI generate section (only for quora_answer missions)
+    let quoraGenHtml = '';
+    if (m.mission_type === 'quora_answer' || (m.id && m.id.startsWith('quora'))) {
+      const qTitle = escHtml(m.title || '');
+      const qId = escHtml(m.id || '');
+      quoraGenHtml = `
+        <div class="mc-quora-gen" id="qgen-${qId}">
+          <button class="mc-btn-generate" id="qgen-btn-${qId}" onclick="Missions._generateQuora('${qId}', '${qTitle}', false)">
+            GENERATE ANSWER + IMAGE
+          </button>
+          <div class="qgen-result" id="qgen-result-${qId}" style="display:none;">
+            <div class="mc-field">
+              <div class="mc-field-label">ANSWER</div>
+              <div class="mc-field-content" id="qgen-answer-${qId}"></div>
+              <button class="mc-btn-copy" style="width:100%;margin-top:6px;" onclick="Missions._copy('qgen-answer-${qId}', this)">COPY ANSWER</button>
+            </div>
+            <div class="mc-field">
+              <div class="mc-field-label">IMAGE (long-press on phone to save)</div>
+              <img class="qgen-img" id="qgen-img-${qId}" src="" alt="Quora post image" />
+            </div>
+            <button class="mc-btn-generate" style="background:var(--text-dim);" onclick="Missions._generateQuora('${qId}', '${qTitle}', true)">
+              REGENERATE
+            </button>
+          </div>
+        </div>`;
+    }
+
     // Per-field cards (for Gumroad-style missions)
     let perFieldHtml = '';
     if (fieldOrder.length > 0 && Object.keys(fields).length > 0) {
@@ -2947,6 +2994,7 @@ const Missions = {
       ${navHtml}
       ${titleHtml}
       ${bodyHtml}
+      ${quoraGenHtml}
       ${perFieldHtml}
       ${stuckInfo}
       ${actionsHtml}`;
@@ -3042,6 +3090,36 @@ const Missions = {
     } catch (e) {
       HUDLayer.showTooltip(`Error: ${e.message}`);
     }
+  },
+
+  _generateQuora(missionId, question, regenerate) {
+    const btn = document.getElementById(`qgen-btn-${missionId}`);
+    if (btn) { btn.textContent = regenerate ? 'REGENERATING...' : 'GENERATING...'; btn.disabled = true; }
+    const result = document.getElementById(`qgen-result-${missionId}`);
+
+    apiFetch(`/api/quora/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question, question_id: missionId, regenerate: regenerate })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        if (btn) { btn.textContent = 'GENERATE ANSWER + IMAGE'; btn.disabled = false; }
+        alert('Generate failed: ' + data.error);
+        return;
+      }
+      const answerEl = document.getElementById(`qgen-answer-${missionId}`);
+      const imgEl = document.getElementById(`qgen-img-${missionId}`);
+      if (answerEl) answerEl.textContent = data.answer;
+      if (imgEl) { imgEl.src = data.image_url; imgEl.style.display = 'block'; }
+      if (result) result.style.display = 'block';
+      if (btn) btn.style.display = 'none';
+    })
+    .catch(err => {
+      if (btn) { btn.textContent = 'GENERATE ANSWER + IMAGE'; btn.disabled = false; }
+      console.error('Quora generate error:', err);
+    });
   },
 
   async _stuck(missionId, missionType) {
