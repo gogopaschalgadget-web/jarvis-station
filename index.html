@@ -804,6 +804,17 @@ body::before {
 }
 .mission-tab.active .tab-count { color: var(--amber-dim); }
 
+/* Sub-filter tabs (ALL / Q / R / S) */
+.mission-filters { display:flex; gap:0; margin-bottom:8px; }
+.mission-filter {
+  flex:1; padding:7px 0; text-align:center; font-size:10px; letter-spacing:1.2px;
+  font-weight:700; color:var(--text-dim); background:transparent; border:none;
+  border-bottom:2px solid transparent; cursor:pointer; font-family:var(--mono);
+}
+.mission-filter.active { color:var(--amber); border-bottom-color:var(--amber); }
+.mission-filter .filter-count { font-size:9px; color:var(--text-dim); margin-left:3px; }
+.mission-filter.active .filter-count { color:var(--amber-dim); }
+
 /* Held badge */
 .held-badge {
   display: inline-block;
@@ -2787,10 +2798,14 @@ const Missions = {
     const sv = document.getElementById('step-view');
     sv.classList.remove('active');
 
+    // Initialize sub-filter if not set
+    if (!this.missionFilter) this.missionFilter = 'all';
+
     // Tabs: ACTIVE / DONE
     const tabs = document.createElement('div');
     tabs.className = 'mission-tabs';
-    const activeCount = (this.data.active||[]).length + (this.data.stuck||[]).length + (this.data.failed||[]).length;
+    const allActive = [...(this.data.active||[]), ...(this.data.stuck||[]), ...(this.data.failed||[])];
+    const activeCount = allActive.length;
     const doneCount = (this.data.completed||[]).length;
     const heldHtml = this.heldCount > 0 ? `<span class="held-badge" onclick="Missions._showHeld()">HELD (${this.heldCount})</span>` : '';
     tabs.innerHTML = `
@@ -2801,6 +2816,29 @@ const Missions = {
         DONE <span class="tab-count">${doneCount}</span>
       </button>`;
     sel.appendChild(tabs);
+
+    // Sub-filter tabs: ALL / Q / R / S (only show on ACTIVE tab)
+    if (this.activeTab === 'active' && activeCount > 0) {
+      const qCount = allActive.filter(m => m.mission_type === 'quora_answer' || (m.id && m.id.startsWith('quora'))).length;
+      const rCount = allActive.filter(m => m.mission_type === 'reddit_post' || (m.id && m.id.startsWith('reddit'))).length;
+      const sCount = activeCount - qCount - rCount;
+      const filters = document.createElement('div');
+      filters.className = 'mission-filters';
+      filters.innerHTML = `
+        <button class="mission-filter ${this.missionFilter==='all'?'active':''}" onclick="Missions._setFilter('all')">
+          ALL <span class="filter-count">${activeCount}</span>
+        </button>
+        <button class="mission-filter ${this.missionFilter==='quora'?'active':''}" onclick="Missions._setFilter('quora')">
+          Q <span class="filter-count">${qCount}</span>
+        </button>
+        <button class="mission-filter ${this.missionFilter==='reddit'?'active':''}" onclick="Missions._setFilter('reddit')">
+          R <span class="filter-count">${rCount}</span>
+        </button>
+        <button class="mission-filter ${this.missionFilter==='other'?'active':''}" onclick="Missions._setFilter('other')">
+          S <span class="filter-count">${sCount}</span>
+        </button>`;
+      sel.appendChild(filters);
+    }
 
     // Content area
     const content = document.createElement('div');
@@ -2822,18 +2860,39 @@ const Missions = {
 
   _switchTab(tab) {
     this.activeTab = tab;
+    if (tab === 'done') this.missionFilter = 'all';
+    this._render();
+  },
+
+  _setFilter(filter) {
+    this.missionFilter = filter;
     this._render();
   },
 
   _renderActiveMissions(container) {
-    const missions = [
+    let missions = [
       ...(this.data.active || []),
       ...(this.data.stuck || []),
       ...(this.data.failed || [])
     ];
 
+    // Apply sub-filter
+    const f = this.missionFilter || 'all';
+    if (f === 'quora') {
+      missions = missions.filter(m => m.mission_type === 'quora_answer' || (m.id && m.id.startsWith('quora')));
+    } else if (f === 'reddit') {
+      missions = missions.filter(m => m.mission_type === 'reddit_post' || (m.id && m.id.startsWith('reddit')));
+    } else if (f === 'other') {
+      missions = missions.filter(m => {
+        const isQ = m.mission_type === 'quora_answer' || (m.id && m.id.startsWith('quora'));
+        const isR = m.mission_type === 'reddit_post' || (m.id && m.id.startsWith('reddit'));
+        return !isQ && !isR;
+      });
+    }
+
     if (!missions.length) {
-      container.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">NO ACTIVE MISSIONS<br><br><span style="font-size:10px;">Generate missions from the server or submit a custom target below.</span></div>';
+      const label = f === 'all' ? '' : ` (${f.toUpperCase()} filter)`;
+      container.innerHTML = `<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">NO ACTIVE MISSIONS${label}<br><br><span style="font-size:10px;">Generate missions from the server or submit a custom target below.</span></div>`;
       return;
     }
 
@@ -2902,6 +2961,8 @@ const Missions = {
 
     // Detect quora mission (suppress title/body fields -- question is in card header, answer shown by generator)
     const isQuoraMission = m.mission_type === 'quora_answer' || (m.id && m.id.startsWith('quora'));
+    // Strip "Answer: " prefix from quora mission titles for clean display
+    const displayTitle = isQuoraMission ? (m.title || '').replace(/^Answer:\s*/i, '') : (m.title || '');
 
     // Title field (copyable) -- hidden for quora missions to avoid label confusion
     const title = content.title || '';
@@ -2926,7 +2987,7 @@ const Missions = {
     // Quora AI generate section (only for quora_answer missions)
     let quoraGenHtml = '';
     if (isQuoraMission) {
-      const qTitle = escHtml(m.title || '');
+      const qTitle = escHtml(displayTitle).replace(/'/g, '&#39;');
       const qId = escHtml(m.id || '');
       quoraGenHtml = `
         <div class="mc-quora-gen" id="qgen-${qId}">
@@ -2992,7 +3053,7 @@ const Missions = {
         <span style="font-size:9px;letter-spacing:1px;color:var(--text-dim);">${escHtml(m.category || m.mission_type)}</span>
         ${badge}
       </div>
-      <div class="mc-title">${escHtml(m.title)}</div>
+      <div class="mc-title">${escHtml(displayTitle)}</div>
       <div class="mc-timer">${escHtml(m.time_ago || '')}</div>
       ${navHtml}
       ${titleHtml}
@@ -3105,7 +3166,6 @@ const Missions = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: question, question_id: missionId, regenerate: regenerate })
     })
-    .then(r => r.json())
     .then(data => {
       if (data.error) {
         if (btn) { btn.textContent = 'GENERATE ANSWER + IMAGE'; btn.disabled = false; }
