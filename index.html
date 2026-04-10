@@ -3002,9 +3002,10 @@ const Missions = {
             </div>
             <div class="mc-field">
               <div class="mc-field-label">IMAGE (long-press on phone to save)</div>
-              <img class="qgen-img" id="qgen-img-${qId}" src="" alt="Quora post image" />
+              <div class="qgen-loading" id="qgen-img-loading-${qId}">GENERATING IMAGE...</div>
+              <img class="qgen-img" id="qgen-img-${qId}" src="" alt="Quora post image" style="display:none;" />
             </div>
-            <button class="mc-btn-generate" style="background:var(--text-dim);" onclick="Missions._generateQuora('${qId}', '${qTitle}', true)">
+            <button class="mc-btn-generate" id="qgen-regen-${qId}" style="background:var(--text-dim);" onclick="Missions._generateQuora('${qId}', '${qTitle}', true)">
               REGENERATE
             </button>
           </div>
@@ -3157,9 +3158,17 @@ const Missions = {
   },
 
   _generateQuora(missionId, question, regenerate) {
-    const btn = document.getElementById(`qgen-btn-${missionId}`);
-    if (btn) { btn.textContent = regenerate ? 'REGENERATING...' : 'GENERATING...'; btn.disabled = true; }
+    const genBtn = document.getElementById(`qgen-btn-${missionId}`);
+    const regenBtn = document.getElementById(`qgen-regen-${missionId}`);
+    const activeBtn = regenerate ? regenBtn : genBtn;
+    if (activeBtn) { activeBtn.textContent = regenerate ? 'REGENERATING...' : 'GENERATING...'; activeBtn.disabled = true; }
     const result = document.getElementById(`qgen-result-${missionId}`);
+    const imgEl = document.getElementById(`qgen-img-${missionId}`);
+
+    // Show loading state on image
+    if (imgEl) { imgEl.style.display = 'none'; }
+    const loadingEl = document.getElementById(`qgen-img-loading-${missionId}`);
+    if (loadingEl && (regenerate || !result || result.style.display === 'none')) { loadingEl.style.display = 'block'; }
 
     apiFetch(`/api/quora/generate`, {
       method: 'POST',
@@ -3168,19 +3177,33 @@ const Missions = {
     })
     .then(data => {
       if (data.error) {
-        if (btn) { btn.textContent = 'GENERATE ANSWER + IMAGE'; btn.disabled = false; }
+        if (activeBtn) { activeBtn.textContent = regenerate ? 'REGENERATE' : 'GENERATE ANSWER + IMAGE'; activeBtn.disabled = false; }
+        if (loadingEl) loadingEl.style.display = 'none';
         alert('Generate failed: ' + data.error);
         return;
       }
       const answerEl = document.getElementById(`qgen-answer-${missionId}`);
-      const imgEl = document.getElementById(`qgen-img-${missionId}`);
-      if (answerEl) answerEl.textContent = data.answer;
-      if (imgEl) { imgEl.src = data.image_url; imgEl.style.display = 'block'; }
+      if (answerEl && data.answer) {
+        // Sanitize then render markdown bold + line breaks
+        let safe = escHtml(data.answer);
+        safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        safe = safe.replace(/\n/g, '<br>');
+        answerEl.innerHTML = safe;
+      }
+      if (imgEl && data.image_url) {
+        imgEl.onload = function() { if (loadingEl) loadingEl.style.display = 'none'; imgEl.style.display = 'block'; };
+        imgEl.onerror = function() { if (loadingEl) loadingEl.style.display = 'none'; };
+        imgEl.src = data.image_url;
+      } else {
+        if (loadingEl) loadingEl.style.display = 'none';
+      }
       if (result) result.style.display = 'block';
-      if (btn) btn.style.display = 'none';
+      if (genBtn) genBtn.style.display = 'none';
+      if (regenBtn) { regenBtn.textContent = 'REGENERATE'; regenBtn.disabled = false; }
     })
     .catch(err => {
-      if (btn) { btn.textContent = 'GENERATE ANSWER + IMAGE'; btn.disabled = false; }
+      if (activeBtn) { activeBtn.textContent = regenerate ? 'REGENERATE' : 'GENERATE ANSWER + IMAGE'; activeBtn.disabled = false; }
+      if (loadingEl) loadingEl.style.display = 'none';
       console.error('Quora generate error:', err);
     });
   },
