@@ -3582,11 +3582,14 @@ const ReviewQueue = {
         <div class="rq-card-content">${escHtml(item.content)}</div>
         <div class="rq-card-actions">
           <button class="rq-btn-post"
-            onclick="ReviewQueue._openX(${JSON.stringify(item.intent_url)}, ${JSON.stringify(item.id)})">
+            data-url="${escHtml(item.intent_url)}"
+            data-id="${escHtml(item.id)}"
+            onclick="ReviewQueue._openX(this.dataset.url, this.dataset.id)">
             &#9654; POST TO X
           </button>
           <button class="rq-btn-done" id="rq-done-${escHtml(item.id)}"
-            onclick="ReviewQueue._markPosted(${JSON.stringify(item.id)})">
+            data-id="${escHtml(item.id)}"
+            onclick="ReviewQueue._markPosted(this.dataset.id)">
             &#10003; MARK AS POSTED
           </button>
         </div>
