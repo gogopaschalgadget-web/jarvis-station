@@ -19,7 +19,7 @@
 //  comment serve as the reference.
 // ============================================================
 
-const CACHE_VERSION = 'jarvis-v2';
+const CACHE_VERSION = 'jarvis-v3';
 const APP_SHELL_CACHE = CACHE_VERSION + '-shell';
 const API_CACHE = CACHE_VERSION + '-api';
 const CONFIG_CACHE = CACHE_VERSION + '-config';
