@@ -1237,6 +1237,38 @@ body::before {
 }
 .gen-btn .gen-icon { font-size: 14px; display: block; margin-bottom: 3px; }
 
+/* Process Queue Button */
+.process-queue-bar {
+  padding: 4px 4px 0;
+}
+.process-queue-btn {
+  width: 100%;
+  min-height: 42px;
+  background: rgba(201,162,39,0.10);
+  border: 1px solid var(--amber-dim);
+  border-radius: 4px;
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.process-queue-btn:hover, .process-queue-btn:active {
+  background: rgba(201,162,39,0.18);
+  border-color: var(--amber);
+}
+.process-queue-btn.loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* Custom Mission Form */
 .custom-mission-form {
   background: var(--panel);
@@ -1431,34 +1463,6 @@ body::before {
 }
 #xp-hud #xp-tokens {
   color: var(--amber);
-}
-
-/* ---- XP REWARD TOAST ---- */
-/* Appears center-top for 2.5s when XP is awarded. No em-dashes in content. */
-.xp-toast {
-  position: fixed;
-  top: 56px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--panel);
-  border: 1px solid var(--green-hi);
-  border-radius: 6px;
-  padding: 8px 22px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--green-hi);
-  letter-spacing: 0.08em;
-  z-index: 9999;
-  pointer-events: none;
-  animation: xpPop 0.25s ease-out, xpFadeOut 0.4s ease-in 2.3s forwards;
-}
-@keyframes xpPop {
-  0%   { opacity: 0; transform: translateX(-50%) scale(0.75); }
-  100% { opacity: 1; transform: translateX(-50%) scale(1); }
-}
-@keyframes xpFadeOut {
-  from { opacity: 1; }
-  to   { opacity: 0; }
 }
 
 /* ---- PROGRESSION MODAL (P2-D) ---- */
@@ -2646,17 +2650,6 @@ const HUDLayer = {
     if (rank) rank.textContent = player.rank || 'Recruit';
     if (bar)  bar.textContent  = (player.xp || 0) + ' / ' + (player.next_level_xp || 500) + ' XP';
     if (tok)  tok.textContent  = (player.tokens || 0) + ' T';
-  },
-
-  showXpToast(amount) {
-    const existing = document.getElementById('xp-toast');
-    if (existing) existing.remove();
-    const toast = document.createElement('div');
-    toast.id = 'xp-toast';
-    toast.className = 'xp-toast';
-    toast.textContent = '+' + amount + ' XP';
-    document.body.appendChild(toast);
-    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 2800);
   }
 };
 
@@ -3081,6 +3074,9 @@ const Missions = {
     }
     sel.appendChild(content);
 
+    // Process queue bar - converts approved x posts into missions
+    sel.appendChild(this._buildProcessQueueBar());
+
     // Generate missions bar (above custom form)
     sel.appendChild(this._buildGenerateBar());
 
@@ -3309,6 +3305,42 @@ const Missions = {
       <span class="cc-time">${escHtml(time)}</span>
       <button class="mc-btn-undo" style="margin-left:8px;padding:4px 8px;" onclick="Missions._undo('${escHtml(m.id)}')">UNDO</button>`;
     return card;
+  },
+
+  _buildProcessQueueBar() {
+    const bar = document.createElement('div');
+    bar.className = 'process-queue-bar';
+    const btn = document.createElement('button');
+    btn.className = 'process-queue-btn';
+    btn.id = 'processQueueBtn';
+    btn.innerHTML = '<span>&#8659;</span> PROCESS QUEUE';
+    btn.onclick = () => this._processQueue(btn);
+    bar.appendChild(btn);
+    return bar;
+  },
+
+  async _processQueue(btn) {
+    btn.classList.add('loading');
+    btn.innerHTML = '<span>&#8635;</span> PROCESSING...';
+    try {
+      const result = await apiPost('/api/mission/create-from-queue', {});
+      if (result.error) {
+        HUDLayer.showTooltip('Error: ' + result.error);
+      } else if (result.message && result.created === 0) {
+        HUDLayer.showTooltip(result.message || 'No approved posts in queue');
+      } else {
+        const msg = result.created + ' mission' + (result.created === 1 ? '' : 's') + ' created from queue';
+        HUDLayer.showTooltip(msg);
+        log('missions', 'Process queue: ' + msg);
+        await this.load();
+        return; // load() re-renders, btn ref is stale
+      }
+    } catch (e) {
+      HUDLayer.showTooltip('Process queue failed: ' + e.message);
+      log('missions', 'Process queue error: ' + e.message);
+    }
+    btn.classList.remove('loading');
+    btn.innerHTML = '<span>&#8659;</span> PROCESS QUEUE';
   },
 
   _buildGenerateBar() {
@@ -3559,7 +3591,7 @@ const Missions = {
   },
 
   _openLink(url) {
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener');
     log('missions', `Opened: ${url.slice(0, 60)}...`);
   }
 };
@@ -3638,7 +3670,7 @@ const ReviewQueue = {
   },
 
   _openX(intentUrl, itemId) {
-    window.open(intentUrl, '_blank');
+    window.open(intentUrl, '_blank', 'noopener');
     log('queue', `Opened X compose for ${itemId}`);
   },
 
@@ -3650,13 +3682,10 @@ const ReviewQueue = {
       if (result.xp_awarded > 0) {
         log('queue', `${id} marked posted - +${result.xp_awarded} XP earned`);
         // Refresh XP display immediately without waiting for next WS tick
-        // NOTE: /api/game/xp/status returns flat fields (xp, rank, tokens, next_level_xp)
-        // NOT nested under .player - pass xpData directly to updatePlayer
         try {
           const xpData = await apiGet('/api/game/xp/status');
-          if (xpData) HUDLayer.updatePlayer(xpData);
-          HUDLayer.showXpToast(result.xp_awarded);
-        } catch (e) { log('queue', 'XP refresh failed: ' + e); }
+          if (xpData && xpData.player) HUDLayer.updatePlayer(xpData.player);
+        } catch (_) {}
       } else {
         log('queue', `${id} marked posted (already done - no XP)`);
       }
