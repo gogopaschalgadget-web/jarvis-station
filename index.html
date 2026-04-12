@@ -3520,7 +3520,7 @@ const Missions = {
   },
 
   _openLink(url) {
-    window.open(url, '_blank', 'noopener');
+    window.open(url, '_blank');
     log('missions', `Opened: ${url.slice(0, 60)}...`);
   }
 };
@@ -3599,7 +3599,7 @@ const ReviewQueue = {
   },
 
   _openX(intentUrl, itemId) {
-    window.open(intentUrl, '_blank', 'noopener');
+    window.open(intentUrl, '_blank');
     log('queue', `Opened X compose for ${itemId}`);
   },
 
