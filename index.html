@@ -36,6 +36,92 @@
   --mono:       'Courier New', Courier, monospace;
   --nav-h:      64px;
   --hud-h:      48px;
+
+  /* --- Color System (naming convention) ---
+   * Base:     --name         (e.g. --amber, --green, --purple)
+   * Light:    --name-hi      (brighter variant)
+   * Dark:     --name-dim     (darker variant)
+   * Lowest:   --name-lo      (darkest/lowest variant)
+   * Tint:     --name-tint-NN (rgba opacity %, e.g. --amber-tint-10 = 10% opacity)
+   * Glow:     --name-glow-NN (box-shadow rgba opacity %)
+   * BG tint:  --bg-name      (dark background with color tint)
+   * Active:   --active-name  (pressed/active state background)
+   * Border:   --name-border  (border-specific color)
+   * Shadow:   --shadow-NN    (black rgba opacity %)
+   */
+
+  /* Dark tinted backgrounds */
+  --bg-deep:       #0a0a0a;
+  --bg-green:      #0d1a10;
+  --bg-red:        #1a0d0d;
+  --bg-blue:       #0a1520;
+  --bg-purple:     #100d1a;
+  --bg-gold:       #1a1500;
+  --bg-dark:       #0d1117;
+
+  /* Active/pressed backgrounds */
+  --active-amber:  #3a2a05;
+  --active-green:  #152a1a;
+  --active-red:    #2a1515;
+  --active-blue:   #0d1f30;
+
+  /* Accent colors */
+  --purple:        #7b68ee;
+  --purple-hi:     #a580f0;
+  --purple-dim:    #6040a0;
+  --blue:          #4a90d9;
+  --blue-border:   #1a3a5c;
+  --orange:        #c97a20;
+  --gold:          #f0c040;
+  --gold-dim:      #7a6010;
+  --red-bright:    #ff6b6b;
+
+  /* Border variants */
+  --green-border:  #1a3d20;
+
+  /* Amber opacity tints */
+  --amber-glow-30: rgba(201,162,39,0.3);
+  --amber-glow-70: rgba(201,162,39,0.7);
+  --amber-tint-18: rgba(201,162,39,0.18);
+  --amber-tint-10: rgba(201,162,39,0.1);
+  --amber-tint-08: rgba(201,162,39,0.08);
+  --amber-tint-06: rgba(201,162,39,0.06);
+  --amber-tint-05: rgba(201,162,39,0.05);
+  --amber-tint-04: rgba(201,162,39,0.04);
+
+  /* Green opacity tints */
+  --green-tint-40: rgba(58,125,68,0.4);
+  --green-tint-30: rgba(58,125,68,0.3);
+  --green-tint-20: rgba(58,125,68,0.2);
+  --green-tint-10: rgba(58,125,68,0.1);
+  --green-tint-05: rgba(58,125,68,0.05);
+  --green-hi-15:   rgba(76,175,96,0.15);
+  --green-hi-04:   rgba(76,175,96,0.04);
+  --green-approve: rgba(0,180,0,0.1);
+
+  /* Red opacity tints */
+  --red-tint-20:   rgba(139,32,32,0.2);
+  --red-tint-15:   rgba(139,32,32,0.15);
+  --red-hi-30:     rgba(192,57,43,0.3);
+
+  /* Other tints */
+  --orange-tint-06: rgba(255,165,0,0.06);
+
+  /* Shadows */
+  --shadow-80:     rgba(0,0,0,0.8);
+  --shadow-60:     rgba(0,0,0,0.6);
+  --shadow-50:     rgba(0,0,0,0.5);
+  --shadow-30:     rgba(0,0,0,0.3);
+  --scanline:      rgba(0,0,0,0.07);
+
+  /* Misc derived */
+  --warm-dark:       #3a3028;
+  --warm-darker:     #2a2018;
+  --panel-dark:      #5a4a25;
+  --green-mid:       #2d6e3a;
+  --red-dark:        #5a1515;
+  --amber-warm:      #3a3020;
+  --amber-warm-dark: #181408;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
