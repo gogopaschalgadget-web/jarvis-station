@@ -280,6 +280,97 @@ body::before {
 .briefing-stat.has-activity .stat-value { color: var(--green-hi); }
 .briefing-stat.has-alert .stat-value { color: var(--red-hi); }
 
+/* ---- ADR-013 PHASE 1: AUTONOMY + PRIORITY UI ---- */
+.mc-badge-suggested-next {
+  background: var(--green-hi);
+  color: #000;
+  font-size: 8px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+.mc-priority-score {
+  font-size: 8px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+.mc-autonomy-tier {
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  margin-left: 4px;
+}
+.mc-autonomy-tier.tier-suggested { border-color: var(--amber-dim); color: var(--amber); }
+.mc-autonomy-tier.tier-approved { border-color: var(--green-hi); color: var(--green-hi); }
+.mc-autonomy-tier.tier-autonomous { border-color: #7b68ee; color: #7b68ee; }
+#promotion-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 12px;
+  right: 12px;
+  z-index: 20;
+  background: var(--panel);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  padding: 12px 16px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+#promotion-toast.active { display: flex; }
+.promo-toast-title {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  text-transform: uppercase;
+}
+.promo-toast-msg {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+}
+.promo-toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.promo-toast-actions button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+}
+.promo-toast-actions .promo-approve { border-color: var(--green-hi); color: var(--green-hi); }
+.promo-toast-actions .promo-approve:hover { background: rgba(0,180,0,0.1); }
+.promo-toast-actions .promo-dismiss:hover { border-color: var(--amber-dim); }
+.briefing-autonomy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.briefing-autonomy-badge {
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.briefing-autonomy-badge.pending { border-color: var(--amber); color: var(--amber); }
+
 /* chain selector (list of available chains) */
 .chain-selector {
   display: flex;
@@ -2207,6 +2298,17 @@ body::before {
           <div class="stat-label">Stuck</div>
         </div>
       </div>
+      <div class="briefing-autonomy" id="briefing-autonomy"></div>
+    </div>
+
+    <!-- Promotion toast (ADR-013 Phase 1, Task 12) -->
+    <div id="promotion-toast">
+      <div class="promo-toast-title">// PROMOTION AVAILABLE</div>
+      <div class="promo-toast-msg" id="promo-toast-msg"></div>
+      <div class="promo-toast-actions">
+        <button class="promo-approve" id="promo-approve-btn">APPROVE</button>
+        <button class="promo-dismiss" onclick="AutonomyPanel.dismissToast()">LATER</button>
+      </div>
     </div>
 
     <!-- Missions overlay (HTML-driven, shown over canvas) -->
@@ -3075,22 +3177,43 @@ const Missions = {
   data: { active: [], completed: [], stuck: [], failed: [], pending_qc: [], expired: [] },
   activeTab: 'active',
   heldCount: 0,
+  _autonomyTiers: {},
+  _suggestedNextType: null,
 
   async load() {
     const sel = document.getElementById('chain-selector');
     sel.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:20px;text-align:center;letter-spacing:1px;">LOADING MISSIONS...</div>';
     try {
-      // Load config and missions in parallel
+      // Load config, missions, autonomy, and priority in parallel
       // FUTURE: Local-first missions from bundled chain configs (Option 2).
       //   Load mission data from local JSON, only sync state changes to Railway.
       //   Eliminates deploy-gap 404s and enables full offline mission browsing.
       //   Trigger: Phase 1B build (chain config integration).
-      const [data, typesData] = await Promise.all([
+      const [data, typesData, autoStatus, prioQueue] = await Promise.all([
         apiGet('/api/mission/list'),
-        apiGet('/api/mission/types/config').catch(() => ({}))
+        apiGet('/api/mission/types/config').catch(() => ({})),
+        apiFetch('/api/autonomy/status').catch(() => ({ mission_types: {}, pending_suggestions: [] })),
+        apiFetch('/api/priority/queue').catch(() => ({ queue: [] })),
       ]);
       Object.assign(MissionTypesConfig, typesData);
       this.data = data;
+      // ADR-013 Phase 1: cache autonomy tiers
+      this._autonomyTiers = autoStatus.mission_types || {};
+      // ADR-013 Phase 1: determine suggested-next from priority queue
+      const queue = prioQueue.queue || [];
+      this._suggestedNextType = queue.length > 0 ? queue[0].mission_type : null;
+      // Mark the first active mission of the top-priority type as suggested-next
+      const active = this.data.active || [];
+      active.forEach(m => { m._isSuggestedNext = false; });
+      if (this._suggestedNextType) {
+        const topMission = active.find(m => m.mission_type === this._suggestedNextType);
+        if (topMission) topMission._isSuggestedNext = true;
+      }
+      // ADR-013 Phase 1: check for pending promotion suggestions
+      const pending = autoStatus.pending_suggestions || [];
+      if (pending.length > 0) {
+        AutonomyPanel.showToast(pending[0]);
+      }
       // Check held count
       try {
         const held = await apiGet('/api/mission/held');
@@ -3253,6 +3376,14 @@ const Missions = {
       failed: '<span class="mc-type-badge mc-badge-failed">FAILED</span>'
     };
     const badge = badgeMap[m.status] || badgeMap.active;
+    // ADR-013 Phase 1: suggested-next badge (set by Missions.load from priority queue)
+    const suggestedBadge = m._isSuggestedNext ? '<span class="mc-badge-suggested-next">SUGGESTED NEXT</span>' : '';
+    // ADR-013 Phase 1: priority score display
+    const prioHtml = m.priority_score ? `<div class="mc-priority-score">PRIORITY: ${m.priority_score}</div>` : '';
+    // ADR-013 Phase 1: autonomy tier badge (from _autonomyTiers cache)
+    const tierData = Missions._autonomyTiers[m.mission_type] || {};
+    const tierName = tierData.tier || 'manual';
+    const tierBadge = tierName !== 'manual' ? `<span class="mc-autonomy-tier tier-${tierName}">${tierName.toUpperCase()}</span>` : '';
     const content = m.content || {};
     const fields = content.fields || {};
     const fieldOrder = content.field_order || Object.keys(fields);
@@ -3368,9 +3499,10 @@ const Missions = {
     card.innerHTML = `
       <div class="mc-header">
         <span style="font-size:9px;letter-spacing:1px;color:var(--text-dim);">${escHtml(m.category || m.mission_type)}</span>
-        ${badge}
+        ${badge}${suggestedBadge}${tierBadge}
       </div>
       <div class="mc-title">${escHtml(displayTitle)}</div>
+      ${prioHtml}
       <div class="mc-timer">${escHtml(m.time_ago || '')}</div>
       ${navHtml}
       ${titleHtml}
@@ -3713,6 +3845,17 @@ const Briefing = {
 
       card.classList.add('active');
       log('briefing', `Last 24h: ${data.missions_completed} done, ${data.xp_earned} XP, ${data.missions_active} active, ${data.missions_stuck} stuck`);
+
+      // ADR-013 Phase 1: fetch autonomy status for briefing card
+      try {
+        const autoStatus = await apiFetch('/api/autonomy/status');
+        AutonomyPanel.renderBriefingSection(autoStatus);
+        // Check for pending suggestions on briefing load
+        const pending = autoStatus.pending_suggestions || [];
+        if (pending.length > 0) {
+          AutonomyPanel.showToast(pending[0]);
+        }
+      } catch (_) { /* non-fatal */ }
     } catch (e) {
       log('briefing', 'Failed to load: ' + e.message);
     }
@@ -3947,6 +4090,70 @@ const SceneManager = {
     });
   }
 };
+
+// ============================================================
+//  AUTONOMY PANEL (ADR-013 Phase 1, Task 12)
+//  Handles promotion toasts and autonomy status display.
+// ============================================================
+const AutonomyPanel = {
+  _pendingSuggestion: null,
+
+  showToast(suggestion) {
+    this._pendingSuggestion = suggestion;
+    const toast = document.getElementById('promotion-toast');
+    const msg = document.getElementById('promo-toast-msg');
+    const mt = suggestion.mission_type || 'unknown';
+    msg.textContent = `${mt.replace(/_/g, ' ')} has met promotion criteria. Promote to SUGGESTED tier?`;
+    const btn = document.getElementById('promo-approve-btn');
+    btn.onclick = () => this.approvePromotion(mt);
+    toast.classList.add('active');
+    log('autonomy', `Promotion available for ${mt}`);
+  },
+
+  dismissToast() {
+    document.getElementById('promotion-toast').classList.remove('active');
+    this._pendingSuggestion = null;
+  },
+
+  async approvePromotion(missionType) {
+    try {
+      const result = await apiFetch('/api/autonomy/promote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mission_type: missionType, target_tier: 'suggested' })
+      });
+      if (result.success) {
+        log('autonomy', `Promoted ${missionType} to suggested`);
+        this.dismissToast();
+        // Refresh missions to show updated tier
+        Missions.load();
+      } else {
+        log('autonomy', `Promotion failed: ${result.message || result.error}`);
+      }
+    } catch (e) {
+      log('autonomy', `Promotion error: ${e.message}`);
+    }
+  },
+
+  renderBriefingSection(autoStatus) {
+    const container = document.getElementById('briefing-autonomy');
+    if (!container) return;
+    const types = autoStatus.mission_types || {};
+    const pending = autoStatus.pending_suggestions || [];
+    const pendingTypes = pending.map(p => p.mission_type);
+    let html = '';
+    for (const [mt, info] of Object.entries(types)) {
+      const label = mt.replace(/_/g, ' ');
+      const isPending = pendingTypes.includes(mt);
+      const cls = isPending ? 'pending' : '';
+      const tierLabel = info.tier.toUpperCase();
+      const extra = isPending ? ' (PROMOTE?)' : '';
+      html += `<span class="briefing-autonomy-badge ${cls}">${label}: ${tierLabel}${extra}</span>`;
+    }
+    container.innerHTML = html;
+  }
+};
+
 
 // ============================================================
 //  BOOT
