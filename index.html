@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="Jarvis Station: autonomous revenue engine command center with missions, game HUD, and AI chat.">
-<meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#c9a227">
 <!-- PWA manifest -->
 <link rel="manifest" href="manifest.json">
@@ -216,6 +215,70 @@ body::before {
   padding: 12px 12px 8px;
   -webkit-overflow-scrolling: touch;
 }
+
+/* ---- MORNING BRIEFING CARD (ADR-013 Phase 0, Task 8) ---- */
+#briefing-card {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 8;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+#briefing-card.active { display: flex; }
+.briefing-title {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.briefing-dismiss {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.briefing-dismiss:hover { border-color: var(--amber-dim); color: var(--amber); }
+.briefing-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+}
+.briefing-stat {
+  text-align: center;
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.briefing-stat .stat-value {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--amber);
+  line-height: 1.2;
+}
+.briefing-stat .stat-label {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.briefing-stat.has-activity .stat-value { color: var(--green-hi); }
+.briefing-stat.has-alert .stat-value { color: var(--red-hi); }
 
 /* chain selector (list of available chains) */
 .chain-selector {
@@ -2120,6 +2183,32 @@ body::before {
     <!-- Phaser canvas target -->
     <div id="phaser-mount"></div>
 
+    <!-- Morning briefing card (ADR-013 Phase 0, Task 8) -->
+    <div id="briefing-card">
+      <div class="briefing-title">
+        <span>// MORNING BRIEFING</span>
+        <button class="briefing-dismiss" onclick="Briefing.dismiss()">DISMISS</button>
+      </div>
+      <div class="briefing-stats" id="briefing-stats">
+        <div class="briefing-stat" id="bs-completed">
+          <div class="stat-value">-</div>
+          <div class="stat-label">Completed</div>
+        </div>
+        <div class="briefing-stat" id="bs-xp">
+          <div class="stat-value">-</div>
+          <div class="stat-label">XP Earned</div>
+        </div>
+        <div class="briefing-stat" id="bs-active">
+          <div class="stat-value">-</div>
+          <div class="stat-label">Active</div>
+        </div>
+        <div class="briefing-stat" id="bs-stuck">
+          <div class="stat-value">-</div>
+          <div class="stat-label">Stuck</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Missions overlay (HTML-driven, shown over canvas) -->
     <div id="missions-overlay">
       <div class="missions-header">// MISSIONS &nbsp;&nbsp; ACTIVE CHAINS</div>
@@ -3598,6 +3687,45 @@ const Missions = {
 };
 
 // ============================================================
+//  MORNING BRIEFING (ADR-013 Phase 0, Task 8)
+//  Fetches /api/briefing for last 24h activity summary.
+//  Shown on station view load, dismissible.
+// ============================================================
+const Briefing = {
+  _dismissed: false,
+
+  async load() {
+    if (this._dismissed) return;
+    try {
+      const data = await apiFetch('/api/briefing');
+      const card = document.getElementById('briefing-card');
+
+      // Update stat values
+      const setVal = (id, val, cls) => {
+        const el = document.getElementById(id);
+        el.querySelector('.stat-value').textContent = val;
+        el.className = 'briefing-stat' + (cls ? ' ' + cls : '');
+      };
+      setVal('bs-completed', data.missions_completed, data.missions_completed > 0 ? 'has-activity' : '');
+      setVal('bs-xp', data.xp_earned, data.xp_earned > 0 ? 'has-activity' : '');
+      setVal('bs-active', data.missions_active, '');
+      setVal('bs-stuck', data.missions_stuck, data.missions_stuck > 0 ? 'has-alert' : '');
+
+      card.classList.add('active');
+      log('briefing', `Last 24h: ${data.missions_completed} done, ${data.xp_earned} XP, ${data.missions_active} active, ${data.missions_stuck} stuck`);
+    } catch (e) {
+      log('briefing', 'Failed to load: ' + e.message);
+    }
+  },
+
+  dismiss() {
+    this._dismissed = true;
+    document.getElementById('briefing-card').classList.remove('active');
+  }
+};
+
+
+// ============================================================
 //  REVIEW QUEUE
 //  Fetches pending_jarvis_review items from /api/review-queue
 //  (GitHub is source of truth - Railway local filesystem is stale).
@@ -3774,9 +3902,11 @@ const SceneManager = {
     logPanel.classList.remove('active');
     document.getElementById('seo-panel').classList.remove('active');
     document.getElementById('review-queue-panel').classList.remove('active');
+    document.getElementById('briefing-card').classList.remove('active');
 
     if (scene === 'station') {
       pMount.style.display = '';
+      Briefing.load();
       log('sys', 'Station view activated');
 
     } else if (scene === 'missions') {
