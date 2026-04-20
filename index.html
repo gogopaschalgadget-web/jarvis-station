@@ -1072,6 +1072,208 @@ body::before {
   cursor: pointer;
 }
 
+/* Notification bell */
+.notif-bell-wrap {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+.notif-bell-icon {
+  font-size: 18px;
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+.notif-bell-wrap:hover .notif-bell-icon { color: var(--amber); }
+.notif-bell-badge {
+  display: none;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--red-hi);
+  color: var(--white);
+  font-size: 8px;
+  font-weight: bold;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+.notif-bell-badge.active { display: flex; }
+
+/* Notification feed panel */
+.notif-feed-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 400;
+}
+.notif-feed-overlay.active { display: block; }
+.notif-feed-panel {
+  position: fixed;
+  top: var(--hud-h);
+  right: 0;
+  width: 340px;
+  max-height: calc(100vh - var(--hud-h) - 20px);
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 401;
+  overflow: hidden;
+}
+.notif-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--amber);
+}
+.notif-feed-actions { display: flex; gap: 8px; }
+.notif-feed-btn {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.notif-feed-btn:hover { color: var(--amber); border-color: var(--amber); }
+.notif-feed-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px 0;
+}
+.notif-item {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.notif-item.unread { opacity: 1; }
+.notif-item-msg { line-height: 1.4; margin-bottom: 3px; }
+.notif-item-ts { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+.notif-empty {
+  padding: 20px 14px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+/* Held review modal */
+.held-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--shadow-80);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+}
+.held-modal-overlay.active { display: flex; }
+.held-modal {
+  background: var(--panel);
+  border: 1px solid var(--amber);
+  border-radius: 6px;
+  padding: 0;
+  width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.held-modal-title {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.held-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--mono);
+  padding: 0;
+}
+.held-modal-close:hover { color: var(--red-hi); }
+.held-modal-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+.held-card {
+  margin: 6px 12px;
+  padding: 10px 12px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.held-card-title {
+  font-size: 11px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.held-card-meta {
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.held-card-actions { display: flex; gap: 8px; }
+.held-approve-btn {
+  font-size: 9px;
+  letter-spacing: 1px;
+  background: var(--green-tint-10);
+  color: var(--active-green);
+  border: 1px solid var(--active-green);
+  border-radius: 2px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.held-approve-btn:hover { background: var(--green-tint-20); }
+.held-reject-btn {
+  font-size: 9px;
+  letter-spacing: 1px;
+  background: var(--red-tint-15);
+  color: var(--red-hi);
+  border: 1px solid var(--red-hi);
+  border-radius: 2px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.held-reject-btn:hover { background: var(--red-tint-20); }
+.held-modal-empty {
+  padding: 20px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-align: center;
+}
+
 /* Category headers */
 .mission-category-header {
   font-size: 10px;
@@ -2351,6 +2553,35 @@ body::before {
     <div class="ws-group">
       <div class="ws-dot" id="wsDot"></div>
       <span id="wsLabel">OFFLINE</span>
+    </div>
+
+    <div class="notif-bell-wrap" id="notifBell" onclick="NotificationFeed.toggle()" title="Notifications">
+      <span class="notif-bell-icon">&#128276;</span>
+      <span class="notif-bell-badge" id="notifBadge"></span>
+    </div>
+  </div>
+
+  <!-- Notification feed panel -->
+  <div class="notif-feed-overlay" id="notifFeedOverlay" onclick="NotificationFeed.close()"></div>
+  <div class="notif-feed-panel" id="notifFeedPanel" style="display:none">
+    <div class="notif-feed-header">
+      <span>// NOTIFICATIONS</span>
+      <div class="notif-feed-actions">
+        <button class="notif-feed-btn" onclick="NotificationFeed.markAllRead()">MARK ALL READ</button>
+        <button class="notif-feed-btn" onclick="NotificationFeed.close()">CLOSE</button>
+      </div>
+    </div>
+    <div class="notif-feed-list" id="notifFeedList"></div>
+  </div>
+
+  <!-- Held review modal -->
+  <div class="held-modal-overlay" id="heldModalOverlay">
+    <div class="held-modal">
+      <div class="held-modal-title">
+        <span>// HELD MISSIONS</span>
+        <button class="held-modal-close" onclick="Missions._closeHeldModal()">X</button>
+      </div>
+      <div class="held-modal-list" id="heldModalList"></div>
     </div>
   </div>
 
@@ -3860,16 +4091,60 @@ const Missions = {
     try {
       const result = await apiGet('/api/mission/held');
       const held = result.held || [];
-      if (!held.length) { HUDLayer.showTooltip('No held missions'); return; }
-      // Simple alert-style display for held missions
-      const names = held.map(h => `${h.title} (score: ${h.quality_score})`).join('\n');
-      if (confirm(`HELD MISSIONS (${held.length}):\n\n${names}\n\nApprove all?`)) {
-        for (const h of held) {
-          const pin = await PinModal.show();
-          if (!pin) break;
-          await apiPost('/api/mission/approve', { mission_id: h.id, pin });
-        }
+      const list = document.getElementById('heldModalList');
+      if (!held.length) {
+        list.innerHTML = '<div class="held-modal-empty">NO HELD MISSIONS</div>';
+      } else {
+        list.innerHTML = held.map(h => `
+          <div class="held-card" id="held-card-${h.id}">
+            <div class="held-card-title">${h.title || h.id}</div>
+            <div class="held-card-meta">SCORE: ${h.quality_score || 'N/A'} &nbsp;|&nbsp; TYPE: ${h.mission_type || 'N/A'}</div>
+            <div class="held-card-actions">
+              <button class="held-approve-btn" onclick="Missions._approveHeld('${h.id}')">APPROVE</button>
+              <button class="held-reject-btn" onclick="Missions._rejectHeld('${h.id}')">REJECT</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('heldModalOverlay').classList.add('active');
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  _closeHeldModal() {
+    document.getElementById('heldModalOverlay').classList.remove('active');
+  },
+
+  async _approveHeld(missionId) {
+    try {
+      const pin = await PinModal.show();
+      if (!pin) return;
+      const result = await apiPost('/api/mission/approve', { mission_id: missionId, pin });
+      if (result.success) {
+        const card = document.getElementById(`held-card-${missionId}`);
+        if (card) card.remove();
+        HUDLayer.showTooltip('Mission approved');
         this.load();
+      } else {
+        HUDLayer.showTooltip(`Error: ${result.error || 'approve failed'}`);
+      }
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
+  },
+
+  async _rejectHeld(missionId) {
+    try {
+      const reason = prompt('Reject reason (optional):') || 'Rejected by operator';
+      const result = await apiPost('/api/mission/reject', { mission_id: missionId, reason });
+      if (result.success) {
+        const card = document.getElementById(`held-card-${missionId}`);
+        if (card) card.remove();
+        HUDLayer.showTooltip('Mission rejected');
+        this.load();
+      } else {
+        HUDLayer.showTooltip(`Error: ${result.error || 'reject failed'}`);
       }
     } catch (e) {
       HUDLayer.showTooltip(`Error: ${e.message}`);
@@ -3903,6 +4178,88 @@ const Missions = {
   _openLink(url) {
     window.open(url, '_blank', 'noopener');
     log('missions', `Opened: ${url.slice(0, 60)}...`);
+  }
+};
+
+// ============================================================
+//  NOTIFICATION FEED (ADR-014 Task 17b)
+//  Bell icon in hud-top shows unread count.
+//  Click to open slide-in panel with notification history.
+//  Polls /api/notifications/count every 30s.
+//  FUTURE: pagination (load-more button). Trigger: 200+ notifications.
+// ============================================================
+const NotificationFeed = {
+  _open: false,
+  _pollInterval: null,
+
+  init() {
+    this._pollCount();
+    this._pollInterval = setInterval(() => this._pollCount(), 30000);
+  },
+
+  async _pollCount() {
+    try {
+      const data = await apiFetch('/api/notifications/count');
+      const count = data.unread || 0;
+      const badge = document.getElementById('notifBadge');
+      if (badge) {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.classList.toggle('active', count > 0);
+      }
+    } catch (_) {}
+  },
+
+  async toggle() {
+    if (this._open) { this.close(); return; }
+    this._open = true;
+    const panel = document.getElementById('notifFeedPanel');
+    const overlay = document.getElementById('notifFeedOverlay');
+    panel.style.display = 'flex';
+    panel.style.flexDirection = 'column';
+    overlay.classList.add('active');
+    await this._loadFeed();
+  },
+
+  close() {
+    this._open = false;
+    const panel = document.getElementById('notifFeedPanel');
+    const overlay = document.getElementById('notifFeedOverlay');
+    panel.style.display = 'none';
+    overlay.classList.remove('active');
+  },
+
+  async _loadFeed() {
+    const list = document.getElementById('notifFeedList');
+    list.innerHTML = '<div class="notif-empty">LOADING...</div>';
+    try {
+      const data = await apiFetch('/api/notifications');
+      const notifs = data.notifications || [];
+      if (!notifs.length) {
+        list.innerHTML = '<div class="notif-empty">NO NOTIFICATIONS</div>';
+        return;
+      }
+      list.innerHTML = notifs.map(n => {
+        const ts = n.timestamp ? new Date(n.timestamp).toLocaleString() : '';
+        const unreadClass = n.read ? '' : ' unread';
+        return `<div class="notif-item${unreadClass}">
+          <div class="notif-item-msg">${n.message || n.type || 'Notification'}</div>
+          <div class="notif-item-ts">${ts}</div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = `<div class="notif-empty">ERROR: ${e.message}</div>`;
+    }
+  },
+
+  async markAllRead() {
+    try {
+      await apiFetch('/api/notifications/read', { method: 'POST' });
+      const badge = document.getElementById('notifBadge');
+      if (badge) { badge.textContent = '0'; badge.classList.remove('active'); }
+      await this._loadFeed();
+    } catch (e) {
+      HUDLayer.showTooltip(`Error: ${e.message}`);
+    }
   }
 };
 
@@ -4072,6 +4429,9 @@ const SceneManager = {
     // ADR-010: Init mission modals
     PinModal.init();
     StuckModal.init();
+
+    // ADR-014 Task 17b: notification feed
+    NotificationFeed.init();
 
     // Boot Phaser
     try {
