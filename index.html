@@ -3577,7 +3577,7 @@ const StuckModal = {
         {id: 'other', label: 'Other'}
       ];
       catEl.innerHTML = cats.map(c =>
-        `<div class="stuck-category" data-id="${escHtml(c.id)}" onclick="StuckModal._selectCat(this)">
+        `<div class="stuck-category" data-id="${escHtml(c.id)}" data-cattype="${escHtml(c.type || 'radio')}" data-feedbackloop="${c.feedback_loop ? '1' : '0'}" onclick="StuckModal._selectCat(this)">
           <div class="stuck-radio"></div>
           <span>${escHtml(c.label)}</span>
         </div>`
@@ -3588,19 +3588,31 @@ const StuckModal = {
   _selectCat(el) {
     document.querySelectorAll('#stuck-categories .stuck-category').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
+    // Text-input categories (e.g. reddit_karma "Leave feedback") prompt the textarea
+    const detailsEl = document.getElementById('stuck-details');
+    if (el.dataset.cattype === 'text_input') {
+      detailsEl.placeholder = 'Required: what happened? Why did this not work?';
+      detailsEl.style.borderColor = 'var(--amber, #f5a623)';
+      detailsEl.focus();
+    } else {
+      detailsEl.placeholder = 'Details (optional)...';
+      detailsEl.style.borderColor = '';
+    }
   },
 
   _getSelection() {
     const sel = document.querySelector('#stuck-categories .stuck-category.selected');
-    return sel ? sel.dataset.id : 'other';
+    if (!sel) return { id: 'other', feedbackLoop: false };
+    return { id: sel.dataset.id, feedbackLoop: sel.dataset.feedbackloop === '1' };
   },
 
   init() {
     document.getElementById('stuck-submit').onclick = () => {
-      const category = this._getSelection();
+      const sel = this._getSelection();
+      const category = sel.id;
       const text = document.getElementById('stuck-details').value.trim();
       document.getElementById('stuck-modal').classList.remove('active');
-      if (this._resolve) this._resolve({ category, text: text || 'No details provided', type: category });
+      if (this._resolve) this._resolve({ category, text: text || 'No details provided', type: category, feedbackLoop: sel.feedbackLoop });
     };
     document.getElementById('stuck-cancel').onclick = () => {
       document.getElementById('stuck-modal').classList.remove('active');
@@ -4068,6 +4080,17 @@ const Missions = {
       if (result.success) {
         HUDLayer.showTooltip(`+${result.xp_awarded} XP, +${result.tokens_awarded} Token`);
         log('missions', `Mission done: ${missionId}`);
+        // Karma feedback signal: record DONE for reddit_karma missions (non-blocking)
+        const missionData = [...(this.data.active||[]), ...(this.data.stuck||[])].find(m => m.id === missionId);
+        if (missionData && missionData.mission_type === 'reddit_karma') {
+          const c = missionData.content || {};
+          apiPost('/api/karma/feedback', {
+            mission_id: missionId,
+            subreddit: c.subreddit || '',
+            comment_bank_id: c.comment_bank_id || '',
+            outcome: 'done',
+          }).catch(() => {});
+        }
         this.load(); // Refresh
       } else {
         HUDLayer.showTooltip(result.error || 'Failed');
@@ -4132,6 +4155,18 @@ const Missions = {
     const feedback = await StuckModal.show(missionType);
     if (!feedback) return;
     try {
+      // Karma feedback loop: if "Leave feedback" category selected on reddit_karma, route to karma/feedback (non-blocking)
+      if (missionType === 'reddit_karma' && feedback.feedbackLoop) {
+        const missionData = [...(this.data.active||[]), ...(this.data.stuck||[])].find(m => m.id === missionId);
+        const c = (missionData && missionData.content) || {};
+        apiPost('/api/karma/feedback', {
+          mission_id: missionId,
+          subreddit: c.subreddit || '',
+          comment_bank_id: c.comment_bank_id || '',
+          outcome: 'stuck',
+          stuck_reason: feedback.text || '',
+        }).catch(() => {});
+      }
       const result = await apiPost('/api/mission/stuck', { mission_id: missionId, feedback });
       HUDLayer.showTooltip(`Stuck recorded (${result.stuck_count}/3)`);
       log('missions', `Mission stuck: ${missionId} (${result.mission_status})`);
