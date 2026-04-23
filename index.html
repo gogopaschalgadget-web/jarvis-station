@@ -2169,6 +2169,185 @@ body::before {
 
 #review-queue-panel.active { display: flex; }
 
+/* ---- AUX PANEL (plan aux-karma-card-chapter-rebuild-v1 v3.2 Push 1) ---- */
+/* FUTURE: sunset CSS in Push 3 once Chapter taxonomy folds karma in. */
+#aux-panel {
+  position: absolute;
+  inset: var(--nav-h) 0 var(--hud-h) 0;
+  background: var(--bg);
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+#aux-panel.active { display: flex; }
+.aux-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  text-transform: uppercase;
+  background: var(--shadow-30);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.aux-count-badge {
+  background: var(--amber);
+  color: #000;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-weight: bold;
+  font-size: 11px;
+}
+.aux-subtabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.aux-subtab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 8px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.aux-subtab:last-child { border-right: none; }
+.aux-subtab.active {
+  color: var(--amber);
+  background: var(--shadow-30);
+  border-bottom: 2px solid var(--amber);
+}
+#aux-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+.aux-loading {
+  text-align: center;
+  padding: 24px;
+  color: var(--text);
+  opacity: 0.6;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+}
+.aux-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text);
+  opacity: 0.6;
+  font-size: 12px;
+}
+.karma-card {
+  background: var(--shadow-30);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.karma-card.flash-highlight {
+  animation: kc-flash 2s ease-out;
+}
+@keyframes kc-flash {
+  0%   { box-shadow: 0 0 0 2px var(--amber); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.karma-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--amber);
+  text-transform: uppercase;
+}
+.karma-card-title {
+  font-weight: bold;
+  margin: 4px 0 6px;
+  color: var(--text);
+  line-height: 1.35;
+}
+.karma-card-body {
+  color: var(--text);
+  opacity: 0.85;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  max-height: 5.6em;
+  overflow: hidden;
+}
+.karma-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.karma-card-actions button {
+  flex: 1;
+  min-width: 90px;
+  background: var(--shadow-30);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.karma-card-actions button:hover { color: var(--amber); border-color: var(--amber); }
+.karma-card-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.karma-pick {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text);
+}
+.karma-pick-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+.karma-pick-row .pick-label {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--amber);
+  opacity: 0.8;
+}
+.karma-pick-copy {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+}
+.karma-pick-copy:hover { color: var(--amber); border-color: var(--amber); }
+.karma-regen-status {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text);
+  opacity: 0.7;
+  margin-top: 4px;
+  text-align: right;
+}
+
 .rq-header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
@@ -2979,6 +3158,21 @@ body::before {
       </div>
     </div>
 
+    <!-- AUX panel: Karma sub-tab (Push 1, plan aux-karma-card-chapter-rebuild-v1 v3.2). -->
+    <!-- FUTURE: sunset in Push 3 once Chapter taxonomy is live on Missions tab. -->
+    <div id="aux-panel">
+      <div class="aux-header">
+        <span>// AUX &nbsp;&nbsp; KARMA MISSIONS</span>
+        <span class="aux-count-badge" id="aux-count-badge">0</span>
+      </div>
+      <div class="aux-subtabs">
+        <button class="aux-subtab active" id="auxSubKarma" onclick="Aux._switchSub('karma')">KARMA</button>
+      </div>
+      <div id="aux-content">
+        <div class="aux-loading">LOADING...</div>
+      </div>
+    </div>
+
   </div><!-- /main-area -->
 
   <!-- ===================== HUD BOTTOM NAV ===================== -->
@@ -3002,6 +3196,12 @@ body::before {
     <button class="nav-btn" id="navQueue" aria-label="Review Queue" onclick="SceneManager.switch('queue')">
       <span class="nav-icon" aria-hidden="true">&#9650;</span>
       <span>QUEUE</span>
+    </button>
+    <!-- Plan aux-karma-card-chapter-rebuild-v1 v3.2 Push 1: AUX bridge tab. -->
+    <!-- FUTURE: sunset in Push 3 once Chapter taxonomy folds karma into Reddit Chapter. -->
+    <button class="nav-btn" id="navAux" aria-label="Auxiliary missions" onclick="SceneManager.switch('aux')">
+      <span class="nav-icon" aria-hidden="true">&#9670;</span>
+      <span>AUX</span>
     </button>
   </div>
 
@@ -4630,10 +4830,10 @@ const SceneManager = {
   switch(scene) {
     this.current = scene;
 
-    // Update nav
-    ['station','missions','log','seo','queue'].forEach(s => {
-      document.getElementById('nav' + s.charAt(0).toUpperCase() + s.slice(1))
-        .classList.toggle('active', s === scene);
+    // Update nav (plan v3.2 Push 1: 'aux' added; FUTURE Push 3 may remove)
+    ['station','missions','log','seo','queue','aux'].forEach(s => {
+      const el = document.getElementById('nav' + s.charAt(0).toUpperCase() + s.slice(1));
+      if (el) el.classList.toggle('active', s === scene);
     });
 
     // Show/hide panels
@@ -4646,6 +4846,8 @@ const SceneManager = {
     document.getElementById('seo-panel').classList.remove('active');
     document.getElementById('review-queue-panel').classList.remove('active');
     document.getElementById('briefing-card').classList.remove('active');
+    const auxPanel = document.getElementById('aux-panel');
+    if (auxPanel) auxPanel.classList.remove('active');
 
     if (scene === 'station') {
       pMount.style.display = '';
@@ -4673,6 +4875,14 @@ const SceneManager = {
       document.getElementById('review-queue-panel').classList.add('active');
       ReviewQueue.load();
       log('sys', 'Review queue activated');
+
+    } else if (scene === 'aux') {
+      // Plan aux-karma-card-chapter-rebuild-v1 v3.2 Push 1: AUX bridge tab.
+      pMount.style.display = 'none';
+      const ap = document.getElementById('aux-panel');
+      if (ap) ap.classList.add('active');
+      Aux.load();
+      log('sys', 'AUX view activated');
     }
   },
 
@@ -4690,6 +4900,208 @@ const SceneManager = {
     });
   }
 };
+
+// ============================================================
+//  AUX MODULE (plan aux-karma-card-chapter-rebuild-v1 v3.2 Push 1)
+//  Renders karma missions as cards with multi-pick comment bank,
+//  copy/regenerate/done/stuck actions, and deep-link target highlight.
+//  FUTURE: sunset in Push 3 once Chapter taxonomy folds karma into
+//  Reddit Chapter on the Missions tab.
+// ============================================================
+const Aux = {
+  activeSub: 'karma',
+  _missions: [],
+  _pendingHighlightId: null,
+
+  async load() {
+    const content = document.getElementById('aux-content');
+    if (!content) return;
+    content.innerHTML = '<div class="aux-loading">LOADING KARMA MISSIONS...</div>';
+    try {
+      // Karma missions live in the standard mission table; reuse mission/list with type filter.
+      const data = await apiGet('/api/mission/list?mission_type=reddit_karma');
+      this._missions = (data && data.missions) ? data.missions.filter(m => (m.status || 'active') === 'active') : [];
+    } catch (e) {
+      content.innerHTML = `<div class="aux-empty">Failed to load: ${escHtml(e.message)}</div>`;
+      log('aux', `load failed: ${e.message}`);
+      return;
+    }
+    this._render();
+    if (this._pendingHighlightId) {
+      const tid = this._pendingHighlightId;
+      this._pendingHighlightId = null;
+      setTimeout(() => Aux._scrollToCard(tid), 50);
+    }
+  },
+
+  _switchSub(sub) {
+    this.activeSub = sub;
+    document.querySelectorAll('.aux-subtab').forEach(b => b.classList.remove('active'));
+    const t = document.getElementById('auxSub' + sub.charAt(0).toUpperCase() + sub.slice(1));
+    if (t) t.classList.add('active');
+    this._render();
+  },
+
+  _render() {
+    const content = document.getElementById('aux-content');
+    const badge = document.getElementById('aux-count-badge');
+    if (!content) return;
+    const list = this._missions || [];
+    if (badge) badge.textContent = list.length;
+    if (!list.length) {
+      content.innerHTML = '<div class="aux-empty">No active karma missions. Daemon will populate when an opportunity scores.</div>';
+      return;
+    }
+    content.innerHTML = list.map(m => Aux._cardHtml(m)).join('');
+  },
+
+  _cardHtml(m) {
+    let c = {};
+    let meta = {};
+    try { c = JSON.parse(m.content_json || '{}'); } catch (_) {}
+    try { meta = JSON.parse(m.metadata_json || '{}'); } catch (_) {}
+    const subreddit = c.subreddit || '';
+    const score = (c.opportunity_score != null) ? Math.round(c.opportunity_score) : '';
+    const postTitle = c.post_title || c.title || m.title || '(untitled)';
+    const postBody = c.post_body_snippet || '';
+    const navUrl = c.nav_url || '';
+    const picks = Array.isArray(c.comment_bank_picks) ? c.comment_bank_picks : (c.body ? [c.body] : []);
+    const regenCount = parseInt(meta.regen_count || 0, 10);
+    const regenCap = 5;
+    const regenDisabled = regenCount >= regenCap;
+    const safeId = escHtml(m.id);
+
+    const picksHtml = picks.map((p, idx) => `
+      <div class="karma-pick">
+        <div id="kp-${safeId}-${idx}-text">${escHtml(p)}</div>
+        <div class="karma-pick-row">
+          <span class="pick-label">PICK ${idx + 1}</span>
+          <button class="karma-pick-copy" onclick="Aux._copyPick('${safeId}', ${idx})">COPY</button>
+        </div>
+      </div>`).join('');
+
+    return `
+      <div class="karma-card" id="karma-card-${safeId}">
+        <div class="karma-card-header">
+          <span>r/${escHtml(subreddit)} &nbsp; SCORE ${escHtml(String(score))}</span>
+          <span>${regenCount}/${regenCap} regen</span>
+        </div>
+        <div class="karma-card-title">${escHtml(postTitle)}</div>
+        ${postBody ? `<div class="karma-card-body">${escHtml(postBody)}</div>` : ''}
+        ${picksHtml}
+        <div class="karma-regen-status" id="regen-status-${safeId}"></div>
+        <div class="karma-card-actions">
+          <button onclick="Aux._openPost('${escHtml(navUrl)}')">OPEN POST</button>
+          <button id="regen-btn-${safeId}" onclick="Aux._regenerate('${safeId}')" ${regenDisabled ? 'disabled' : ''}>REGENERATE</button>
+          <button onclick="Aux._done('${safeId}')">COMPLETE</button>
+          <button onclick="Aux._stuck('${safeId}')">STUCK</button>
+        </div>
+      </div>`;
+  },
+
+  _openPost(url) {
+    if (url) window.open(url, '_blank', 'noopener');
+  },
+
+  _copyPick(missionId, idx) {
+    const el = document.getElementById(`kp-${missionId}-${idx}-text`);
+    if (!el) return;
+    const text = el.textContent || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => log('aux', `Copied pick ${idx + 1} for ${missionId}`),
+        () => log('aux', `Copy failed for ${missionId}`)
+      );
+    } else {
+      log('aux', 'Clipboard API unavailable in this context');
+    }
+  },
+
+  async _regenerate(missionId) {
+    const btn = document.getElementById(`regen-btn-${missionId}`);
+    const status = document.getElementById(`regen-status-${missionId}`);
+    if (btn) { btn.disabled = true; btn.textContent = 'REGENERATING...'; }
+    if (status) status.textContent = 'Calling LLM...';
+    try {
+      const result = await apiPost(`/api/karma/${encodeURIComponent(missionId)}/regenerate`, {});
+      if (result && result.success) {
+        log('aux', `Regenerated ${missionId}: ${result.regen_count}/${result.cap}`);
+        if (status) status.textContent = `Regenerated (${result.regen_count}/${result.cap})`;
+        await Aux.load();
+      } else {
+        log('aux', `Regenerate failed: ${(result && result.error) || 'unknown'}`);
+        if (status) status.textContent = `Failed: ${(result && result.error) || 'unknown'}`;
+        if (btn) { btn.disabled = false; btn.textContent = 'REGENERATE'; }
+      }
+    } catch (e) {
+      const msg = e.message || 'error';
+      log('aux', `Regenerate error: ${msg}`);
+      if (status) status.textContent = msg.includes('429') ? 'Cap reached' : `Error: ${msg}`;
+      if (btn) {
+        btn.textContent = msg.includes('429') ? 'CAP REACHED' : 'REGENERATE';
+        btn.disabled = msg.includes('429');
+      }
+    }
+  },
+
+  async _done(missionId) {
+    try {
+      const result = await apiPost(`/api/karma/${encodeURIComponent(missionId)}/done`, { payload: {} });
+      log('aux', `COMPLETE ${missionId}: ${result && result.success ? 'OK' : 'failed'}`);
+      // Karma feedback signal (non-blocking, mirrors Missions.js pattern)
+      apiPost('/api/karma/feedback', {
+        mission_id: missionId, outcome: 'done'
+      }).catch(() => {});
+      await Aux.load();
+    } catch (e) {
+      log('aux', `done error: ${e.message}`);
+    }
+  },
+
+  async _stuck(missionId) {
+    const reason = (window.prompt && window.prompt('Stuck reason (optional):', '')) || '';
+    try {
+      const result = await apiPost(`/api/karma/${encodeURIComponent(missionId)}/stuck`, {
+        feedback: { stuck_reason: reason }, stuck_reason: reason
+      });
+      log('aux', `STUCK ${missionId}: ${result && result.success ? 'OK' : (result && result.message) || 'recorded'}`);
+      apiPost('/api/karma/feedback', {
+        mission_id: missionId, outcome: 'stuck', stuck_reason: reason
+      }).catch(() => {});
+      await Aux.load();
+    } catch (e) {
+      log('aux', `stuck error: ${e.message}`);
+    }
+  },
+
+  _scrollToCard(missionId) {
+    const el = document.getElementById(`karma-card-${missionId}`);
+    if (!el) {
+      log('aux', `Card not found for ${missionId}, falling back to AUX home`);
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('flash-highlight');
+    setTimeout(() => el.classList.remove('flash-highlight'), 2200);
+  },
+
+  // Hash route entry point. Called from boot listener and on hashchange.
+  // Recognized routes:
+  //   #mission/<mission_id>   -> AUX karma card highlighted
+  handleHashRoute() {
+    const h = (window.location.hash || '').replace(/^#/, '');
+    if (!h) return false;
+    const parts = h.split('/');
+    if (parts[0] === 'mission' && parts[1]) {
+      const mid = decodeURIComponent(parts[1]);
+      this._pendingHighlightId = mid;
+      SceneManager.switch('aux');
+      return true;
+    }
+    return false;
+  }
+};
+
 
 // ============================================================
 //  AUTONOMY PANEL (ADR-013 Phase 1, Task 12)
@@ -4761,6 +5173,14 @@ const AutonomyPanel = {
 window.addEventListener('load', () => {
   RoomData.init();
   SceneManager.init();
+  // Plan aux-karma-card-chapter-rebuild-v1 v3.2 Push 1: hash route deep link.
+  // Defer route handling until after Phaser/init settle so Aux.load can fetch.
+  setTimeout(() => {
+    try { Aux.handleHashRoute(); } catch (e) { log('sys', `Hash route init failed: ${e.message}`); }
+  }, 600);
+  window.addEventListener('hashchange', () => {
+    try { Aux.handleHashRoute(); } catch (e) { log('sys', `Hash route change failed: ${e.message}`); }
+  });
 });
 </script>
 <!-- ============================================================
