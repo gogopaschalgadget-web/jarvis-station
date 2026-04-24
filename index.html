@@ -4919,8 +4919,10 @@ const Aux = {
     content.innerHTML = '<div class="aux-loading">LOADING KARMA MISSIONS...</div>';
     try {
       // Karma missions live in the standard mission table; reuse mission/list with type filter.
+      // Backend returns response grouped by status: { active: [...], completed: [...], stuck: [...], ... }
+      // Pull the active group directly. No client-side filter needed.
       const data = await apiGet('/api/mission/list?mission_type=reddit_karma');
-      this._missions = (data && data.missions) ? data.missions.filter(m => (m.status || 'active') === 'active') : [];
+      this._missions = (data && Array.isArray(data.active)) ? data.active : [];
     } catch (e) {
       content.innerHTML = `<div class="aux-empty">Failed to load: ${escHtml(e.message)}</div>`;
       log('aux', `load failed: ${e.message}`);
@@ -4958,8 +4960,12 @@ const Aux = {
   _cardHtml(m) {
     let c = {};
     let meta = {};
-    try { c = JSON.parse(m.content_json || '{}'); } catch (_) {}
-    try { meta = JSON.parse(m.metadata_json || '{}'); } catch (_) {}
+    // Backend pre-parses content_json/metadata_json and ships them as content/metadata objects.
+    // Tolerate either shape so the renderer survives a backend rollback.
+    if (m.content && typeof m.content === 'object') { c = m.content; }
+    else { try { c = JSON.parse(m.content_json || '{}'); } catch (_) {} }
+    if (m.metadata && typeof m.metadata === 'object') { meta = m.metadata; }
+    else { try { meta = JSON.parse(m.metadata_json || '{}'); } catch (_) {} }
     const subreddit = c.subreddit || '';
     const score = (c.opportunity_score != null) ? Math.round(c.opportunity_score) : '';
     const postTitle = c.post_title || c.title || m.title || '(untitled)';
