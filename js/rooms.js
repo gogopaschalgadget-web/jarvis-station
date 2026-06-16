@@ -160,6 +160,7 @@ export const ROOMS = [
 export const NAV_ITEMS = [
   { id: 'station',      label: 'Station',      icon: '⬡', active: true },
   { id: 'missions',     label: 'Missions',     icon: '◎', active: true },
+  { id: 'content-review', label: 'Review',  icon: '✎', active: true },
   { id: 'agents',       label: 'Agents',       icon: '⚙', active: true },
   { id: 'log',          label: 'Log',           icon: '▤', active: true },
   { id: 'settings',     label: 'Settings',      icon: '☸', active: true },

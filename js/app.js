@@ -252,9 +252,276 @@ function switchTab(tabId) {
 function updateTabContent() {
   if (!apiData) return;
   if (currentTab === 'missions') renderMissions();
+  if (currentTab === 'content-review') renderContentReview();
   if (currentTab === 'agents') renderAgents();
   if (currentTab === 'log') renderLog();
   if (currentTab === 'settings') renderSettings();
+}
+
+// --- CONTENT REVIEW (Build 2C, Session AR) -------------------------------
+// Backs /api/content-review/{next,verdict,queue}. Shows post body, rubric
+// dim scores with correction dropdowns, approve/edit/reject buttons,
+// XP toast on success. Standalone XP path via game_engine.add_xp.
+let currentReviewItem = null;
+let reviewPanelMode = 'idle'; // idle | edit | reject
+let isLoadingReview = false;
+
+// Whitelist of rubric dimension keys per engines/shared/content_review_payload.py.
+// Mirrors RubricDimension Literal. Filter chris_corrections to prevent 422
+// from backend pydantic validation on stale/typo keys.
+const VALID_RUBRIC_DIMS = new Set([
+  'task_fulfillment', 'factual_grounding', 'clarity_scannability',
+  'voice_fit', 'value_usefulness'
+]);
+
+async function fetchNextReviewItem(platform = null) {
+  try {
+    const res = await fetch(`${API_BASE}/api/content-review/next`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getDeviceToken() },
+      body: JSON.stringify({ platform }),
+    });
+    if (res.status === 401 || res.status === 403) { clearAuth(); return null; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('[Review] /next failed', res.status, err);
+      return null;
+    }
+    const data = await res.json();
+    return data.item || null;
+  } catch (err) {
+    console.error('[Review] fetch error:', err);
+    return null;
+  }
+}
+
+async function submitVerdict(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/api/content-review/verdict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getDeviceToken() },
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 401 || res.status === 403) { clearAuth(); return null; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('[Review] /verdict failed', res.status, err);
+      alert('Verdict submit failed: ' + (err.error || res.status));
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error('[Review] verdict error:', err);
+    alert('Network error submitting verdict');
+    return null;
+  }
+}
+
+function renderXpToast(xpAwarded, breakdown, idempotent) {
+  if (idempotent) return; // do not toast duplicate submits
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:#d4a853;color:#0a0e14;padding:0.75rem 1.25rem;border-radius:8px;font-weight:bold;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+  const parts = [`+${xpAwarded} XP`];
+  if (breakdown.base) parts.push(`base ${breakdown.base}`);
+  if (breakdown.corrections) parts.push(`corrections +${breakdown.corrections}`);
+  if (breakdown.edit) parts.push(`edit +${breakdown.edit}`);
+  if (breakdown.rejection_reason) parts.push(`reason +${breakdown.rejection_reason}`);
+  if (breakdown.streak_multiplier && breakdown.streak_multiplier > 1) parts.push(`x${breakdown.streak_multiplier} streak`);
+  toast.textContent = parts.join(' | ');
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+function dimCardHtml(name, dim) {
+  if (!dim || dim.abstained) {
+    return `<div class="panel-card" style="opacity:0.6"><div class="panel-card-title">${esc(name)}</div><div style="font-size:0.85rem;color:#888">(abstained or unavailable)</div></div>`;
+  }
+  const labelColors = { fail: '#ef4444', partial: '#f97316', meets: '#22c55e', strong: '#22d3ee' };
+  const labelStr = String(dim.label || 'unknown');
+  const color = labelColors[labelStr] || '#888';
+  const score = ((dim.calibrated_score || 0) * 10).toFixed(1);
+  const conf = dim.confidence != null ? (dim.confidence * 100).toFixed(0) + '%' : '?';
+  const evidence = Array.isArray(dim.evidence) ? dim.evidence.slice(0, 3) : [];
+  return `
+    <div class="panel-card">
+      <div class="panel-card-title">${esc(name)}</div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+        <span style="background:${color};color:#0a0e14;padding:0.25rem 0.5rem;border-radius:4px;font-weight:bold;font-size:0.85rem">${esc(labelStr.toUpperCase())}</span>
+        <span style="color:#22d3ee">${score}/10</span>
+        <span style="color:#888;font-size:0.85rem">conf ${conf}</span>
+      </div>
+      ${evidence.length ? `<ul style="margin:0;padding-left:1.25rem;font-size:0.8rem;color:#aaa">${evidence.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}
+      <div style="margin-top:0.5rem">
+        <label style="font-size:0.8rem;color:#888">Override:</label>
+        <select data-dim="${esc(name)}" class="correction-select" style="margin-left:0.5rem;background:#141922;color:#c8d0dc;border:1px solid #1e2530;padding:0.25rem;border-radius:4px">
+          <option value="">(no change)</option>
+          <option value="fail">fail</option>
+          <option value="partial">partial</option>
+          <option value="meets">meets</option>
+          <option value="strong">strong</option>
+        </select>
+      </div>
+    </div>`;
+}
+
+function renderContentReview() {
+  const panel = document.getElementById('panel-content-review');
+  if (!panel) return;
+  // BUG J2: never rebuild the panel while the user is mid-edit/reject; the 60s
+  // auto-refresh would otherwise wipe in-progress input.
+  if (reviewPanelMode === 'edit' || reviewPanelMode === 'reject') return;
+
+  if (currentReviewItem === null && !isLoadingReview) {
+    isLoadingReview = true;
+    panel.innerHTML = `<div class="panel-card"><div class="panel-card-title">Loading next review...</div></div>`;
+    fetchNextReviewItem().then(item => {
+      isLoadingReview = false;
+      if (item) {
+        item._renderedAt = Date.now();
+        currentReviewItem = item;
+        renderContentReview();
+      } else {
+        // Empty queue. Do NOT auto-refetch (would infinite loop).
+        panel.innerHTML = `
+          <div class="panel-card">
+            <div class="panel-card-title">No posts to review</div>
+            <div style="font-size:0.9rem;color:#888;margin-bottom:0.75rem">Queue is empty. New posts appear here after the generator runs and passes QC.</div>
+            <button id="review-refresh-btn" style="background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Check again</button>
+          </div>`;
+        document.getElementById('review-refresh-btn')?.addEventListener('click', () => {
+          currentReviewItem = null;
+          renderContentReview();
+        });
+      }
+    });
+    return;
+  }
+  if (isLoadingReview) return;
+
+  const item = currentReviewItem;
+  const verdict = item.rubric_verdict;
+  const dims = verdict ? (verdict.dimensions || {}) : {};
+  const overallScore = verdict && typeof verdict.overall_score === 'number' ? verdict.overall_score.toFixed(1) : '0.0';
+  const overall = verdict
+    ? `<span style="color:#22d3ee">${overallScore}/10</span> conf <span style="color:#888">${esc(verdict.overall_confidence || 'low')}</span>`
+    : '<span style="color:#888">no rubric (X post or pre-2A)</span>';
+  const recAction = verdict ? esc(verdict.recommended_action || 'human_review') : 'manual';
+  const ageMin = item.queue_age_seconds ? Math.round(item.queue_age_seconds / 60) : 0;
+  const subreddit = item.subreddit || (item.platform === 'x' ? 'X' : 'unknown');
+  const platformLabel = String(item.platform || 'reddit').toUpperCase();
+
+  panel.innerHTML = `
+    <div class="panel-card">
+      <div class="panel-card-title">${esc(platformLabel)} | r/${esc(subreddit)} | ${esc(item.post_type || '?')}</div>
+      <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id || '?')} | age ${ageMin}m | rubric ${overall} | rec: ${recAction}</div>
+      <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:300px;overflow-y:auto;border:1px solid #1e2530">${esc(item.body || '(no body)')}</div>
+    </div>
+    ${verdict && Object.keys(dims).length ? `
+      <div class="panel-card-title" style="margin-top:1rem;padding:0 0.5rem">Rubric Dimensions</div>
+      ${Object.entries(dims).map(([name, dim]) => dimCardHtml(name, dim)).join('')}
+    ` : ''}
+    <div class="panel-card" id="action-panel">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
+        <button data-action="approve" class="action-btn" style="background:#22c55e;color:#0a0e14;border:none;padding:0.75rem 1.25rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:0.95rem">Approve</button>
+        <button data-action="edit" class="action-btn" style="background:#eab308;color:#0a0e14;border:none;padding:0.75rem 1.25rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:0.95rem">Edit</button>
+        <button data-action="reject" class="action-btn" style="background:#ef4444;color:#0a0e14;border:none;padding:0.75rem 1.25rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:0.95rem">Reject</button>
+        <button data-action="skip" class="action-btn" style="background:#444;color:#c8d0dc;border:none;padding:0.75rem 1.25rem;border-radius:6px;cursor:pointer;font-size:0.95rem">Skip</button>
+      </div>
+      <div id="extra-fields" style="margin-top:1rem"></div>
+    </div>
+  `;
+
+  panel.querySelectorAll('.action-btn').forEach(btn => {
+    btn.addEventListener('click', () => onReviewAction(btn.dataset.action));
+  });
+}
+
+function gatherCorrections() {
+  const out = {};
+  const panel = document.getElementById('panel-content-review');
+  if (!panel) return out;
+  // Scope to panel to avoid cross-tab contamination.
+  panel.querySelectorAll('.correction-select').forEach(sel => {
+    if (sel.value && VALID_RUBRIC_DIMS.has(sel.dataset.dim)) {
+      out[sel.dataset.dim] = sel.value;
+    }
+  });
+  return out;
+}
+
+async function onReviewAction(action) {
+  if (!currentReviewItem) return;
+  if (action === 'skip') {
+    currentReviewItem = null;
+    reviewPanelMode = 'idle';
+    renderContentReview();
+    return;
+  }
+  // BUG J1: Edit/Reject are mode-entry actions only. If already in that mode,
+  // return without falling through to the submit path (which would ship a
+  // payload with chris_action/chris_overall unset, causing a 422).
+  if (action === 'edit' && reviewPanelMode === 'edit') return;
+  if (action === 'reject' && reviewPanelMode === 'reject') return;
+  // Edit and Reject need extra input fields
+  if (action === 'edit' && reviewPanelMode !== 'edit') {
+    reviewPanelMode = 'edit';
+    const extra = document.getElementById('extra-fields');
+    if (extra) extra.innerHTML = `
+      <label style="display:block;color:#888;font-size:0.85rem;margin-bottom:0.25rem">Edited body:</label>
+      <textarea id="edit-body" style="width:100%;height:150px;background:#0a0e14;color:#c8d0dc;border:1px solid #1e2530;border-radius:4px;padding:0.5rem;font-family:monospace;font-size:0.85rem">${esc(currentReviewItem.body || '')}</textarea>
+      <label style="display:block;color:#888;font-size:0.85rem;margin:0.5rem 0 0.25rem">Edit diff (short description):</label>
+      <textarea id="edit-diff" placeholder="What did you change?" style="width:100%;height:60px;background:#0a0e14;color:#c8d0dc;border:1px solid #1e2530;border-radius:4px;padding:0.5rem;font-size:0.85rem"></textarea>
+      <button id="submit-edit" style="margin-top:0.5rem;background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Submit Edit + Approve</button>
+    `;
+    document.getElementById('submit-edit')?.addEventListener('click', () => onReviewAction('submit-edit'));
+    return;
+  }
+  if (action === 'reject' && reviewPanelMode !== 'reject') {
+    reviewPanelMode = 'reject';
+    const extra = document.getElementById('extra-fields');
+    if (extra) extra.innerHTML = `
+      <label style="display:block;color:#888;font-size:0.85rem;margin-bottom:0.25rem">Why reject? (training data)</label>
+      <textarea id="reject-reason" placeholder="Wrong tone, banned claim, off-topic, etc." style="width:100%;height:80px;background:#0a0e14;color:#c8d0dc;border:1px solid #1e2530;border-radius:4px;padding:0.5rem;font-size:0.85rem"></textarea>
+      <button id="submit-reject" style="margin-top:0.5rem;background:#ef4444;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Submit Reject</button>
+    `;
+    document.getElementById('submit-reject')?.addEventListener('click', () => onReviewAction('submit-reject'));
+    return;
+  }
+  // Build and submit payload
+  const start = currentReviewItem._renderedAt || Date.now();
+  let payload = {
+    post_id: currentReviewItem.post_id,
+    platform: currentReviewItem.platform || 'reddit',
+    chris_corrections: gatherCorrections(),
+    review_duration_seconds: Math.min(3600, Math.round((Date.now() - start) / 1000)),
+  };
+  if (action === 'approve') {
+    payload.chris_action = 'approve';
+    payload.chris_overall = 'approve';
+  } else if (action === 'submit-edit') {
+    const editedBody = document.getElementById('edit-body')?.value || '';
+    const editDiff = (document.getElementById('edit-diff')?.value || '').trim();
+    // Guard against no-op edits
+    if (editedBody === (currentReviewItem.body || '') && !editDiff) {
+      alert('No changes detected. Use Approve if no edit needed.');
+      return;
+    }
+    payload.chris_action = 'edit';
+    payload.chris_overall = 'approve';
+    payload.edited_body = editedBody;
+    payload.edit_diff = editDiff || null;
+  } else if (action === 'submit-reject') {
+    payload.chris_action = 'reject';
+    payload.chris_overall = 'reject';
+    payload.rejection_reason = (document.getElementById('reject-reason')?.value || '').trim() || null;
+  }
+  const result = await submitVerdict(payload);
+  if (result && result.success) {
+    renderXpToast(result.xp_awarded, result.xp_breakdown, result.idempotent);
+    currentReviewItem = null;
+    reviewPanelMode = 'idle';
+    renderContentReview();
+  }
 }
 
 function renderMissions() {
@@ -357,7 +624,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Auto-refresh</span><span class="stat-value">${REFRESH_INTERVAL_MS / 1000}s</span></div>
       <div class="stat-row"><span class="stat-label">API endpoint</span><span class="stat-value">/api/station/status</span></div>
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0, 8) || '?')}</span></div>
-      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.0.0</span></div>
+      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.1.0</span></div>
     </div>
     <div class="panel-card" style="cursor:pointer" onclick="location.reload()">
       <div class="panel-card-title" style="color:var(--accent-cyan); text-align:center">Force Refresh</div>
@@ -436,7 +703,7 @@ function getEquipStatusColor(status) {
   const map = {
     active: '#22c55e', online: '#22c55e', scanning: '#22c55e',
     idle: '#6b7a8d', standby: '#6b7a8d',
-    manual: '#eab308',
+    manual: '#eab308', manual_ops: '#eab308',
     offline: '#ef4444',
     future: '#333',
   };
@@ -448,9 +715,8 @@ function hexAlpha(hex, a) {
   return hexToRgba(hex, a);
 }
 
-function esc(str) {
-  if (!str) return '';
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
+// --- ESCAPE HELPER ---
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }

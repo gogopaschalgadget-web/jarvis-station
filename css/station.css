@@ -244,7 +244,7 @@ html, body {
 /* --- TAB PANELS (non-station tabs) --- */
 .tab-panel {
   position: fixed;
-  top: var(--header-height);
+  top: calc(var(--header-height) + var(--metrics-height) + env(safe-area-inset-top, 0px));
   bottom: var(--nav-height);
   left: 0; right: 0;
   overflow-y: auto;
