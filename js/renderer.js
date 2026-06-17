@@ -46,6 +46,16 @@ export function initRenderer(canvasEl) {
   resize();
   window.addEventListener('resize', resize);
   centerView();
+
+  // iOS Safari settles the viewport (toolbar, safe-area) after init, so the
+  // initial parent height can be wrong. Re-sync the canvas whenever the map
+  // container actually changes size, not just on window resize.
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(function () { resize(); centerView(); });
+    ro.observe(state.canvas.parentElement);
+  }
+  window.addEventListener('orientationchange', function () { resize(); centerView(); });
+
   setupTouchHandlers(canvasEl);
   setupMouseHandlers(canvasEl);
   requestAnimationFrame(drawLoop);
