@@ -265,6 +265,7 @@ function updateTabContent() {
 let currentReviewItem = null;
 let reviewPanelMode = 'idle'; // idle | edit | reject
 let isLoadingReview = false;
+let reviewPlatform = 'reddit'; // 'reddit' | 'x' | 'both' ('both' -> null to backend)
 
 // Whitelist of rubric dimension keys per engines/shared/content_review_payload.py.
 // Mirrors RubricDimension Literal. Filter chris_corrections to prevent 422
@@ -364,6 +365,26 @@ function dimCardHtml(name, dim) {
     </div>`;
 }
 
+function platformSelectorHtml() {
+  const opts = [['reddit', 'Reddit'], ['x', 'X'], ['both', 'Both']];
+  return '<div class="panel-card" style="display:flex;gap:0.5rem;justify-content:center">' +
+    opts.map(([v, l]) => `<button data-platform="${v}" class="platform-btn" style="flex:1;background:${reviewPlatform === v ? '#22d3ee' : '#141922'};color:${reviewPlatform === v ? '#0a0e14' : '#c8d0dc'};border:1px solid #1e2530;padding:0.5rem;border-radius:6px;font-weight:bold;cursor:pointer">${l}</button>`).join('') +
+    '</div>';
+}
+
+function wirePlatformSelector(panel) {
+  panel.querySelectorAll('.platform-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.platform;
+      if (v === reviewPlatform) return;
+      reviewPlatform = v;
+      currentReviewItem = null;
+      reviewPanelMode = 'idle';
+      renderContentReview();
+    });
+  });
+}
+
 function renderContentReview() {
   const panel = document.getElementById('panel-content-review');
   if (!panel) return;
@@ -374,7 +395,7 @@ function renderContentReview() {
   if (currentReviewItem === null && !isLoadingReview) {
     isLoadingReview = true;
     panel.innerHTML = `<div class="panel-card"><div class="panel-card-title">Loading next review...</div></div>`;
-    fetchNextReviewItem().then(item => {
+    fetchNextReviewItem(reviewPlatform === 'both' ? null : reviewPlatform).then(item => {
       isLoadingReview = false;
       if (item) {
         item._renderedAt = Date.now();
@@ -382,12 +403,13 @@ function renderContentReview() {
         renderContentReview();
       } else {
         // Empty queue. Do NOT auto-refetch (would infinite loop).
-        panel.innerHTML = `
+        panel.innerHTML = platformSelectorHtml() + `
           <div class="panel-card">
             <div class="panel-card-title">No posts to review</div>
             <div style="font-size:0.9rem;color:#888;margin-bottom:0.75rem">Queue is empty. New posts appear here after the generator runs and passes QC.</div>
             <button id="review-refresh-btn" style="background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Check again</button>
           </div>`;
+        wirePlatformSelector(panel);
         document.getElementById('review-refresh-btn')?.addEventListener('click', () => {
           currentReviewItem = null;
           renderContentReview();
@@ -410,7 +432,7 @@ function renderContentReview() {
   const subreddit = item.subreddit || (item.platform === 'x' ? 'X' : 'unknown');
   const platformLabel = String(item.platform || 'reddit').toUpperCase();
 
-  panel.innerHTML = `
+  panel.innerHTML = platformSelectorHtml() + `
     <div class="panel-card">
       <div class="panel-card-title">${esc(platformLabel)} | r/${esc(subreddit)} | ${esc(item.post_type || '?')}</div>
       <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id || '?')} | age ${ageMin}m | rubric ${overall} | rec: ${recAction}</div>
@@ -434,6 +456,7 @@ function renderContentReview() {
   panel.querySelectorAll('.action-btn').forEach(btn => {
     btn.addEventListener('click', () => onReviewAction(btn.dataset.action));
   });
+  wirePlatformSelector(panel);
 }
 
 function gatherCorrections() {
