@@ -609,7 +609,38 @@ function renderAgents() {
         </span>
       </div>
     </div>
+    ${gitOpsCardHtml()}
   `;
+}
+
+function gitOpsCardHtml() {
+  const go = apiData.health?.git_ops;
+  if (!go) return '';
+  const lr = go.last_result;
+  const lrStatus = lr ? lr.status : 'none';
+  const lrColor = lrStatus === 'success' ? 'var(--accent-green)' : lrStatus === 'failed' ? 'var(--accent-red)' : 'var(--accent-yellow, #d4a853)';
+  const lrAction = lr && lr.action ? esc(lr.action) : '';
+  const lrTime = lr && lr.timestamp ? lr.timestamp.slice(11, 16) : '';
+  return `
+    <div class="panel-card">
+      <div class="panel-card-title">Git-Ops Bot</div>
+      <div class="stat-row">
+        <span class="stat-label">Queue</span>
+        <span class="stat-value" style="color:${go.queue_depth > 0 ? 'var(--accent-yellow, #d4a853)' : 'var(--accent-green)'}">${go.queue_depth} pending</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Processed</span>
+        <span class="stat-value">${go.total_processed}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Errors (24h)</span>
+        <span class="stat-value" style="color:${go.errors_24h > 0 ? 'var(--accent-red)' : 'var(--accent-green)'}">${go.errors_24h}</span>
+      </div>
+      ${lr ? `<div class="stat-row">
+        <span class="stat-label">Last${lrAction ? ' (' + lrAction + ')' : ''}</span>
+        <span class="stat-value" style="color:${lrColor}">${esc(lrStatus)}${lrTime ? ' ' + lrTime : ''}</span>
+      </div>` : ''}
+    </div>`;
 }
 
 function renderLog() {
