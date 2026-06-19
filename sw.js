@@ -4,7 +4,7 @@
 //  Fallback: vanilla cache if Workbox CDN unreachable
 //
 //  Caching strategies:
-//    - Cache-first: app shell (index.html, Phaser CDN, icons)
+//    - Cache-first: app shell (index.html, JS modules, CSS, icons)
 //    - Network-first: API calls (/api/*) with cached fallback
 //    - Stale-while-revalidate: chain config JSONs
 //    - Skip: WebSocket (SW cannot intercept WS connections)
@@ -19,7 +19,7 @@
 //  comment serve as the reference.
 // ============================================================
 
-const CACHE_VERSION = 'jarvis-v9';
+const CACHE_VERSION = 'jarvis-v10';
 const APP_SHELL_CACHE = CACHE_VERSION + '-shell';
 const API_CACHE = CACHE_VERSION + '-api';
 const CONFIG_CACHE = CACHE_VERSION + '-config';
@@ -32,7 +32,11 @@ const APP_SHELL_URLS = [
   '/jarvis-station/manifest.json',
   '/jarvis-station/icons/icon-192.png',
   '/jarvis-station/icons/icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js'
+  '/jarvis-station/js/app.js',
+  '/jarvis-station/js/renderer.js',
+  '/jarvis-station/js/rooms.js',
+  '/jarvis-station/js/room-views.js',
+  '/jarvis-station/css/station.css'
 ];
 
 // ============================================================
@@ -77,8 +81,11 @@ if (workboxLoaded) {
     { url: '/jarvis-station/manifest.json', revision: CACHE_VERSION },
     { url: '/jarvis-station/icons/icon-192.png', revision: CACHE_VERSION },
     { url: '/jarvis-station/icons/icon-512.png', revision: CACHE_VERSION },
-    // Phaser CDN: versioned URL (3.60.0 in path), cache forever
-    { url: 'https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js', revision: null }
+    { url: '/jarvis-station/js/app.js', revision: CACHE_VERSION },
+    { url: '/jarvis-station/js/renderer.js', revision: CACHE_VERSION },
+    { url: '/jarvis-station/js/rooms.js', revision: CACHE_VERSION },
+    { url: '/jarvis-station/js/room-views.js', revision: CACHE_VERSION },
+    { url: '/jarvis-station/css/station.css', revision: CACHE_VERSION }
   ]);
 
   // --- CACHE-FIRST: Static assets (icons, images) ---
