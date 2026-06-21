@@ -431,11 +431,24 @@ function renderContentReview() {
   const ageMin = item.queue_age_seconds ? Math.round(item.queue_age_seconds / 60) : 0;
   const subreddit = item.subreddit || (item.platform === 'x' ? 'X' : 'unknown');
   const platformLabel = String(item.platform || 'reddit').toUpperCase();
+  const oppSrc = item.opportunity_source || {};
+  const oppTitle = oppSrc.post_title || '';
+  const oppSnippet = oppSrc.post_body_snippet || '';
+  const oppUrl = oppSrc.thread_url || '';
 
   panel.innerHTML = platformSelectorHtml() + `
     <div class="panel-card">
       <div class="panel-card-title">${esc(platformLabel)} | r/${esc(subreddit)} | ${esc(item.post_type || '?')}</div>
       <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id || '?')} | age ${ageMin}m | rubric ${overall} | rec: ${recAction}</div>
+      ${oppTitle || oppSnippet || oppUrl ? `
+        <div style="background:#1a1e28;padding:0.75rem;border-radius:6px;margin-bottom:0.75rem;border-left:3px solid #d4a853">
+          <div style="font-size:0.8rem;color:#d4a853;font-weight:bold;margin-bottom:0.25rem">ORIGINAL POST</div>
+          ${oppTitle ? `<div style="font-size:0.9rem;color:#c8d0dc;font-weight:bold;margin-bottom:0.25rem">${esc(oppTitle)}</div>` : ''}
+          ${oppSnippet ? `<div style="font-size:0.85rem;color:#aaa;margin-bottom:0.5rem;white-space:pre-wrap">${esc(oppSnippet)}</div>` : ''}
+          ${oppUrl ? `<a href="${esc(oppUrl)}" target="_blank" rel="noopener" style="font-size:0.8rem;color:#22d3ee;text-decoration:underline">View on Reddit</a>` : ''}
+        </div>
+      ` : ''}
+      <div style="font-size:0.8rem;color:#888;margin-bottom:0.25rem">GENERATED REPLY</div>
       <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:300px;overflow-y:auto;border:1px solid #1e2530">${esc(item.body || '(no body)')}</div>
     </div>
     ${verdict && Object.keys(dims).length ? `
