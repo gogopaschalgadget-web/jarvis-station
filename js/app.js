@@ -672,17 +672,23 @@ function renderAnchorReview() {
   const labelColors = { strong: '#22c55e', fail: '#ef4444' };
   const color = labelColors[item.label] || '#888';
   const labelStr = String(item.label || '?').toUpperCase();
+  const personaTxt = item.persona_id ? (esc(item.persona_id) + (item.persona_inferred ? ' (inferred)' : '')) : 'unknown persona';
+  const postType = item.post_type ? esc(item.post_type) : 'unknown type';
+  const fullText = item.body || item.excerpt || '(no text)';
 
   panel.innerHTML = reviewModeSelectorHtml() + `
     <div class="panel-card">
-      <div class="panel-card-title">Anchor candidate | ${esc(item.dimension || 'voice_fit')} <span id="anchor-pending" style="color:#888;font-weight:normal;font-size:0.85rem"></span></div>
-      <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id || '?')}</div>
-      <div style="margin-bottom:0.75rem">
-        <span style="background:${color};color:#0a0e14;padding:0.25rem 0.6rem;border-radius:4px;font-weight:bold;font-size:0.85rem">${esc(labelStr)} EXAMPLE</span>
+      <div class="panel-card-title">Anchor candidate <span id="anchor-pending" style="color:#888;font-weight:normal;font-size:0.85rem"></span></div>
+      <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id || '?')} | ${esc(item.dimension || 'voice_fit')}</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <span style="background:${color};color:#0a0e14;padding:0.25rem 0.6rem;border-radius:4px;font-weight:bold;font-size:0.8rem">${esc(labelStr)} EXAMPLE</span>
+        <span style="background:#1e2530;color:#c8d0dc;padding:0.25rem 0.6rem;border-radius:4px;font-size:0.8rem">${personaTxt}</span>
+        <span style="background:#1e2530;color:#c8d0dc;padding:0.25rem 0.6rem;border-radius:4px;font-size:0.8rem">${postType}</span>
       </div>
-      <div style="font-size:0.8rem;color:#888;margin-bottom:0.25rem">POST EXCERPT</div>
-      <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:320px;overflow-y:auto;border:1px solid #1e2530">${esc(item.excerpt || '(no excerpt)')}</div>
-      <div style="font-size:0.8rem;color:#888;margin-top:0.75rem">Approve to use this as a ${esc(String(item.label || '').toLowerCase())} calibration example. Scoring stays unchanged until anchors are switched on.</div>
+      ${item.title ? `<div style="font-size:0.95rem;color:#c8d0dc;font-weight:bold;margin-bottom:0.5rem">${esc(item.title)}</div>` : ''}
+      <div style="font-size:0.8rem;color:#888;margin-bottom:0.25rem">FULL POST</div>
+      <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:50vh;overflow-y:auto;border:1px solid #1e2530">${esc(fullText)}</div>
+      <div style="font-size:0.8rem;color:#888;margin-top:0.75rem">Approve to use this as a ${esc(String(item.label || '').toLowerCase())} voice example for the ${personaTxt} persona. Scoring stays unchanged until anchors are switched on.</div>
     </div>
     <div class="panel-card">
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
