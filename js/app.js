@@ -266,6 +266,7 @@ let currentReviewItem = null;
 let reviewPanelMode = 'idle'; // idle | edit | reject
 let isLoadingReview = false;
 let reviewPlatform = 'reddit'; // 'reddit' | 'x' | 'both' ('both' -> null to backend)
+let reviewTab = 'posts'; // 'posts' | 'anchors' (anchor curation merged into the Review tab)
 
 // Whitelist of rubric dimension keys per engines/shared/content_review_payload.py.
 // Mirrors RubricDimension Literal. Filter chris_corrections to prevent 422
@@ -385,16 +386,39 @@ function wirePlatformSelector(panel) {
   });
 }
 
+// Posts vs Anchors mode switch at the top of the Review tab (Build 3B, Session BX).
+function reviewModeSelectorHtml() {
+  const tabs = [['posts', 'Posts'], ['anchors', 'Anchors']];
+  return '<div class="panel-card" style="display:flex;gap:0.5rem;justify-content:center">' +
+    tabs.map(([v, l]) => `<button data-review-tab="${v}" class="review-tab-btn" style="flex:1;background:${reviewTab === v ? '#d4a853' : '#141922'};color:${reviewTab === v ? '#0a0e14' : '#c8d0dc'};border:1px solid #1e2530;padding:0.5rem;border-radius:6px;font-weight:bold;cursor:pointer">${l}</button>`).join('') +
+    '</div>';
+}
+
+function wireReviewModeSelector(panel) {
+  panel.querySelectorAll('.review-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.reviewTab;
+      if (v === reviewTab) return;
+      reviewTab = v;
+      reviewPanelMode = 'idle';
+      renderContentReview();
+    });
+  });
+}
+
 function renderContentReview() {
   const panel = document.getElementById('panel-content-review');
   if (!panel) return;
+  // Anchors mode renders into the same Review panel.
+  if (reviewTab === 'anchors') { renderAnchorReview(); return; }
   // BUG J2: never rebuild the panel while the user is mid-edit/reject; the 60s
   // auto-refresh would otherwise wipe in-progress input.
   if (reviewPanelMode === 'edit' || reviewPanelMode === 'reject') return;
 
   if (currentReviewItem === null && !isLoadingReview) {
     isLoadingReview = true;
-    panel.innerHTML = `<div class="panel-card"><div class="panel-card-title">Loading next review...</div></div>`;
+    panel.innerHTML = reviewModeSelectorHtml() + `<div class="panel-card"><div class="panel-card-title">Loading next review...</div></div>`;
+    wireReviewModeSelector(panel);
     fetchNextReviewItem(reviewPlatform === 'both' ? null : reviewPlatform).then(item => {
       isLoadingReview = false;
       if (item) {
@@ -403,13 +427,14 @@ function renderContentReview() {
         renderContentReview();
       } else {
         // Empty queue. Do NOT auto-refetch (would infinite loop).
-        panel.innerHTML = platformSelectorHtml() + `
+        panel.innerHTML = reviewModeSelectorHtml() + platformSelectorHtml() + `
           <div class="panel-card">
             <div class="panel-card-title">No posts to review</div>
             <div style="font-size:0.9rem;color:#888;margin-bottom:0.75rem">Queue is empty. New posts appear here after the generator runs and passes QC.</div>
             <button id="review-refresh-btn" style="background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Check again</button>
           </div>`;
         wirePlatformSelector(panel);
+        wireReviewModeSelector(panel);
         document.getElementById('review-refresh-btn')?.addEventListener('click', () => {
           currentReviewItem = null;
           renderContentReview();
@@ -436,7 +461,7 @@ function renderContentReview() {
   const oppSnippet = oppSrc.post_body_snippet || '';
   const oppUrl = oppSrc.thread_url || '';
 
-  panel.innerHTML = platformSelectorHtml() + `
+  panel.innerHTML = reviewModeSelectorHtml() + platformSelectorHtml() + `
     <div class="panel-card">
       <div class="panel-card-title">${esc(platformLabel)} | r/${esc(subreddit)} | ${esc(item.post_type || '?')}</div>
       <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id || '?')} | age ${ageMin}m | rubric ${overall} | rec: ${recAction}</div>
@@ -470,6 +495,7 @@ function renderContentReview() {
     btn.addEventListener('click', () => onReviewAction(btn.dataset.action));
   });
   wirePlatformSelector(panel);
+  wireReviewModeSelector(panel);
 }
 
 function gatherCorrections() {
@@ -557,6 +583,151 @@ async function onReviewAction(action) {
     currentReviewItem = null;
     reviewPanelMode = 'idle';
     renderContentReview();
+  }
+}
+
+// --- ANCHOR REVIEW (Build 3B, Session BX) --------------------------------
+// Backs /api/anchor-review/{next,decision}. Phone-operable curation of voice_fit
+// calibration anchors. One-tap Approve / Reject. v1: no edit, no why field.
+// Approving populates the judge config but scoring stays unchanged until anchors
+// are switched on (ANCHORS_ENABLED, a separate v2 step).
+let currentAnchorItem = null;
+let isLoadingAnchor = false;
+
+async function fetchNextAnchor() {
+  try {
+    const res = await fetch(`${API_BASE}/api/anchor-review/next`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getDeviceToken() },
+      body: JSON.stringify({}),
+    });
+    if (res.status === 401 || res.status === 403) { clearAuth(); return null; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('[Anchor] /next failed', res.status, err);
+      return null;
+    }
+    const data = await res.json();
+    return data.item || null;
+  } catch (err) {
+    console.error('[Anchor] fetch error:', err);
+    return null;
+  }
+}
+
+async function submitAnchorDecision(candidateId, decision) {
+  try {
+    const res = await fetch(`${API_BASE}/api/anchor-review/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getDeviceToken() },
+      body: JSON.stringify({ candidate_id: candidateId, decision }),
+    });
+    if (res.status === 401 || res.status === 403) { clearAuth(); return null; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('[Anchor] /decision failed', res.status, err);
+      alert('Anchor decision failed: ' + (err.error || res.status));
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error('[Anchor] decision error:', err);
+    alert('Network error submitting decision');
+    return null;
+  }
+}
+
+function renderAnchorReview() {
+  const panel = document.getElementById('panel-content-review');
+  if (!panel) return;
+
+  if (currentAnchorItem === null && !isLoadingAnchor) {
+    isLoadingAnchor = true;
+    panel.innerHTML = reviewModeSelectorHtml() + `<div class="panel-card"><div class="panel-card-title">Loading next anchor...</div></div>`;
+    wireReviewModeSelector(panel);
+    fetchNextAnchor().then(item => {
+      isLoadingAnchor = false;
+      if (item) {
+        currentAnchorItem = item;
+        renderAnchorReview();
+      } else {
+        panel.innerHTML = reviewModeSelectorHtml() + `
+          <div class="panel-card">
+            <div class="panel-card-title">No anchors to review</div>
+            <div style="font-size:0.9rem;color:#888;margin-bottom:0.75rem">No candidates pending. New ones appear after the drift refresh runs on the home PC and the forwarder pushes them up.</div>
+            <button id="anchor-refresh-btn" style="background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Check again</button>
+          </div>`;
+        wireReviewModeSelector(panel);
+        document.getElementById('anchor-refresh-btn')?.addEventListener('click', () => {
+          currentAnchorItem = null;
+          renderAnchorReview();
+        });
+      }
+    });
+    return;
+  }
+  if (isLoadingAnchor) return;
+
+  const item = currentAnchorItem;
+  const labelColors = { strong: '#22c55e', fail: '#ef4444' };
+  const color = labelColors[item.label] || '#888';
+  const labelStr = String(item.label || '?').toUpperCase();
+
+  panel.innerHTML = reviewModeSelectorHtml() + `
+    <div class="panel-card">
+      <div class="panel-card-title">Anchor candidate | ${esc(item.dimension || 'voice_fit')} <span id="anchor-pending" style="color:#888;font-weight:normal;font-size:0.85rem"></span></div>
+      <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id || '?')}</div>
+      <div style="margin-bottom:0.75rem">
+        <span style="background:${color};color:#0a0e14;padding:0.25rem 0.6rem;border-radius:4px;font-weight:bold;font-size:0.85rem">${esc(labelStr)} EXAMPLE</span>
+      </div>
+      <div style="font-size:0.8rem;color:#888;margin-bottom:0.25rem">POST EXCERPT</div>
+      <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:320px;overflow-y:auto;border:1px solid #1e2530">${esc(item.excerpt || '(no excerpt)')}</div>
+      <div style="font-size:0.8rem;color:#888;margin-top:0.75rem">Approve to use this as a ${esc(String(item.label || '').toLowerCase())} calibration example. Scoring stays unchanged until anchors are switched on.</div>
+    </div>
+    <div class="panel-card">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
+        <button data-anchor-action="approve" class="anchor-btn" style="background:#22c55e;color:#0a0e14;border:none;padding:0.75rem 1.25rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:0.95rem">Approve</button>
+        <button data-anchor-action="reject" class="anchor-btn" style="background:#ef4444;color:#0a0e14;border:none;padding:0.75rem 1.25rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:0.95rem">Reject</button>
+        <button data-anchor-action="skip" class="anchor-btn" style="background:#444;color:#c8d0dc;border:none;padding:0.75rem 1.25rem;border-radius:6px;cursor:pointer;font-size:0.95rem">Skip</button>
+      </div>
+    </div>`;
+
+  panel.querySelectorAll('.anchor-btn').forEach(btn => {
+    btn.addEventListener('click', () => onAnchorAction(btn.dataset.anchorAction));
+  });
+  wireReviewModeSelector(panel);
+
+  fetchAnchorQueueCount().then(n => {
+    const el = document.getElementById('anchor-pending');
+    if (el && n != null) el.textContent = `(${n} pending)`;
+  });
+}
+
+async function fetchAnchorQueueCount() {
+  try {
+    const res = await fetch(`${API_BASE}/api/anchor-review/queue`, {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + getDeviceToken() },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.total_pending;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function onAnchorAction(action) {
+  if (!currentAnchorItem) return;
+  if (action === 'skip') {
+    currentAnchorItem = null;
+    renderAnchorReview();
+    return;
+  }
+  const result = await submitAnchorDecision(currentAnchorItem.candidate_id, action);
+  if (result && result.success) {
+    currentAnchorItem = null;
+    renderAnchorReview();
   }
 }
 
