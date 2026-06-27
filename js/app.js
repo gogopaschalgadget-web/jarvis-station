@@ -644,6 +644,10 @@ function renderAnchorReview() {
   const panel = document.getElementById('panel-content-review');
   if (!panel) return;
 
+  // Mid-reject: do not let the 60s auto-refresh rebuild the panel and wipe the
+  // in-progress reject reason (mirrors the reviewPanelMode guard in renderContentReview).
+  if (anchorRejectMode) return;
+
   if (currentAnchorItem === null && !isLoadingAnchor) {
     isLoadingAnchor = true;
     panel.innerHTML = reviewModeSelectorHtml() + `<div class="panel-card"><div class="panel-card-title">Loading next anchor...</div></div>`;
@@ -896,7 +900,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Auto-refresh</span><span class="stat-value">${REFRESH_INTERVAL_MS / 1000}s</span></div>
       <div class="stat-row"><span class="stat-label">API endpoint</span><span class="stat-value">/api/station/status</span></div>
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0, 8) || '?')}</span></div>
-      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.2.0</span></div>
+      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.2.1</span></div>
     </div>
     <div class="panel-card" style="cursor:pointer" onclick="location.reload()">
       <div class="panel-card-title" style="color:var(--accent-cyan); text-align:center">Force Refresh</div>
