@@ -593,6 +593,7 @@ async function onReviewAction(action) {
 // are switched on (ANCHORS_ENABLED, a separate v2 step).
 let currentAnchorItem = null;
 let isLoadingAnchor = false;
+let anchorRejectMode = false;
 
 async function fetchNextAnchor() {
   try {
@@ -615,12 +616,14 @@ async function fetchNextAnchor() {
   }
 }
 
-async function submitAnchorDecision(candidateId, decision) {
+async function submitAnchorDecision(candidateId, decision, rejectReason = null) {
   try {
+    const body = { candidate_id: candidateId, decision };
+    if (decision === 'reject' && rejectReason) body.reject_reason = rejectReason;
     const res = await fetch(`${API_BASE}/api/anchor-review/decision`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getDeviceToken() },
-      body: JSON.stringify({ candidate_id: candidateId, decision }),
+      body: JSON.stringify(body),
     });
     if (res.status === 401 || res.status === 403) { clearAuth(); return null; }
     if (!res.ok) {
@@ -728,12 +731,36 @@ async function onAnchorAction(action) {
   if (!currentAnchorItem) return;
   if (action === 'skip') {
     currentAnchorItem = null;
+    anchorRejectMode = false;
     renderAnchorReview();
     return;
   }
-  const result = await submitAnchorDecision(currentAnchorItem.candidate_id, action);
+  if (action === 'reject' && !anchorRejectMode) {
+    // First reject tap: reveal the freetext reason capture (the training signal).
+    anchorRejectMode = true;
+    const card = document.querySelector('#panel-content-review .panel-card:last-child');
+    if (card && !document.getElementById('anchor-reject-reason')) {
+      const div = document.createElement('div');
+      div.style.marginTop = '0.75rem';
+      div.innerHTML = `
+        <label style="display:block;color:#888;font-size:0.85rem;margin-bottom:0.25rem">Why reject? (training data)</label>
+        <textarea id="anchor-reject-reason" placeholder="Wrong tone, banned claim, off-topic, etc." style="width:100%;height:80px;background:#0a0e14;color:#c8d0dc;border:1px solid #1e2530;border-radius:4px;padding:0.5rem;font-size:0.85rem"></textarea>
+        <button id="anchor-submit-reject" style="margin-top:0.5rem;background:#ef4444;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Submit Reject</button>`;
+      card.appendChild(div);
+      document.getElementById('anchor-submit-reject')?.addEventListener('click', () => onAnchorAction('submit-reject'));
+      document.getElementById('anchor-reject-reason')?.focus();
+    }
+    return;
+  }
+  let rejectReason = null;
+  if (action === 'submit-reject') {
+    rejectReason = (document.getElementById('anchor-reject-reason')?.value || '').trim() || null;
+    action = 'reject';
+  }
+  const result = await submitAnchorDecision(currentAnchorItem.candidate_id, action, rejectReason);
   if (result && result.success) {
     currentAnchorItem = null;
+    anchorRejectMode = false;
     renderAnchorReview();
   }
 }
@@ -869,7 +896,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Auto-refresh</span><span class="stat-value">${REFRESH_INTERVAL_MS / 1000}s</span></div>
       <div class="stat-row"><span class="stat-label">API endpoint</span><span class="stat-value">/api/station/status</span></div>
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0, 8) || '?')}</span></div>
-      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.1.0</span></div>
+      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.2.0</span></div>
     </div>
     <div class="panel-card" style="cursor:pointer" onclick="location.reload()">
       <div class="panel-card-title" style="color:var(--accent-cyan); text-align:center">Force Refresh</div>
