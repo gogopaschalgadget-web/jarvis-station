@@ -688,6 +688,7 @@ function renderAnchorReview() {
       ${item.title ? `<div style="font-size:0.95rem;color:#c8d0dc;font-weight:bold;margin-bottom:0.5rem">${esc(item.title)}</div>` : ''}
       <div style="font-size:0.8rem;color:#888;margin-bottom:0.25rem">FULL POST</div>
       <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:50vh;overflow-y:auto;border:1px solid #1e2530">${esc(fullText)}</div>
+      ${item.thread_url ? `<a href="${esc(item.thread_url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:0.5rem;font-size:0.8rem;color:#22d3ee;text-decoration:underline">View original thread</a>` : ''}
       <div style="font-size:0.8rem;color:#888;margin-top:0.75rem">Approve to use this as a ${esc(String(item.label || '').toLowerCase())} voice example for the ${personaTxt} persona. Scoring stays unchanged until anchors are switched on.</div>
     </div>
     <div class="panel-card">
