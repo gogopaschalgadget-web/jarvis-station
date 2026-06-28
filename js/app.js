@@ -401,6 +401,8 @@ function wireReviewModeSelector(panel) {
       if (v === reviewTab) return;
       reviewTab = v;
       reviewPanelMode = 'idle';
+      anchorRejectMode = false;
+      anchorDecidedView = false;
       renderContentReview();
     });
   });
@@ -594,6 +596,7 @@ async function onReviewAction(action) {
 let currentAnchorItem = null;
 let isLoadingAnchor = false;
 let anchorRejectMode = false;
+let anchorDecidedView = false;
 
 async function fetchNextAnchor() {
   try {
@@ -647,6 +650,8 @@ function renderAnchorReview() {
   // Mid-reject: do not let the 60s auto-refresh rebuild the panel and wipe the
   // in-progress reject reason (mirrors the reviewPanelMode guard in renderContentReview).
   if (anchorRejectMode) return;
+  // Viewing the recent-decisions list: same guard, do not clobber it on refresh.
+  if (anchorDecidedView) return;
 
   if (currentAnchorItem === null && !isLoadingAnchor) {
     isLoadingAnchor = true;
@@ -663,12 +668,14 @@ function renderAnchorReview() {
             <div class="panel-card-title">No anchors to review</div>
             <div style="font-size:0.9rem;color:#888;margin-bottom:0.75rem">No candidates pending. New ones appear after the drift refresh runs on the home PC and the forwarder pushes them up.</div>
             <button id="anchor-refresh-btn" style="background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Check again</button>
+            <button id="anchor-decided-btn" style="margin-left:0.5rem;background:#1e2530;color:#c8d0dc;border:none;padding:0.6rem 1rem;border-radius:6px;cursor:pointer">Recent decisions</button>
           </div>`;
         wireReviewModeSelector(panel);
         document.getElementById('anchor-refresh-btn')?.addEventListener('click', () => {
           currentAnchorItem = null;
           renderAnchorReview();
         });
+        document.getElementById('anchor-decided-btn')?.addEventListener('click', () => renderDecidedAnchors());
       }
     });
     return;
@@ -704,11 +711,15 @@ function renderAnchorReview() {
         <button data-anchor-action="reject" class="anchor-btn" style="background:#ef4444;color:#0a0e14;border:none;padding:0.75rem 1.25rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:0.95rem">Reject</button>
         <button data-anchor-action="skip" class="anchor-btn" style="background:#444;color:#c8d0dc;border:none;padding:0.75rem 1.25rem;border-radius:6px;cursor:pointer;font-size:0.95rem">Skip</button>
       </div>
+      <div style="text-align:center;margin-top:0.6rem">
+        <button id="anchor-decided-btn" style="background:none;color:#22d3ee;border:none;cursor:pointer;font-size:0.8rem;text-decoration:underline">Recent decisions</button>
+      </div>
     </div>`;
 
   panel.querySelectorAll('.anchor-btn').forEach(btn => {
     btn.addEventListener('click', () => onAnchorAction(btn.dataset.anchorAction));
   });
+  document.getElementById('anchor-decided-btn')?.addEventListener('click', () => renderDecidedAnchors());
   wireReviewModeSelector(panel);
 
   fetchAnchorQueueCount().then(n => {
@@ -729,6 +740,61 @@ async function fetchAnchorQueueCount() {
   } catch (err) {
     return null;
   }
+}
+
+async function fetchDecidedAnchors() {
+  try {
+    const res = await fetch(`${API_BASE}/api/anchor-review/decided?status=rejected&limit=20`, {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + getDeviceToken() },
+    });
+    if (res.status === 401 || res.status === 403) { clearAuth(); return null; }
+    if (!res.ok) {
+      console.error('[Anchor] /decided failed', res.status);
+      return null;
+    }
+    const data = await res.json();
+    return data.decided || [];
+  } catch (err) {
+    console.error('[Anchor] decided fetch error:', err);
+    return null;
+  }
+}
+
+function renderDecidedAnchors() {
+  anchorDecidedView = true;
+  const panel = document.getElementById('panel-content-review');
+  if (!panel) return;
+  panel.innerHTML = reviewModeSelectorHtml() + `<div class="panel-card"><div class="panel-card-title">Loading recent decisions...</div></div>`;
+  wireReviewModeSelector(panel);
+  fetchDecidedAnchors().then(list => {
+    if (!anchorDecidedView) return;
+    const rows = (list || []).map(d => {
+      const isReject = d.status === 'rejected';
+      const badge = isReject ? '#ef4444' : '#22c55e';
+      const reason = d.reject_reason ? esc(d.reject_reason) : (isReject ? '(no reason given)' : '');
+      return `<div style="border-bottom:1px solid #1e2530;padding:0.5rem 0">
+        <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.25rem">
+          <span style="background:${badge};color:#0a0e14;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.72rem;font-weight:bold">${esc(String(d.status || '').toUpperCase())}</span>
+          <span style="color:#c8d0dc;font-size:0.85rem">${esc(d.post_id || '?')}</span>
+          <span style="color:#888;font-size:0.72rem">${esc(String(d.label || ''))}</span>
+        </div>
+        ${reason ? `<div style="color:#c8d0dc;font-size:0.85rem;white-space:pre-wrap">${reason}</div>` : ''}
+        <div style="color:#666;font-size:0.7rem;margin-top:0.2rem">${esc(d.decided_at || '')}</div>
+      </div>`;
+    }).join('');
+    panel.innerHTML = reviewModeSelectorHtml() + `
+      <div class="panel-card">
+        <div class="panel-card-title">Recent rejections</div>
+        ${rows || '<div style="color:#888;font-size:0.9rem">No decisions yet.</div>'}
+        <button id="anchor-back-btn" style="margin-top:0.75rem;background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Back to review</button>
+      </div>`;
+    wireReviewModeSelector(panel);
+    document.getElementById('anchor-back-btn')?.addEventListener('click', () => {
+      anchorDecidedView = false;
+      renderAnchorReview();
+    });
+  });
 }
 
 async function onAnchorAction(action) {
@@ -900,7 +966,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Auto-refresh</span><span class="stat-value">${REFRESH_INTERVAL_MS / 1000}s</span></div>
       <div class="stat-row"><span class="stat-label">API endpoint</span><span class="stat-value">/api/station/status</span></div>
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0, 8) || '?')}</span></div>
-      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.2.1</span></div>
+      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.3.0</span></div>
     </div>
     <div class="panel-card" style="cursor:pointer" onclick="location.reload()">
       <div class="panel-card-title" style="color:var(--accent-cyan); text-align:center">Force Refresh</div>
