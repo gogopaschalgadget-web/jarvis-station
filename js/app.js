@@ -829,6 +829,7 @@ async function onAnchorAction(action) {
   }
   const result = await submitAnchorDecision(currentAnchorItem.candidate_id, action, rejectReason);
   if (result && result.success) {
+    if (result.xp_breakdown) renderXpToast(result.xp_awarded, result.xp_breakdown, result.idempotent);
     currentAnchorItem = null;
     anchorRejectMode = false;
     renderAnchorReview();
@@ -966,7 +967,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Auto-refresh</span><span class="stat-value">${REFRESH_INTERVAL_MS / 1000}s</span></div>
       <div class="stat-row"><span class="stat-label">API endpoint</span><span class="stat-value">/api/station/status</span></div>
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0, 8) || '?')}</span></div>
-      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.3.0</span></div>
+      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.4.0</span></div>
     </div>
     <div class="panel-card" style="cursor:pointer" onclick="location.reload()">
       <div class="panel-card-title" style="color:var(--accent-cyan); text-align:center">Force Refresh</div>
