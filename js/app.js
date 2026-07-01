@@ -267,6 +267,11 @@ let reviewPanelMode = 'idle'; // idle | edit | reject
 let isLoadingReview = false;
 let reviewPlatform = 'reddit'; // 'reddit' | 'x' | 'both' ('both' -> null to backend)
 let reviewTab = 'posts'; // 'posts' | 'anchors' (anchor curation merged into the Review tab)
+// BUG J3: post_id of the item currently drawn in idle mode. The 60s auto-refresh
+// must not rebuild the panel while this item is shown, or it wipes the override
+// dropdowns (their state lives only in the DOM). Reset to null whenever
+// currentReviewItem is cleared so the next item always draws.
+let reviewRenderedItemId = null;
 
 // Whitelist of rubric dimension keys per engines/shared/content_review_payload.py.
 // Mirrors RubricDimension Literal. Filter chris_corrections to prevent 422
@@ -380,6 +385,7 @@ function wirePlatformSelector(panel) {
       if (v === reviewPlatform) return;
       reviewPlatform = v;
       currentReviewItem = null;
+      reviewRenderedItemId = null;
       reviewPanelMode = 'idle';
       renderContentReview();
     });
@@ -416,6 +422,11 @@ function renderContentReview() {
   // BUG J2: never rebuild the panel while the user is mid-edit/reject; the 60s
   // auto-refresh would otherwise wipe in-progress input.
   if (reviewPanelMode === 'edit' || reviewPanelMode === 'reject') return;
+  // BUG J3: same protection for idle override selection. Once the current item
+  // is drawn, the 60s auto-refresh must not rebuild the panel or it resets the
+  // rubric override dropdowns the reviewer is filling in.
+  if (currentReviewItem && !isLoadingReview
+      && reviewRenderedItemId === currentReviewItem.post_id) return;
 
   if (currentReviewItem === null && !isLoadingReview) {
     isLoadingReview = true;
@@ -439,6 +450,7 @@ function renderContentReview() {
         wireReviewModeSelector(panel);
         document.getElementById('review-refresh-btn')?.addEventListener('click', () => {
           currentReviewItem = null;
+          reviewRenderedItemId = null;
           renderContentReview();
         });
       }
@@ -498,6 +510,9 @@ function renderContentReview() {
   });
   wirePlatformSelector(panel);
   wireReviewModeSelector(panel);
+  // Mark this item as drawn so the 60s auto-refresh leaves the dropdowns alone
+  // (BUG J3). Cleared wherever currentReviewItem is reset to null.
+  reviewRenderedItemId = item.post_id;
 }
 
 function gatherCorrections() {
@@ -517,6 +532,7 @@ async function onReviewAction(action) {
   if (!currentReviewItem) return;
   if (action === 'skip') {
     currentReviewItem = null;
+    reviewRenderedItemId = null;
     reviewPanelMode = 'idle';
     renderContentReview();
     return;
@@ -583,6 +599,7 @@ async function onReviewAction(action) {
   if (result && result.success) {
     renderXpToast(result.xp_awarded, result.xp_breakdown, result.idempotent);
     currentReviewItem = null;
+    reviewRenderedItemId = null;
     reviewPanelMode = 'idle';
     renderContentReview();
   }
@@ -967,7 +984,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Auto-refresh</span><span class="stat-value">${REFRESH_INTERVAL_MS / 1000}s</span></div>
       <div class="stat-row"><span class="stat-label">API endpoint</span><span class="stat-value">/api/station/status</span></div>
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0, 8) || '?')}</span></div>
-      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.4.0</span></div>
+      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.4.1</span></div>
     </div>
     <div class="panel-card" style="cursor:pointer" onclick="location.reload()">
       <div class="panel-card-title" style="color:var(--accent-cyan); text-align:center">Force Refresh</div>
