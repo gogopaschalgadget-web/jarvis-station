@@ -4,7 +4,8 @@
 .cas-desk button{cursor:pointer;padding:12px 18px;color:#f5e6ce;background:#5a232a;border:1px solid #be9455;border-radius:5px;font:inherit;min-height:44px}.cas-desk button:disabled{opacity:.6;cursor:wait}.cas-desk button:focus-visible,.cas-desk input:focus-visible{outline:3px solid #e6c589;outline-offset:3px}
 .cas-settings{padding:16px 0}.cas-settings[hidden]{display:none}.cas-settings label{display:block;font-weight:600}.cas-settings input{display:block;margin:12px 0;max-width:100%;font:inherit}.cas-settings p,.cas-status{font-size:13px;color:#d0bea7}.cas-status{min-height:20px}
 @media(max-width:600px){.cas-desk{margin:12px;grid-template-columns:1fr;padding:18px;gap:14px}.cas-portrait img{height:370px;max-width:360px;margin:auto}.cas-introduction h2{font-size:32px}.cas-settings input{width:100%}}
-.station-pairing{height:auto;min-height:100%;overflow:auto;touch-action:pan-y}
+html.station-pairing,body.station-pairing{height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+body.station-pairing{padding-top:48px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 .station-pairing #cas-root{padding-top:12px;touch-action:pan-y}
 .station-cas-sheet{position:fixed;inset:70px 12px 78px;overflow:auto;z-index:160;background:#111419;border:1px solid #92703e;border-radius:10px;touch-action:pan-y;max-width:1100px;margin:auto}
 .station-cas-sheet[hidden]{display:none}.station-cas-sheet .cas-desk{margin:12px;border:0;box-shadow:none}

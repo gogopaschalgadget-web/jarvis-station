@@ -117,9 +117,10 @@ async function fetchStatus() {
 
 // --- PAIRING UI ---
 function showPairingUI() {
+  document.documentElement.classList.add('station-pairing');
   document.body.classList.add('station-pairing');
   document.body.innerHTML = `
-    <div id="cas-root"></div>
+
     <div style="
       display:flex; flex-direction:column; align-items:center; justify-content:center;
       min-height:0; background:#0a0e14; color:#c8d0dc; font-family:sans-serif;
@@ -163,6 +164,8 @@ function showPairingUI() {
       </div>
     </div>
   `;
+  mountStationCas();
+  document.body.insertAdjacentHTML('beforeend', '<div id="cas-root"></div>');
   mountStationCas();
   document.getElementById('pair-btn')?.addEventListener('click', () => {
     const code = document.getElementById('pair-code')?.value?.trim() || '';
