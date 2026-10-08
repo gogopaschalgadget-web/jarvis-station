@@ -1,0 +1,304 @@
+/* cas-chat.css - Cas scene and chat styling
+   Brass / dark console / parchment palette matching the storyboard.
+   Supplements station.css; does not replace it.
+   No em-dashes. */
+
+.metrics-bar[hidden] { display: none; }
+
+/* -----------------------------------------------------------------------
+   Panel-cas: full height from header to nav, no metrics bar offset
+   ----------------------------------------------------------------------- */
+#panel-cas.tab-panel {
+  top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+  padding: 0;
+  overflow: hidden;
+}
+
+/* -----------------------------------------------------------------------
+   Cas scene shell
+   ----------------------------------------------------------------------- */
+.cas-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0a100a;
+  isolation: isolate;
+}
+
+/* Portrait: absolute, fills entire scene behind all content */
+.cas-scene-portrait {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 18%;
+  z-index: 0;
+}
+
+/* Gradient overlays for readability */
+.cas-scene::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(9,12,8,0.70) 0%, transparent 70%),
+    linear-gradient(0deg, rgba(7,9,7,0.97) 0%, rgba(9,12,8,0.65) 40%, transparent 80%);
+}
+
+/* Brass rivet frame (decorative) */
+.cas-scene-rivet {
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(193,154,86,0.30);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* -----------------------------------------------------------------------
+   Scene header: name + tagline + appearance button
+   ----------------------------------------------------------------------- */
+.cas-scene-header {
+  position: relative;
+  z-index: 3;
+  flex-shrink: 0;
+  padding: 20px 24px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cas-scene-name {
+  display: block;
+  font: 700 34px Georgia, serif;
+  color: #ffe1ac;
+  text-shadow: 0 2px 8px #000;
+  line-height: 1.1;
+}
+
+.cas-scene-tagline {
+  display: block;
+  font-size: 12px;
+  color: #d1c2a5;
+  text-shadow: 0 1px 4px #000;
+  margin-top: 3px;
+}
+
+.cas-appearance-chip {
+  flex-shrink: 0;
+  margin-top: 4px;
+  background: rgba(16,21,13,0.88);
+  border: 1px solid #9e7b42;
+  color: #d4b87a;
+  padding: 7px 12px;
+  border-radius: 4px;
+  font: 12px/1 system-ui, sans-serif;
+  cursor: pointer;
+  min-height: 36px;
+}
+.cas-appearance-chip:focus-visible {
+  outline: 2px solid #e6c589;
+  outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------
+   Message scroll area (grows upward inside the flex body)
+   ----------------------------------------------------------------------- */
+.cas-scene-body {
+  position: relative;
+  z-index: 3;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.cas-messages {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 18px 12px;
+  /* touch-action set here to allow scroll */
+  touch-action: pan-y;
+}
+
+/* -----------------------------------------------------------------------
+   Message bubbles
+   ----------------------------------------------------------------------- */
+.cas-message-user {
+  align-self: flex-end;
+  max-width: 82%;
+  background: rgba(75,33,30,0.93);
+  border: 1px solid rgba(158,88,64,0.70);
+  color: #f5e6ce;
+  border-radius: 10px 10px 3px 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.cas-message-cas {
+  align-self: flex-start;
+  max-width: 88%;
+  background: linear-gradient(100deg, rgba(16,25,18,0.95), rgba(10,12,8,0.96));
+  border: 1px groove #c19a56;
+  color: #e1d4b9;
+  border-radius: 10px 10px 10px 3px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+
+.cas-message-status {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.cas-msg-queued  { color: #b09858; }
+.cas-msg-running { color: #c9a456; }
+.cas-msg-failed  { color: #b86050; }
+.cas-msg-empty   { color: #9a8870; font-style: italic; }
+
+/* -----------------------------------------------------------------------
+   Composer area (pinned to bottom of scene, above nav)
+   ----------------------------------------------------------------------- */
+.cas-composer-area {
+  position: relative;
+  z-index: 4;
+  flex-shrink: 0;
+  background: rgba(9,14,11,0.95);
+  border-top: 2px groove #c19a56;
+  padding: 10px 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  /* transition for keyboard adjustment */
+  transition: margin-bottom 0.12s ease-out;
+}
+
+.cas-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #b7a883;
+  margin-bottom: 6px;
+}
+
+/* Textarea: 16px font-size prevents iOS auto-zoom on focus */
+.cas-composer-area textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  min-height: 56px;
+  max-height: 120px;
+  background: transparent;
+  color: #f7e7c9;
+  border: 0;
+  border-bottom: 1px solid rgba(193,154,86,0.35);
+  padding: 4px 0 8px;
+  font: 16px/1.45 system-ui, sans-serif;
+  outline: none;
+  /* must re-enable text interaction inside the touch-action:none body */
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+.cas-composer-area textarea:focus {
+  border-bottom-color: #d3af70;
+}
+.cas-composer-area textarea::placeholder { color: #ab9b7e; }
+.cas-composer-area textarea:focus-visible {
+  outline: none; /* handled by border */
+}
+
+.cas-compose-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cas-status {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: #c2b496;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cas-send-btn {
+  flex-shrink: 0;
+  border: 1px solid #d5b37b;
+  background: linear-gradient(#7b3731, #4b211e);
+  color: #ffe8bb;
+  padding: 9px 22px;
+  border-radius: 4px;
+  font: 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+  min-height: 40px;
+}
+.cas-send-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+.cas-send-btn:focus-visible {
+  outline: 2px solid #e6c589;
+  outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------
+   "More" nav panel
+   ----------------------------------------------------------------------- */
+.more-nav-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.more-nav-btn {
+  background: var(--bg-secondary, #0c1117);
+  border: 1px solid var(--border, #1e2a38);
+  border-radius: 8px;
+  color: var(--text-primary, #c8d0dc);
+  padding: 18px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  text-align: center;
+}
+.more-nav-btn:hover {
+  border-color: var(--accent-gold, #d4a853);
+  color: var(--accent-gold, #d4a853);
+}
+.more-nav-btn:focus-visible {
+  outline: 2px solid var(--accent-gold, #d4a853);
+  outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------
+   Responsive: larger screens
+   ----------------------------------------------------------------------- */
+@media (min-width: 600px) {
+  .cas-scene-header { padding: 26px 32px 10px; }
+  .cas-scene-name { font-size: 40px; }
+  .cas-composer-area { padding: 12px 24px; }
+  .cas-messages { padding: 8px 24px 14px; }
+}

@@ -3,24 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Jarvis Station</title>
-<link rel="stylesheet" href="css/station.css?v=3">
+<title>Station</title>
+<link rel="stylesheet" href="css/station.css?v=4">
+<link rel="stylesheet" href="css/cas-identity.css?v=4">
+<link rel="stylesheet" href="css/cas-chat.css?v=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/cas-identity.css"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><meta name="theme-color" content="#241917"></head>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#241917">
+</head>
 <body>
 
-<!-- HEADER -->
+<!-- HEADER (always visible) -->
 <header class="station-header">
-  <span class="station-title">Jarvis Station</span>
-  <span class="station-subtitle">Autonomous Revenue Fortress</span>
+  <span class="station-title">Station</span>
   <div class="header-stats" id="header-stats">
-    <span class="header-stat">Loading..</span>
+    <span class="header-stat" id="header-status"></span>
   </div>
 </header>
 
-<!-- METRICS BAR -->
-<div class="metrics-bar" id="metrics-bar">
+<!-- METRICS BAR (shown only when Station map tab is active) -->
+<div class="metrics-bar" id="metrics-bar" hidden>
   <div class="metric"><span class="metric-val" id="m-days">--</span><span class="metric-lbl">DAYS</span></div>
   <div class="metric"><span class="metric-val" id="m-budget">--</span><span class="metric-lbl">BUDGET</span></div>
   <div class="metric"><span class="metric-val" id="m-services">--</span><span class="metric-lbl">SERVICES</span></div>
@@ -28,31 +32,69 @@
   <div class="metric"><span class="metric-val" id="m-revenue">$0</span><span class="metric-lbl">REVENUE</span></div>
 </div>
 
-<div id="cas-root" class="station-cas-sheet" hidden><button id="station-cas-close" type="button">Close Cas</button></div><button id="station-cas-toggle" type="button" aria-label="Open Cas" aria-expanded="false"><img src="assets/cas/current.png" alt=""></button><!-- CANVAS MAP -->
-<div class="station-main">
+<!-- CAS SCENE TAB (default/main tab) -->
+<div class="tab-panel" id="panel-cas">
+  <div class="cas-scene">
+    <!-- Portrait: IndexedDB image loaded by app.js; falls back to current.png -->
+    <img id="cas-scene-img" class="cas-scene-portrait" src="assets/cas/current.png" alt="Cas">
+    <div class="cas-scene-rivet" aria-hidden="true"></div>
+    <div class="cas-scene-header">
+      <div>
+        <span class="cas-scene-name">Cas</span>
+        <span class="cas-scene-tagline">Same Cas. Same mission.</span>
+      </div>
+      <button type="button" id="cas-appearance-btn" class="cas-appearance-chip">Appearance</button>
+      <button type="button" id="cas-appearance-reset" class="cas-appearance-chip">Restore look</button>
+      <input type="file" id="cas-appearance-picker" accept="image/png,image/jpeg,image/webp" hidden>
+    </div>
+    <div class="cas-scene-body">
+      <div id="cas-messages" class="cas-messages" role="log" aria-live="polite"></div>
+    </div>
+    <div id="cas-composer-area" class="cas-composer-area">
+      <form id="cas-composer" autocomplete="off">
+        <label for="cas-textarea" class="cas-label">TALK WITH CAS</label>
+        <textarea id="cas-textarea" name="message"
+          placeholder="What should we work on, Cas?"
+          maxlength="8000" rows="2"></textarea>
+        <div class="cas-compose-tools">
+          <span id="cas-status" class="cas-status" role="status" aria-live="polite"></span>
+          <button type="submit" id="cas-send-btn" class="cas-send-btn">Send</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- STATION MAP (shown when Station tab is active) -->
+<div class="station-main" id="station-main" style="display:none">
   <canvas id="station-canvas"></canvas>
 </div>
 
 <!-- ROOM DETAIL OVERLAY -->
 <div class="room-overlay" id="room-overlay"></div>
 
-<!-- TAB PANELS -->
+<!-- OTHER TAB PANELS (populated by app.js) -->
 <div class="tab-panel" id="panel-missions"></div>
 <div class="tab-panel" id="panel-content-review"></div>
 <div class="tab-panel" id="panel-agents"></div>
 <div class="tab-panel" id="panel-log"></div>
 <div class="tab-panel" id="panel-settings"></div>
-<div class="tab-panel" id="panel-store"><div class="future-lock"><div class="icon">◆</div>FUTURE: Store<br>Trigger: First $100 MRR</div></div>
-<div class="tab-panel" id="panel-achievements"><div class="future-lock"><div class="icon">★</div>FUTURE: Achievements<br>Trigger: First sale event</div></div>
-<div class="tab-panel" id="panel-inventory"><div class="future-lock"><div class="icon">▦</div>FUTURE: Inventory<br>Trigger: 5+ agent vault notes</div></div>
+<div class="tab-panel" id="panel-more"></div>
+<div class="tab-panel" id="panel-store">
+  <div class="future-lock"><div class="icon">◆</div>FUTURE: Store<br>Trigger: First $100 MRR</div>
+</div>
+<div class="tab-panel" id="panel-achievements">
+  <div class="future-lock"><div class="icon">★</div>FUTURE: Achievements<br>Trigger: First sale event</div>
+</div>
+<div class="tab-panel" id="panel-inventory">
+  <div class="future-lock"><div class="icon">▦</div>FUTURE: Inventory<br>Trigger: 5+ agent vault notes</div>
+</div>
 
-<!-- BOTTOM NAV -->
-<nav class="station-nav" id="station-nav"></nav>
+<!-- BOTTOM NAV (4 items: Cas, Station, Missions, More) -->
+<nav class="station-nav" id="station-nav" aria-label="Station navigation"></nav>
 
 <!-- SCRIPTS (ES Modules) -->
-<script type="module" src="js/app.js?v=cas21"></script>
-
-<script type="module" src="js/pwa.js?v=cas21"></script></body>
+<script type="module" src="js/app.js?v=cas22"></script>
+<script type="module" src="js/pwa.js?v=cas22"></script>
+</body>
 </html>
-
-
