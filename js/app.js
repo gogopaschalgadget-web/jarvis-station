@@ -1,3 +1,16 @@
+import { mountCas } from './cas-identity.js';
+function mountStationCas() {
+  const root = document.getElementById('cas-root');
+  if (root) mountCas(root).catch(error => console.error('Cas identity:', error));
+  document.getElementById('station-cas-toggle')?.addEventListener('click', event => {
+    root.hidden = !root.hidden;
+    event.currentTarget.setAttribute('aria-expanded', String(!root.hidden));
+  });
+  document.getElementById('station-cas-close')?.addEventListener('click', () => {
+    root.hidden = true;
+    document.getElementById('station-cas-toggle')?.setAttribute('aria-expanded', 'false');
+  });
+}
 // app.js - Station orchestrator, API integration, navigation
 // ES Module. No em-dashes. No credentials.
 // Phase 3: fetches from Railway origin with per-device opaque token auth.
@@ -69,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const canvas = document.getElementById('station-canvas');
   if (!canvas) return;
+  mountStationCas();
 
   initRenderer(canvas);
   setDrawCallback(drawRooms);
@@ -103,10 +117,12 @@ async function fetchStatus() {
 
 // --- PAIRING UI ---
 function showPairingUI() {
+  document.body.classList.add('station-pairing');
   document.body.innerHTML = `
+    <div id="cas-root"></div>
     <div style="
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      min-height:100vh; background:#0a0e14; color:#c8d0dc; font-family:sans-serif;
+      min-height:0; background:#0a0e14; color:#c8d0dc; font-family:sans-serif;
       padding:1.5rem;
     ">
       <div style="
@@ -147,6 +163,7 @@ function showPairingUI() {
       </div>
     </div>
   `;
+  mountStationCas();
   document.getElementById('pair-btn')?.addEventListener('click', () => {
     const code = document.getElementById('pair-code')?.value?.trim() || '';
     const name = document.getElementById('pair-name')?.value?.trim() || 'Unknown Device';
@@ -161,6 +178,7 @@ function showPairingUI() {
   document.getElementById('pair-code')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('pair-btn')?.click();
   });
+  dispatchEvent(new Event('station:surface-changed'));
 }
 
 // --- HEADER + METRICS BAR ---
@@ -1080,3 +1098,4 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+
