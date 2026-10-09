@@ -22,10 +22,14 @@ function mountPwaControls() {
     const install = document.createElement('details');
     install.id = 'station-install-help';
     install.className = 'station-install-help';
-    install.innerHTML =
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    install.innerHTML = isIOS ?
       '<summary>Install on iPhone</summary>' +
       '<p>Open this Station in Safari. Tap Share, then Add to Home Screen. ' +
-      'Open the new icon and pair your device when prompted.</p>';
+      'Open the new icon and pair your device when prompted.</p>' :
+      '<summary>Install Station</summary>' +
+      '<p>Use your browser’s install icon in the address bar, or its menu to install this Station as an app.</p>';
     document.body.append(install);
   }
 

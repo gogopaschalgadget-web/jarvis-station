@@ -1,5 +1,5 @@
 // Static shell only: no authenticated API, cross-origin or user-upload caching.
-const VERSION = 'jarvis-cas-v22';
+const VERSION = 'jarvis-cas-v23';
 const BASE = new URL('./', self.location.href);
 const PATHS = ['./', 'index.html', 'manifest.json', 'offline.html', 'js/app.js', 'js/cas-chat.js', 'js/renderer.js', 'js/rooms.js', 'js/room-views.js', 'js/cas-identity.js', 'js/pwa.js', 'css/station.css', 'css/cas-chat.css', 'css/cas-identity.css', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'assets/cas/current.png', 'assets/cas/identity.json'];
 const SHELL = PATHS.map(path => new URL(path, BASE).href);
