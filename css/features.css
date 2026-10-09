@@ -24,4 +24,4 @@
 @media(prefers-reduced-motion:reduce){.cas-scene-portrait{animation:none;}}
 .room-overlay{z-index:95;top:calc(var(--header-height) + 32px);}.cas-scene-header{z-index:3;}
 
-#station-canvas[hidden]{display:none;} 
+#station-canvas[hidden]{display:none;}
