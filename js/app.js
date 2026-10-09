@@ -1,13 +1,14 @@
+import { prepareScreenshot } from './cas-images.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
 import { ROOMS, ROOM_COLORS, OP_STATUSES, PROGRESSION_STATES, TIER_COLORS } from './rooms.js';
-import { initRenderer, setDrawCallback, setRoomTapHandler, setApiData, requestRedraw, resetView } from './renderer.js';
+import { initRenderer, setDrawCallback, setRoomTapHandler, setApiData, requestRedraw, resetView } from './fortress.js';
 import { drawRooms, hexToRgba } from './room-views.js';
 import {
   initChat, sendMessage, loadHistory,
   resumePendingPolling, stopAllPolling,
-  saveDraft, loadDraft, clearDraft,
+  saveDraft, loadDraft, clearDraft, pendingAttachments,
 } from './cas-chat.js';
 
 const API_BASE = 'https://web-production-eb2a6.up.railway.app';
@@ -322,12 +323,33 @@ async function initCasScene() {
   const img = document.getElementById('cas-scene-img');
   const defaultSrc = 'assets/cas/console.png';
 
+  let customPortrait=false;
   function displayPortrait(blob) {
+    customPortrait=!!blob;
     if (casPortraitURL) URL.revokeObjectURL(casPortraitURL);
     casPortraitURL = blob ? URL.createObjectURL(blob) : null;
     if (img) img.src = casPortraitURL || defaultSrc;
   }
 
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const scene=document.getElementById('cas-scene');
+  let paused=localStorage.getItem('cas-scene-paused')==='true' || reduced.matches;
+  const motionButton=document.getElementById('cas-motion-btn');
+  function applyMotion() {
+    scene.classList.toggle('scene-paused',paused);
+    motionButton.textContent=paused?'Play scene':'Pause scene';
+    motionButton.setAttribute('aria-pressed',String(paused));
+  }
+  motionButton.addEventListener('click',()=>{paused=!paused;localStorage.setItem('cas-scene-paused',String(paused));applyMotion();});
+  reduced.addEventListener('change',()=>{if(reduced.matches){paused=true;applyMotion();}});
+  applyMotion();
+  const scenes=['assets/cas/console.png','assets/cas/map-scene.png','assets/cas/standing.png'];
+  let sceneIndex=0;
+  setInterval(()=>{
+    if(paused || customPortrait || document.hidden || currentTab!=='cas')return;
+    sceneIndex=(sceneIndex+1)%scenes.length;
+    img.src=scenes[sceneIndex];
+  },45000);
   displayPortrait(null);
   try {
     const saved = await _casPortraitGet();
@@ -397,6 +419,29 @@ async function initCasScene() {
     renderCasEmpty('Your conversation with Cas will appear here.');
   }
 
+  let attachments=pendingAttachments();
+  let preparing=false;
+  const preview=document.getElementById('cas-attachment-preview');
+  const attachmentPicker=document.getElementById('cas-attach-picker');
+  function showAttachment() {
+    preview.hidden=!attachments.length;
+    if(attachments.length)preview.querySelector('img').src=attachments[0].url;
+    else preview.querySelector('img').removeAttribute('src');
+  }
+  showAttachment();
+  async function attach(file) {
+    preparing=true;
+    try {attachments=[await prepareScreenshot(file)];showAttachment();document.getElementById('cas-status').textContent='Screenshot ready. Add a question or send it to Cas.';}
+    catch(error){document.getElementById('cas-status').textContent=error.message;}
+    finally {preparing=false;attachmentPicker.value='';}
+  }
+  document.getElementById('cas-attach-btn').addEventListener('click',()=>attachmentPicker.click());
+  attachmentPicker.addEventListener('change',()=>{if(attachmentPicker.files[0])attach(attachmentPicker.files[0]);});
+  document.getElementById('cas-attachment-remove').addEventListener('click',()=>{attachments=[];showAttachment();});
+  textarea.addEventListener('paste',event=>{
+    const image=Array.from(event.clipboardData?.items || []).find(item=>item.kind==='file' && item.type.startsWith('image/'));
+    if(image){event.preventDefault();const file=image.getAsFile();if(file)attach(file);}
+  });
   // Composer submit
   const form = document.getElementById('cas-composer');
   const sendBtn = document.getElementById('cas-send-btn');
@@ -406,12 +451,13 @@ async function initCasScene() {
       const textarea = document.getElementById('cas-textarea');
       const statusEl = document.getElementById('cas-status');
       if (!textarea || !sendBtn) return;
-      const text = textarea.value.trim();
-      if (!text) return;
+      const text = textarea.value.trim() || (attachments.length?'Please review this screenshot.':'');
+      if (!text || preparing) return;
       sendBtn.disabled = true;
       if (statusEl) statusEl.textContent = 'Sending...';
       try {
-        const item = await sendMessage(text);
+        const item = await sendMessage(text, attachments);
+        attachments=[];showAttachment();
         textarea.value = '';
         textarea.style.height = '';
         addOrUpdateCasExchange(item);
@@ -512,6 +558,10 @@ function buildExchangeEl(item) {
   const userText = document.createElement('p');
   userText.textContent = item.message || ''; // textContent: XSS-safe
   userEl.append(userText);
+  for (const attachment of item.attachments || []) {
+    if(!/^data:image\/(png|jpeg|webp);base64,/.test(attachment.url || '') || attachment.url.length>180000)continue;
+    const screenshot=document.createElement('img');screenshot.src=attachment.url;screenshot.alt='Screenshot sent to Cas';screenshot.className='cas-chat-screenshot';userEl.append(screenshot);
+  }
   wrap.append(userEl);
 
   // Cas bubble (status / reply)

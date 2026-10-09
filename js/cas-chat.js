@@ -64,18 +64,18 @@ function _genKey() {
  * Returns the queued request item on success.
  * Throws with .status set to the HTTP status on auth/server errors.
  */
-export async function sendMessage(text) {
+export async function sendMessage(text, attachments = []) {
   if (_sending) return _sending;
-  _sending = _sendMessage(text);
+  _sending = _sendMessage(text, attachments);
   try { return await _sending; } finally { _sending = null; }
 }
 
-async function _sendMessage(text) {
+async function _sendMessage(text, attachments) {
   if (!text || !text.trim()) throw new Error('empty message');
   saveDraft(text);
   const message = text.trim();
-  const pending = _loadPending() || { request_key: _genKey(), message };
-  if (pending.message !== message) {
+  const pending = _loadPending() || { request_key: _genKey(), message, attachments };
+  if (pending.message !== message || JSON.stringify(pending.attachments || []) !== JSON.stringify(attachments)) {
     throw new Error('Retry the pending message before sending changed text.');
   }
   // Storage failures stop the send before it reaches the server.
@@ -196,3 +196,5 @@ async function _doPoll(requestId, deadline) {
     _schedulePoll(requestId, deadline, POLL_DELAY_MS * 2);
   }
 }
+
+export function pendingAttachments() { return _loadPending()?.attachments || []; }
