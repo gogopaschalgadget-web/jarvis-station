@@ -23,3 +23,5 @@
 @media(max-width:700px){.fortress-overview{padding:14px 10px 20px;}.fortress-heading h1{font-size:24px;}.fortress-roster{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}.fortress-room{padding:8px;gap:6px;}.fortress-room b{font-size:13px;}.room-sigil{font-size:22px;min-width:20px;}.fortress-room small{font-size:10px;}.fortress-atlas{border-width:4px;}.fortress-hotspot>b{font-size:9px;padding:3px 4px;white-space:normal;}.fortress-hotspot>span{width:27px;height:27px;font-size:17px;}.cas-scene-header{flex-wrap:wrap;}.cas-scene-header>div{flex:1 0 100%;}}
 @media(prefers-reduced-motion:reduce){.cas-scene-portrait{animation:none;}}
 .room-overlay{z-index:95;top:calc(var(--header-height) + 32px);}.cas-scene-header{z-index:3;}
+
+#station-canvas[hidden]{display:none;} 
