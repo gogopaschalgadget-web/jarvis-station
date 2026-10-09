@@ -1,5 +1,6 @@
 import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
+import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -341,6 +342,7 @@ async function initCasScene() {
   const motionButton=document.getElementById('cas-motion-btn');
   function applyMotion() {
     scene.classList.toggle('scene-paused',paused);
+    document.body.classList.toggle('station-motion-paused',paused);
     motionButton.textContent=paused?'Play scene':'Pause scene';
     motionButton.setAttribute('aria-pressed',String(paused));
   }
@@ -403,6 +405,7 @@ async function initCasScene() {
 
   // Chat initialisation
   initChat(API_BASE, getDeviceToken, onCasMessageUpdate, getDeviceId());
+  initWorkControls();
 
   // Load history
   const draft = loadDraft();
@@ -450,7 +453,8 @@ async function initCasScene() {
       const textarea = document.getElementById('cas-textarea');
       const statusEl = document.getElementById('cas-status');
       if (!textarea || !sendBtn) return;
-      const text = textarea.value.trim() || (attachments.length?'Please review this screenshot.':'');
+      const rawText = textarea.value.trim() || (attachments.length?'Please review this screenshot.':'');
+      const text = workMessage(rawText);
       if (!text || preparing) return;
       sendBtn.disabled = true;
       if (statusEl) statusEl.textContent = 'Sending...';
@@ -552,6 +556,7 @@ function onCasMessageUpdate(item) {
 }
 
 function buildExchangeEl(item) {
+  observeWork(item);
   const wrap = document.createElement('div');
 
   // User bubble
