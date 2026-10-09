@@ -16,17 +16,17 @@ const REFRESH_INTERVAL_MS = 60_000;
 
 // --- Navigation: 4-item simplified nav ---
 const CAS_NAV = [
-  { id: 'cas',      label: 'Cas',      icon: '✦' },
-  { id: 'station',  label: 'Station',  icon: '⬡' },
-  { id: 'missions', label: 'Missions', icon: '◎' },
-  { id: 'more',     label: 'More',     icon: '···' },
-  { id: 'content-review', label: 'Content Engine', icon: '⚒', desktop: true },
-  { id: 'agents', label: 'Agent Bay', icon: '♧', desktop: true },
-  { id: 'log', label: 'Mission Log', icon: '▤', desktop: true },
-  { id: 'settings', label: 'Workshop', icon: '⚙', desktop: true },
+  { id: 'cas', label: 'Cas', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z"/><path d="M8 8h8M8 12h5"/></svg>' },
+  { id: 'station', label: 'Station', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V8l4-3 4 3v13M13 21V8l4-3 4 3v13M3 12h18M7 21v-4h10v4"/></svg>' },
+  { id: 'missions', label: 'Missions', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10l2 2 4-4M9 17h6"/></svg>' },
+  { id: 'more', label: 'More', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/></svg>' },
+  { id: 'settings', label: 'Settings', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></svg>' },
+  { id: 'content-review', label: 'Content Engine', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h11l5 5v13H4V3ZM14 3v6h6M8 13h8M8 17h6"/></svg>', desktop: true },
+  { id: 'agents', label: 'Agent Bay', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="14" rx="3"/><path d="M12 2v4M8 11h1M15 11h1M8 16h8"/></svg>', desktop: true },
+  { id: 'log', label: 'Mission Log', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h14v17H6V4ZM3 7h3M3 12h3M3 17h3M10 8h6M10 12h6M10 16h4"/></svg>', desktop: true },
 ];
 // Sub-tabs shown inside the "More" panel
-const MORE_SUB_TABS = ['content-review', 'agents', 'log', 'settings'];
+const MORE_SUB_TABS = ['content-review', 'agents', 'log'];
 
 // --- Cas appearance: IndexedDB (same database as cas-identity.js) ---
 const _DB_NAME = 'cas-appearance-v1';
@@ -297,7 +297,7 @@ function switchTab(tabId) {
     requestRedraw();
   } else {
     if (stationMain) stationMain.style.display = 'none';
-    if (metricsBar) metricsBar.hidden = (tabId === 'cas');
+    if (metricsBar) metricsBar.hidden = (tabId === 'cas' || tabId === 'settings');
 
     if (tabId === 'cas') {
       const panel = document.getElementById('panel-cas');
@@ -364,7 +364,7 @@ async function initCasScene() {
     picker.addEventListener('change', async () => {
       const file = picker.files[0];
       if (!file) return;
-      const statusEl = document.getElementById('cas-status');
+      const statusEl = document.getElementById('cas-preference-status');
       if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
           file.size > 8 * 1024 * 1024) {
         if (statusEl) statusEl.textContent = 'Choose a PNG, JPEG or WebP smaller than 8 MB.';
@@ -383,7 +383,7 @@ async function initCasScene() {
         displayPortrait(file);
         if (statusEl) statusEl.textContent = 'Cas appearance saved on this device.';
       } catch (err) {
-        const statusEl = document.getElementById('cas-status');
+        const statusEl = document.getElementById('cas-preference-status');
         if (statusEl) statusEl.textContent = err.message || 'Could not save image.';
       } finally {
         picker.value = '';
@@ -1120,6 +1120,8 @@ function renderLog() {
 function renderSettings() {
   const panel = document.getElementById('panel-settings');
   if (!panel) return;
+  const preferences = document.getElementById('cas-preferences');
+  preferences?.remove();
   panel.innerHTML = `
     <div class="panel-card">
       <div class="panel-card-title">Station Settings</div>
@@ -1137,6 +1139,7 @@ function renderSettings() {
     <div class="panel-card" id="unpair-btn" style="cursor:pointer">
       <div class="panel-card-title" style="color:var(--accent-red,#ef4444);text-align:center">Unpair Device</div>
     </div>`;
+  if (preferences) { preferences.hidden = false; panel.prepend(preferences); }
   document.getElementById('reset-view-btn')?.addEventListener('click', () => { resetView(); switchTab('station'); });
   document.getElementById('unpair-btn')?.addEventListener('click', () => {
     if (confirm('Unpair this device? You will need a new pairing code.')) clearAuth();

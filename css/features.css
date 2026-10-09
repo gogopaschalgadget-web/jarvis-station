@@ -25,3 +25,35 @@
 .room-overlay{z-index:95;top:calc(var(--header-height) + 32px);}.cas-scene-header{z-index:3;}
 
 #station-canvas[hidden]{display:none;}
+
+/* Compact chrome leaves the home screen for the portrait and conversation. */
+:root{--header-height:32px;--nav-height:calc(72px + env(safe-area-inset-bottom,0px));}
+.station-header{padding:0 12px;border-width:1px;border-image:none;box-shadow:none;}
+.station-title{font-size:14px;letter-spacing:.5px;}
+.station-title small,.station-crest,.header-stats{display:none;}
+.cas-scene-body::before{display:none;}
+.cas-preferences[hidden]{display:none;}
+.cas-preferences p{font-size:13px;line-height:1.5;margin:8px 0;color:inherit;}
+.cas-preference-actions{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0;}
+.cas-preference-actions button{min-height:48px;padding:10px 16px;font-size:14px;}
+#panel-settings{top:calc(var(--header-height) + env(safe-area-inset-top,0px));}
+.nav-icon svg{display:block;width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+@media(max-width:959px){
+ .station-nav{padding:0 0 env(safe-area-inset-bottom,0px);gap:0;border-width:1px;border-image:none;}
+ .station-nav .nav-item{flex:1 1 0;width:0;min-width:0;height:72px;gap:6px;padding:8px 0;border-image:none;border-radius:0;}
+ .station-nav .nav-desktop{display:none;}
+ .nav-label{font:600 10px var(--font-ui);letter-spacing:0;text-transform:none;overflow:visible;}
+ .nav-item.active{background:#3b2b14;box-shadow:inset 0 3px #e5b955;}
+ #panel-cas.tab-panel{padding:0;}
+ .cas-scene{border-width:3px;border-image:none;}
+ .cas-scene-body{padding-top:0;}
+}
+@media(min-width:960px){
+ :root{--header-height:44px;--nav-height:0px;}
+ .station-title{font-size:18px;}
+ .cas-scene{grid-template-rows:minmax(0,1fr) auto;}
+ .cas-scene-body{grid-row:1;grid-column:2;margin-top:0;padding-top:8px;}
+ .cas-composer-area{grid-row:2;}
+ .station-nav{gap:8px;padding:12px 10px;}
+ .nav-item{min-height:48px;}
+}
