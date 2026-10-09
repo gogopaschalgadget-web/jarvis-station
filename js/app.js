@@ -1,3 +1,4 @@
+import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
@@ -269,6 +270,7 @@ function _navActiveId(tabId) {
 
 function switchTab(tabId) {
   currentTab = tabId;
+  document.body.classList.toggle('cas-home', tabId === 'cas');
   const activeNavId = _navActiveId(tabId);
 
   document.querySelectorAll('.nav-item').forEach(el => {
@@ -317,6 +319,7 @@ function switchTab(tabId) {
 // CAS SCENE
 // ---------------------------------------------------------------------------
 async function initCasScene() {
+  initCasAnimation();
   casSceneReady = true; // set early to prevent double-init on fast re-entry
 
   // Portrait
@@ -326,6 +329,7 @@ async function initCasScene() {
   let customPortrait=false;
   function displayPortrait(blob) {
     customPortrait=!!blob;
+    document.getElementById('cas-scene').classList.toggle('custom-portrait',customPortrait);
     if (casPortraitURL) URL.revokeObjectURL(casPortraitURL);
     casPortraitURL = blob ? URL.createObjectURL(blob) : null;
     if (img) img.src = casPortraitURL || defaultSrc;
@@ -343,13 +347,6 @@ async function initCasScene() {
   motionButton.addEventListener('click',()=>{paused=!paused;localStorage.setItem('cas-scene-paused',String(paused));applyMotion();});
   reduced.addEventListener('change',()=>{if(reduced.matches){paused=true;applyMotion();}});
   applyMotion();
-  const scenes=['assets/cas/console.png','assets/cas/map-scene.png','assets/cas/standing.png'];
-  let sceneIndex=0;
-  setInterval(()=>{
-    if(paused || customPortrait || document.hidden || currentTab!=='cas')return;
-    sceneIndex=(sceneIndex+1)%scenes.length;
-    img.src=scenes[sceneIndex];
-  },45000);
   displayPortrait(null);
   try {
     const saved = await _casPortraitGet();
@@ -460,6 +457,7 @@ async function initCasScene() {
         attachments=[];showAttachment();
         textarea.value = '';
         textarea.style.height = '';
+        setCasActivity(item.status);
         addOrUpdateCasExchange(item);
         scrollCasMessages();
         if (statusEl) statusEl.textContent = '';
@@ -515,6 +513,7 @@ function renderCasHistory(items) {
     el.id = 'cas-msg-' + item.id;
     container.append(el);
   });
+  setCasActivity(items.find(item=>['running','queued'].includes(item.status))?.status || 'completed');
   scrollCasMessages();
 }
 
@@ -534,6 +533,7 @@ function addOrUpdateCasExchange(item) {
 }
 
 function onCasMessageUpdate(item) {
+  setCasActivity(item.status);
   addOrUpdateCasExchange(item);
   scrollCasMessages();
   const statusEl = document.getElementById('cas-status');

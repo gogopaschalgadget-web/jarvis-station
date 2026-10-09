@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="css/cas-identity.css?v=4">
 <link rel="stylesheet" href="css/cas-chat.css?v=2">
 <link rel="stylesheet" href="css/storyboard.css?v=2">
-<link rel="stylesheet" href="css/features.css?v=3"><meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="css/features.css?v=4"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -37,7 +37,11 @@
 <div class="tab-panel" id="panel-cas">
   <div class="cas-scene" id="cas-scene">
     <!-- Portrait: IndexedDB image loaded by app.js; falls back to current.png -->
-    <img id="cas-scene-img" class="cas-scene-portrait" src="assets/cas/console.png" alt="Cas at the Station console">
+    <div class="cas-visual" role="img" aria-label="Cas at her working console">
+      <img id="cas-scene-img" class="cas-scene-portrait" src="assets/cas/console.png" alt="Cas at the Station console">
+      <div id="cas-animation" class="cas-animation" aria-hidden="true"></div>
+      <div class="cas-visual-caption"><strong>Cas</strong><span id="cas-activity" role="status">Ready</span></div>
+    </div>
     <div class="cas-scene-rivet" aria-hidden="true"></div>
     <div class="cas-scene-body">
       <div id="cas-messages" class="cas-messages" role="log" aria-live="polite"></div>
@@ -101,7 +105,7 @@
 <nav class="station-nav" id="station-nav" aria-label="Station navigation"></nav>
 
 <!-- SCRIPTS (ES Modules) -->
-<script type="module" src="js/app.js?v=cas27"></script>
-<script type="module" src="js/pwa.js?v=cas27"></script>
+<script type="module" src="js/app.js?v=cas28"></script>
+<script type="module" src="js/pwa.js?v=cas28"></script>
 </body>
 </html>

@@ -57,3 +57,22 @@
  .station-nav{gap:8px;padding:12px 10px;}
  .nav-item{min-height:48px;}
 }
+
+/* Cas has a persistent visual stage above the conversation. */
+body.cas-home{--header-height:0px;}
+body.cas-home .station-header{display:none;}
+body.cas-home .station-install-help{display:none;}
+#panel-cas.tab-panel{padding:0;}
+#cas-scene{display:flex;flex-direction:column;padding:0;border:0;border-image:none;background:#100e09;}
+#cas-scene::before,#cas-scene .cas-scene-rivet{display:none;}
+.cas-visual{position:relative;flex:0 0 clamp(160px,25vh,220px);width:100%;overflow:hidden;background:linear-gradient(90deg,#0f0b06,#362315,#0f0b06);border-bottom:3px ridge #ac7e37;}
+.cas-visual .cas-scene-portrait{object-fit:cover;object-position:40% 28%;filter:blur(8px) brightness(.4);animation:none;}
+.cas-animation{position:absolute;inset:0;margin:auto;width:auto;height:100%;aspect-ratio:1;background:url('../assets/cas/work-animation-v1.png') no-repeat;background-size:400% 200%;background-position:0 0;}
+.cas-visual-caption{position:absolute;left:14px;bottom:10px;display:flex;flex-direction:column;gap:3px;padding:5px 9px;background:#110d08d9;border:1px solid #a57834;color:#f5d8a1;font:12px var(--font-ui);}
+.cas-visual-caption strong{font:24px Georgia,serif;}
+#cas-scene .cas-scene-body{flex:1;min-height:0;margin:0;padding:8px 0 0;border:0;border-image:none;background:#100e09;}
+#cas-scene .cas-messages{flex:1;justify-content:flex-start;}
+#cas-scene .cas-composer-area{flex:0 0 auto;}
+.custom-portrait .cas-animation{display:none;}
+.custom-portrait .cas-scene-portrait{filter:none;object-fit:contain;object-position:center;}
+@media(min-width:960px){.cas-visual{flex-basis:clamp(180px,29vh,280px);}}

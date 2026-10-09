@@ -1,7 +1,7 @@
 // Static shell only: no authenticated API, cross-origin or user-upload caching.
-const VERSION = 'jarvis-cas-v27';
+const VERSION = 'jarvis-cas-v28';
 const BASE = new URL('./', self.location.href);
-const PATHS = ['./', 'index.html', 'manifest.json', 'offline.html', 'js/app.js', 'js/cas-chat.js', 'js/cas-images.js', 'js/renderer.js', 'js/fortress.js', 'js/rooms.js', 'js/room-views.js', 'js/cas-identity.js', 'js/pwa.js', 'css/station.css', 'css/cas-chat.css', 'css/cas-identity.css', 'css/storyboard.css', 'css/features.css', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'assets/cas/current.png', 'assets/brass-frame.svg', 'assets/cas/console.png', 'assets/cas/map-scene.png', 'assets/cas/standing.png', 'assets/fortress-map.png', 'assets/cas/identity.json'];
+const PATHS = ['./', 'index.html', 'manifest.json', 'offline.html', 'js/app.js', 'js/cas-animation.js', 'js/cas-chat.js', 'js/cas-images.js', 'js/renderer.js', 'js/fortress.js', 'js/rooms.js', 'js/room-views.js', 'js/cas-identity.js', 'js/pwa.js', 'css/station.css', 'css/cas-chat.css', 'css/cas-identity.css', 'css/storyboard.css', 'css/features.css', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'assets/cas/current.png', 'assets/brass-frame.svg', 'assets/cas/console.png', 'assets/cas/work-animation-v1.png', 'assets/cas/map-scene.png', 'assets/cas/standing.png', 'assets/fortress-map.png', 'assets/cas/identity.json'];
 const SHELL = PATHS.map(path => new URL(path, BASE).href);
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
