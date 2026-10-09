@@ -19,6 +19,10 @@ const CAS_NAV = [
   { id: 'station',  label: 'Station',  icon: '⬡' },
   { id: 'missions', label: 'Missions', icon: '◎' },
   { id: 'more',     label: 'More',     icon: '···' },
+  { id: 'content-review', label: 'Content Engine', icon: '⚒', desktop: true },
+  { id: 'agents', label: 'Agent Bay', icon: '♧', desktop: true },
+  { id: 'log', label: 'Mission Log', icon: '▤', desktop: true },
+  { id: 'settings', label: 'Workshop', icon: '⚙', desktop: true },
 ];
 // Sub-tabs shown inside the "More" panel
 const MORE_SUB_TABS = ['content-review', 'agents', 'log', 'settings'];
@@ -241,7 +245,7 @@ function setupNav() {
   const nav = document.getElementById('station-nav');
   if (!nav) return;
   nav.innerHTML = CAS_NAV.map(item => `
-    <div class="nav-item ${item.id === currentTab ? 'active' : ''}" data-tab="${item.id}"
+    <div class="nav-item ${item.desktop ? 'nav-desktop' : ''} ${item.id === currentTab ? 'active' : ''}" data-tab="${item.id}"
          role="button" tabindex="0" aria-label="${item.label}">
       <span class="nav-icon">${item.icon}</span>
       <span class="nav-label">${item.label}</span>
@@ -267,7 +271,7 @@ function switchTab(tabId) {
   const activeNavId = _navActiveId(tabId);
 
   document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.tab === activeNavId);
+    el.classList.toggle('active', el.dataset.tab === activeNavId || el.dataset.tab === tabId);
   });
 
   const stationMain = document.getElementById('station-main');
@@ -316,7 +320,7 @@ async function initCasScene() {
 
   // Portrait
   const img = document.getElementById('cas-scene-img');
-  const defaultSrc = 'assets/cas/current.png';
+  const defaultSrc = 'assets/cas/console.png';
 
   function displayPortrait(blob) {
     if (casPortraitURL) URL.revokeObjectURL(casPortraitURL);

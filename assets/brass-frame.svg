@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+<defs><linearGradient id="metal" x2=".4" y2="1"><stop stop-color="#ffe9a1"/><stop offset=".22" stop-color="#be8832"/><stop offset=".5" stop-color="#4b2c0c"/><stop offset=".7" stop-color="#ddb967"/><stop offset="1" stop-color="#704210"/></linearGradient><radialGradient id="stud"><stop stop-color="#ffedb1"/><stop offset=".5" stop-color="#b48236"/><stop offset="1" stop-color="#322009"/></radialGradient></defs>
+<path fill="url(#metal)" stroke="#1b1105" stroke-width="2" fill-rule="evenodd" d="M2 2H78V78H2ZM17 17V63H63V17Z"/>
+<path fill="none" stroke="#efd191" d="M4 4H76V76H4ZM15 15H65V65H15Z"/>
+<path fill="none" stroke="#281806" stroke-width="3" d="M9 20V60M71 20V60M20 9H60M20 71H60"/>
+<g fill="url(#stud)" stroke="#4c2e0d"><circle cx="10" cy="10" r="7"/><circle cx="70" cy="10" r="7"/><circle cx="10" cy="70" r="7"/><circle cx="70" cy="70" r="7"/></g>
+<g stroke="#3b260d" stroke-width="2"><path d="m7 7 6 6m54-6 6 6M7 67l6 6m54-6 6 6"/></g>
+<g fill="#e4c378" stroke="#392309"><path d="m20 3 7 6-7 6-7-6zM60 3l7 6-7 6-7-6zM3 20l6 7 6-7-6-7zM65 20l6 7 6-7-6-7zM3 60l6 7 6-7-6-7zM65 60l6 7 6-7-6-7zM20 65l7 6-7 6-7-6zM60 65l7 6-7 6-7-6z"/></g>
+</svg>

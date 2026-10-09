@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="css/station.css?v=4">
 <link rel="stylesheet" href="css/cas-identity.css?v=4">
 <link rel="stylesheet" href="css/cas-chat.css?v=2">
+<link rel="stylesheet" href="css/storyboard.css?v=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
@@ -17,7 +18,7 @@
 
 <!-- HEADER (always visible) -->
 <header class="station-header">
-  <span class="station-title">Station</span>
+  <span class="station-crest" aria-hidden="true"><span>⚙</span><b>☠</b></span><span class="station-title">JARVIS STATION <small>ONE CAS, EVERY THREAD</small></span>
   <div class="header-stats" id="header-stats">
     <span class="header-stat" id="header-status"></span>
   </div>
@@ -36,7 +37,7 @@
 <div class="tab-panel" id="panel-cas">
   <div class="cas-scene">
     <!-- Portrait: IndexedDB image loaded by app.js; falls back to current.png -->
-    <img id="cas-scene-img" class="cas-scene-portrait" src="assets/cas/current.png" alt="Cas">
+    <img id="cas-scene-img" class="cas-scene-portrait" src="assets/cas/console.png" alt="Cas at the Station console">
     <div class="cas-scene-rivet" aria-hidden="true"></div>
     <div class="cas-scene-header">
       <div>
@@ -94,7 +95,7 @@
 <nav class="station-nav" id="station-nav" aria-label="Station navigation"></nav>
 
 <!-- SCRIPTS (ES Modules) -->
-<script type="module" src="js/app.js?v=cas22"></script>
-<script type="module" src="js/pwa.js?v=cas23"></script>
+<script type="module" src="js/app.js?v=cas24"></script>
+<script type="module" src="js/pwa.js?v=cas24"></script>
 </body>
 </html>
