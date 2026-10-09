@@ -329,7 +329,7 @@ async function initCasScene() {
   let customPortrait=false;
   function displayPortrait(blob) {
     customPortrait=!!blob;
-    document.getElementById('cas-scene').classList.toggle('custom-portrait',customPortrait);
+    document.getElementById('cas-scene').classList.toggle('custom-portrait',customPortrait && localStorage.getItem('cas-visual-mode')==='portrait');
     if (casPortraitURL) URL.revokeObjectURL(casPortraitURL);
     casPortraitURL = blob ? URL.createObjectURL(blob) : null;
     if (img) img.src = casPortraitURL || defaultSrc;
@@ -377,6 +377,7 @@ async function initCasScene() {
           probe.src = testURL;
         }).finally(() => URL.revokeObjectURL(testURL));
         await _casPortraitSave(file);
+        localStorage.setItem('cas-visual-mode','portrait');
         displayPortrait(file);
         if (statusEl) statusEl.textContent = 'Cas appearance saved on this device.';
       } catch (err) {
@@ -392,6 +393,7 @@ async function initCasScene() {
     const statusEl = document.getElementById('cas-status');
     try {
       await _casPortraitDelete();
+      localStorage.removeItem('cas-visual-mode');
       displayPortrait(null);
       if (statusEl) statusEl.textContent = 'Default Cas look restored.';
     } catch {
