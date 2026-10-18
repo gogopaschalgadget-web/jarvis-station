@@ -152,12 +152,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // ---------------------------------------------------------------------------
 async function fetchStatus() {
   try {
+    const requestToken = getDeviceToken();
     const res = await fetch(`${API_BASE}/api/station/status`, {
-      headers: { 'Authorization': 'Bearer ' + getDeviceToken() },
+      headers: { 'Authorization': 'Bearer ' + requestToken },
     });
+    // A response for a replaced/logged-out pairing cannot invalidate the current one.
+    if (getDeviceToken() !== requestToken) return;
     if (res.status === 401) { clearAuth(); return; }
     if (!res.ok) { console.error('[Station] API', res.status); return; }
-    apiData = await res.json();
+    const statusData = await res.json();
+    if (getDeviceToken() !== requestToken) return;
+    apiData = statusData;
     setApiData(apiData);
     updateHeader(apiData);
     updateTabContent();
