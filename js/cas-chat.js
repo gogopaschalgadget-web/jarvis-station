@@ -2,6 +2,8 @@
 // ES Module. No em-dashes. No hardcoded credentials.
 // Callers must set untrusted server text via textContent, never innerHTML.
 
+import { deviceKey, signEnvelope } from './cas-keys.js';
+
 let _apiBase = '';
 let _getToken = () => '';
 let _onUpdate = null;
@@ -74,7 +76,9 @@ async function _sendMessage(text, attachments) {
   if (!text || !text.trim()) throw new Error('empty message');
   saveDraft(text);
   const message = text.trim();
-  const pending = _loadPending() || { request_key: _genKey(), message, attachments };
+  // Screenshots are not part of a signed command yet, so those messages go unsigned and the PC refuses them.
+  const pending = _loadPending() || { request_key: _genKey(), message, attachments,
+    envelope: attachments.length ? null : await signEnvelope('message', message) };
   if (pending.message !== message || JSON.stringify(pending.attachments || []) !== JSON.stringify(attachments)) {
     throw new Error('Retry the pending message before sending changed text.');
   }
@@ -101,6 +105,40 @@ async function _sendMessage(text, attachments) {
   clearDraft();
   _startPoll(item.id);
   return item;
+}
+
+/** Send an approval, a cancel or a stop. Each is signed by this phone. */
+export async function sendSigned(kind, message, body) {
+  const envelope = await signEnvelope(kind, body);
+  const res = await fetch(`${_apiBase}/api/station/cas/messages`, {
+    method: 'POST',
+    headers: { ..._auth(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request_key: _genKey(), message, attachments: [], envelope }),
+  });
+  if (!res.ok) {
+    const e = new Error(`HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  const item = await res.json();
+  _startPoll(item.id);
+  return item;
+}
+
+/** Offer this phone's public key. The PC decides whether to trust it. Returns the code to compare. */
+export async function offerDeviceKey() {
+  const key = await deviceKey();
+  const res = await fetch(`${_apiBase}/api/station/cas/device-key`, {
+    method: 'POST',
+    headers: { ..._auth(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ public_key: key.publicKey, label: navigator.platform || 'Phone' }),
+  });
+  if (!res.ok) {
+    const e = new Error(`HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  return key.code;
 }
 
 /**

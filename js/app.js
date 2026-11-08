@@ -8,7 +8,7 @@ import { ROOMS, ROOM_COLORS, OP_STATUSES, PROGRESSION_STATES, TIER_COLORS } from
 import { initRenderer, setDrawCallback, setRoomTapHandler, setApiData, requestRedraw, resetView } from './fortress.js';
 import { drawRooms, hexToRgba } from './room-views.js';
 import {
-  initChat, sendMessage, loadHistory,
+  initChat, sendMessage, loadHistory, sendSigned, offerDeviceKey,
   resumePendingPolling, stopAllPolling,
   saveDraft, loadDraft, clearDraft, pendingAttachments,
 } from './cas-chat.js';
@@ -433,6 +433,7 @@ async function initCasScene() {
   // Chat initialisation
   initChat(API_BASE, getDeviceToken, onCasMessageUpdate, getDeviceId());
   initWorkControls();
+  initCasSafety();
 
   // Load history
   const draft = loadDraft();
@@ -515,6 +516,80 @@ async function initCasScene() {
       ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
     });
   }
+}
+
+// --- Cas signed commands ---
+function initCasSafety() {
+  const area = document.getElementById('cas-composer-area');
+  if (!area || document.getElementById('cas-stop-btn')) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin:0.25rem 0;font-size:0.8rem';
+  const code = document.createElement('span');
+  code.id = 'cas-device-code';
+  code.style.color = '#9aa4b2';
+  const stop = document.createElement('button');
+  stop.id = 'cas-stop-btn';
+  stop.type = 'button';
+  stop.textContent = 'Stop Cas';
+  stop.style.cssText = 'background:#ef4444;color:#0a0e14;border:none;border-radius:6px;padding:0.35rem 0.75rem;font-weight:bold;cursor:pointer';
+  stop.addEventListener('click', onCasStop);
+  row.append(code, stop);
+  area.prepend(row);
+  offerDeviceKey().then(value => {
+    code.textContent = 'Device code ' + value;
+  }).catch(err => {
+    if (err.status === 401 || err.status === 403) { clearAuth(); return; }
+    code.textContent = 'This device cannot sign commands yet.';
+  });
+}
+
+async function onCasStop() {
+  if (!confirm('Stop Cas? It can only be restarted from the PC.')) return;
+  const statusEl = document.getElementById('cas-status');
+  try {
+    addOrUpdateCasExchange(await sendSigned('stop', 'Stop Cas', ''));
+    scrollCasMessages();
+  } catch (err) {
+    if (err.status === 401 || err.status === 403) { clearAuth(); return; }
+    if (statusEl) statusEl.textContent = 'Stop was not sent. Stop the service on the PC if this is urgent.';
+  }
+}
+
+const casCardsAnswered = new Set();
+
+function buildCasCard(card) {
+  const box = document.createElement('div');
+  box.className = 'cas-card';
+  box.style.cssText = 'margin-top:0.5rem;padding:0.6rem;border:1px solid #d4a853;border-radius:8px';
+  const summary = document.createElement('p');
+  summary.textContent = card.summary || 'Confirm this action?'; // textContent: XSS-safe
+  summary.style.margin = '0 0 0.5rem';
+  const answer = async decision => {
+    casCardsAnswered.add(card.id);
+    box.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    const body = JSON.stringify({ card_id: card.id, args_hash: card.args_hash, decision });
+    try {
+      addOrUpdateCasExchange(await sendSigned('approval', decision === 'approve' ? 'Approved' : 'Cancelled', body));
+      box.remove();
+      scrollCasMessages();
+    } catch (err) {
+      casCardsAnswered.delete(card.id);
+      if (err.status === 401 || err.status === 403) { clearAuth(); return; }
+      box.querySelectorAll('button').forEach(b => { b.disabled = false; });
+    }
+  };
+  const buttons = document.createElement('div');
+  buttons.style.cssText = 'display:flex;gap:0.5rem';
+  for (const [label, decision, colour] of [['Approve', 'approve', '#22c55e'], ['Cancel', 'decline', '#444']]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.style.cssText = `flex:1;background:${colour};color:${decision === 'approve' ? '#0a0e14' : '#c8d0dc'};border:none;border-radius:6px;padding:0.55rem;font-weight:bold;cursor:pointer`;
+    button.addEventListener('click', () => answer(decision));
+    buttons.append(button);
+  }
+  box.append(summary, buttons);
+  return box;
 }
 
 // --- Cas message rendering ---
@@ -617,6 +692,8 @@ function buildExchangeEl(item) {
   }
 
   casEl.append(casText);
+  const cardOpen = item.card && !casCardsAnswered.has(item.card.id) && Date.now() / 1000 < item.card.expires_at;
+  if (item.status === 'completed' && cardOpen) casEl.append(buildCasCard(item.card));
   wrap.append(casEl);
   return wrap;
 }
