@@ -87,12 +87,31 @@ function getDeviceToken() { return localStorage.getItem('station_device_token') 
 function getDeviceId()    { return localStorage.getItem('station_device_id') || ''; }
 function isAuthenticated() { return !!getDeviceToken(); }
 
-function clearAuth() {
+const SIGNED_OUT_MESSAGE = 'This device is signed out. Get a new 6-digit code from the Cassian dashboard to sign back in.';
+
+function clearAuth({ userRequested = false } = {}) {
+  const rejectedToken = getDeviceToken();
+  // Several requests can fail together. Keep the screen and any code being typed.
+  if (!rejectedToken && document.getElementById('pair-btn')) return;
   if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
   stopAllPolling();
   localStorage.removeItem('station_device_token');
   localStorage.removeItem('station_device_id');
-  showPairingUI();
+  showPairingUI(userRequested ? '' : SIGNED_OUT_MESSAGE);
+  if (rejectedToken && !userRequested) explainSignOut(rejectedToken);
+}
+
+// Any request can trigger the sign-out, but only the status route says why.
+async function explainSignOut(token) {
+  try {
+    const res = await fetch(`${API_BASE}/api/station/status`, {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (res.status !== 401) return;
+    const { message } = await res.json();
+    const reasonEl = document.getElementById('pair-reason');
+    if (reasonEl && message) reasonEl.textContent = message;
+  } catch { /* the general message is already on screen */ }
 }
 
 async function pairDevice(code, name) {
@@ -174,7 +193,7 @@ async function fetchStatus() {
 // ---------------------------------------------------------------------------
 // PAIRING UI
 // ---------------------------------------------------------------------------
-function showPairingUI() {
+function showPairingUI(reason = '') {
   document.documentElement.classList.add('station-pairing');
   document.body.classList.add('station-pairing');
   document.body.innerHTML = `
@@ -183,6 +202,7 @@ function showPairingUI() {
       <div style="background:#141922;border-radius:12px;padding:2rem;max-width:360px;width:100%;
         border:1px solid #1e2530;">
         <h2 style="text-align:center;color:#22d3ee;margin-top:0;font-size:1.3rem;">Station Pairing</h2>
+        <p id="pair-reason" role="status" hidden style="text-align:center;font-size:0.9rem;color:#fbbf24;margin:0 0 1rem;"></p>
         <p style="text-align:center;font-size:0.85rem;color:#6b7a8d;margin-bottom:1.5rem;">
           Enter the 6-digit code from the Cassian dashboard.
         </p>
@@ -202,6 +222,8 @@ function showPairingUI() {
           margin-top:0.75rem;min-height:1.2rem;"></div>
       </div>
     </div>`;
+  const reasonEl = document.getElementById('pair-reason');
+  if (reasonEl && reason) { reasonEl.textContent = reason; reasonEl.hidden = false; }
   document.getElementById('pair-btn')?.addEventListener('click', () => {
     const code = (document.getElementById('pair-code')?.value || '').trim();
     const name = (document.getElementById('pair-name')?.value || '').trim() || 'Unknown Device';
@@ -1181,7 +1203,7 @@ function renderSettings() {
   document.getElementById('reload-card')?.addEventListener('click', () => location.reload());
   document.getElementById('reset-view-btn')?.addEventListener('click', () => { resetView(); switchTab('station'); });
   document.getElementById('unpair-btn')?.addEventListener('click', () => {
-    if (confirm('Unpair this device? You will need a new pairing code.')) clearAuth();
+    if (confirm('Unpair this device? You will need a new pairing code.')) clearAuth({ userRequested: true });
   });
 }
 
