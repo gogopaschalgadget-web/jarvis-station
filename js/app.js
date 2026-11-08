@@ -1104,6 +1104,31 @@ function gitOpsCardHtml() {
   </div>`;
 }
 
+// --- API KEYS (names and ages only; values never leave the PC) ---
+const KEY_STATUS = {
+  ok:          { text: 'OK',          color: 'var(--accent-green)' },
+  rotate_soon: { text: 'Rotate soon', color: 'var(--accent-gold)' },
+  overdue:     { text: 'Overdue',     color: 'var(--accent-red)' },
+  unknown:     { text: 'No record',   color: 'var(--text-secondary)' },
+};
+function renderKeysCard(keys) {
+  if (!Array.isArray(keys) || keys.length === 0) return '';
+  const rows = keys.map(k => {
+    const st = KEY_STATUS[k?.status] || KEY_STATUS.unknown;
+    const age = Number.isInteger(k?.age_days)
+      ? (k.age_days === 0 ? 'today' : k.age_days === 1 ? '1 day ago' : k.age_days + ' days ago')
+      : 'not rotated with the helper';
+    return `<div class="stat-row"><span class="stat-label">${esc(k?.label || k?.name || '?')}</span>`
+      + `<span class="stat-value" style="color:${st.color}">${esc(st.text)} · ${esc(age)}</span></div>`;
+  }).join('');
+  return `
+    <div class="panel-card" id="keys-card">
+      <div class="panel-card-title">API Keys</div>
+      ${rows}
+      <div class="stat-row"><span class="stat-label" style="white-space:normal">Rotate every 90 days with "Rotate a key" on the PC. Only names and dates are sent here.</span></div>
+    </div>`;
+}
+
 // --- LOG ---
 function renderLog() {
   const panel = document.getElementById('panel-log');
@@ -1113,10 +1138,11 @@ function renderLog() {
     <div class="panel-card">
       <div class="panel-card-title">System Flags</div>
       ${flags.map(f=>{
-        const cls = f.includes('healthy')||f.includes('No flags')?'flag-ok':f.includes('stale')||f.includes('down')||f.includes('offline')?'flag-error':'flag-warn';
+        const cls = f.includes('healthy')||f.includes('No flags')?'flag-ok':f.includes('stale')||f.includes('down')||f.includes('offline')||f.includes('overdue')?'flag-error':'flag-warn';
         return `<div class="flag-item ${cls}">${esc(f)}</div>`;
       }).join('')}
     </div>
+    ${renderKeysCard(apiData?.keys)}
     <div class="panel-card">
       <div class="panel-card-title">Generation Rate</div>
       <div class="stat-row"><span class="stat-label">Last 24h</span><span class="stat-value">${esc(apiData?.health?.generation?.last_24h||0)}</span></div>
