@@ -1052,11 +1052,11 @@ function renderMissions() {
   panel.innerHTML = `
     <div class="panel-card">
       <div class="panel-card-title">Content Queue</div>
-      <div class="stat-row"><span class="stat-label">Total</span><span class="stat-value">${q.total||0}</span></div>
-      <div class="stat-row"><span class="stat-label">Posted</span><span class="stat-value" style="color:var(--accent-green)">${bs.posted||0}</span></div>
-      <div class="stat-row"><span class="stat-label">Approved</span><span class="stat-value" style="color:var(--accent-cyan)">${bs.approved||0}</span></div>
-      <div class="stat-row"><span class="stat-label">Pending</span><span class="stat-value" style="color:var(--accent-yellow)">${bs.pending||0}</span></div>
-      <div class="stat-row"><span class="stat-label">Declined</span><span class="stat-value">${bs.declined||0}</span></div>
+      <div class="stat-row"><span class="stat-label">Total</span><span class="stat-value">${esc(q.total||0)}</span></div>
+      <div class="stat-row"><span class="stat-label">Posted</span><span class="stat-value" style="color:var(--accent-green)">${esc(bs.posted||0)}</span></div>
+      <div class="stat-row"><span class="stat-label">Approved</span><span class="stat-value" style="color:var(--accent-cyan)">${esc(bs.approved||0)}</span></div>
+      <div class="stat-row"><span class="stat-label">Pending</span><span class="stat-value" style="color:var(--accent-yellow)">${esc(bs.pending||0)}</span></div>
+      <div class="stat-row"><span class="stat-label">Declined</span><span class="stat-value">${esc(bs.declined||0)}</span></div>
     </div>
     ${parked.length ? `<div class="panel-card"><div class="panel-card-title">Parked Posts (${parked.length})</div>${parked.map(p=>`<div class="stat-row"><span class="stat-label">${esc(p.id)}</span><span class="stat-value">${esc(p.platform)}</span></div>`).join('')}</div>` : ''}
     ${live.length ? `<div class="panel-card"><div class="panel-card-title">Live Posts (${live.length})</div>${live.map(p=>`<div class="stat-row"><span class="stat-label">${esc(p.id)} ${p.age_hours!=null?p.age_hours+'h':''}</span><span class="stat-value" style="color:${p.harvested?'var(--accent-green)':'var(--accent-yellow)'}">${p.harvested?'harvested':'no metrics'}</span></div>`).join('')}</div>` : ''}`;
@@ -1071,9 +1071,9 @@ function renderAgents() {
     <div class="panel-card">
       <div class="panel-card-title">NSSM Services</div>
       ${Object.entries(svcs).map(([name,s])=>`<div class="service-row">
-        <span><span class="svc-dot ${s.status}"></span>${esc(name)}</span>
+        <span><span class="svc-dot ${esc(s.status)}"></span>${esc(name)}</span>
         <span class="stat-value" style="color:${s.status==='alive'?'var(--accent-green)':'var(--accent-red)'}">
-          ${s.age_s!=null?Math.round(s.age_s/60)+'m ago':'?'}
+          ${s.age_s!=null?esc(Math.round(Number(s.age_s)/60))+'m ago':'?'}
         </span>
       </div>`).join('')}
     </div>
@@ -1097,10 +1097,10 @@ function gitOpsCardHtml() {
   const lrColor = lrStatus==='success'?'var(--accent-green)':lrStatus==='failed'?'var(--accent-red)':'var(--accent-yellow,#d4a853)';
   return `<div class="panel-card">
     <div class="panel-card-title">Git-Ops Bot</div>
-    <div class="stat-row"><span class="stat-label">Queue</span><span class="stat-value" style="color:${go.queue_depth>0?'var(--accent-yellow,#d4a853)':'var(--accent-green)'}">${go.queue_depth} pending</span></div>
-    <div class="stat-row"><span class="stat-label">Processed</span><span class="stat-value">${go.total_processed}</span></div>
-    <div class="stat-row"><span class="stat-label">Errors (24h)</span><span class="stat-value" style="color:${go.errors_24h>0?'var(--accent-red)':'var(--accent-green)'}">${go.errors_24h}</span></div>
-    ${lr ? `<div class="stat-row"><span class="stat-label">Last${lr.action?' ('+esc(lr.action)+')':''}</span><span class="stat-value" style="color:${lrColor}">${esc(lrStatus)}${lr.timestamp?' '+lr.timestamp.slice(11,16):''}</span></div>` : ''}
+    <div class="stat-row"><span class="stat-label">Queue</span><span class="stat-value" style="color:${go.queue_depth>0?'var(--accent-yellow,#d4a853)':'var(--accent-green)'}">${esc(go.queue_depth)} pending</span></div>
+    <div class="stat-row"><span class="stat-label">Processed</span><span class="stat-value">${esc(go.total_processed)}</span></div>
+    <div class="stat-row"><span class="stat-label">Errors (24h)</span><span class="stat-value" style="color:${go.errors_24h>0?'var(--accent-red)':'var(--accent-green)'}">${esc(go.errors_24h)}</span></div>
+    ${lr ? `<div class="stat-row"><span class="stat-label">Last${lr.action?' ('+esc(lr.action)+')':''}</span><span class="stat-value" style="color:${lrColor}">${esc(lrStatus)}${lr.timestamp?' '+esc(String(lr.timestamp).slice(11,16)):''}</span></div>` : ''}
   </div>`;
 }
 
@@ -1119,12 +1119,12 @@ function renderLog() {
     </div>
     <div class="panel-card">
       <div class="panel-card-title">Generation Rate</div>
-      <div class="stat-row"><span class="stat-label">Last 24h</span><span class="stat-value">${apiData?.health?.generation?.last_24h||0}</span></div>
-      <div class="stat-row"><span class="stat-label">Last 7 days</span><span class="stat-value">${apiData?.health?.generation?.last_7d||0}</span></div>
+      <div class="stat-row"><span class="stat-label">Last 24h</span><span class="stat-value">${esc(apiData?.health?.generation?.last_24h||0)}</span></div>
+      <div class="stat-row"><span class="stat-label">Last 7 days</span><span class="stat-value">${esc(apiData?.health?.generation?.last_7d||0)}</span></div>
     </div>
     <div class="panel-card">
       <div class="panel-card-title">Last Refresh</div>
-      <div class="stat-row"><span class="stat-label">Timestamp</span><span class="stat-value">${apiData?.timestamp||'?'}</span></div>
+      <div class="stat-row"><span class="stat-label">Timestamp</span><span class="stat-value">${esc(apiData?.timestamp||'?')}</span></div>
     </div>`;
 }
 
@@ -1142,7 +1142,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0,8)||'?')}</span></div>
       <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.5.0</span></div>
     </div>
-    <div class="panel-card" style="cursor:pointer" onclick="location.reload()">
+    <div class="panel-card" style="cursor:pointer" id="reload-card">
       <div class="panel-card-title" style="color:var(--accent-cyan);text-align:center">Force Refresh</div>
     </div>
     <div class="panel-card" id="reset-view-btn" style="cursor:pointer">
@@ -1152,6 +1152,7 @@ function renderSettings() {
       <div class="panel-card-title" style="color:var(--accent-red,#ef4444);text-align:center">Unpair Device</div>
     </div>`;
   if (preferences) { preferences.hidden = false; panel.prepend(preferences); }
+  document.getElementById('reload-card')?.addEventListener('click', () => location.reload());
   document.getElementById('reset-view-btn')?.addEventListener('click', () => { resetView(); switchTab('station'); });
   document.getElementById('unpair-btn')?.addEventListener('click', () => {
     if (confirm('Unpair this device? You will need a new pairing code.')) clearAuth();
@@ -1178,8 +1179,8 @@ function showRoomOverlay(room) {
       <div class="room-close-btn" id="close-room">X</div>
     </div>
     <div class="room-status-bar">
-      <span class="status-badge progression-badge">${progDef?.label||prog}</span>
-      <span class="status-badge" style="background:${hexAlpha(opDef?.color||'#888',0.15)};color:${opDef?.color||'#888'}">${opDef?.label||op}</span>
+      <span class="status-badge progression-badge">${esc(progDef?.label||prog)}</span>
+      <span class="status-badge" style="background:${hexAlpha(opDef?.color||'#888',0.15)};color:${opDef?.color||'#888'}">${esc(opDef?.label||op)}</span>
     </div>
     <div class="room-desc">${room.desc}${roomState.detail?' - '+esc(roomState.detail):''}</div>
     <div class="equip-section-title">${room.type==='production'?'7-Stage Loop Equipment':'Equipment'}</div>
@@ -1189,7 +1190,7 @@ function showRoomOverlay(room) {
       return `<div class="equip-card">
         ${eq.stage!=null?`<div class="equip-stage">${eq.stage}</div>`:''}
         <div class="equip-info"><div class="equip-name">${eq.name}</div><div class="equip-sub">${eq.sub}</div></div>
-        <span class="equip-status" style="color:${statusColor}">${(eq.status||'').toUpperCase()}</span>
+        <span class="equip-status" style="color:${statusColor}">${esc(String(eq.status||'').toUpperCase())}</span>
         ${eq.tier?`<span class="equip-tier" style="border-color:${tierColor};color:${tierColor}">${eq.tier}</span>`:''}
       </div>`;
     }).join('')}`;
