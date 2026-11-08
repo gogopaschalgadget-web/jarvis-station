@@ -758,7 +758,7 @@ function wirePlatformSelector(panel) {
 }
 
 function reviewModeSelectorHtml() {
-  const tabs = [['posts','Posts'],['anchors','Anchors']];
+  const tabs = [['posts','Posts'],['anchors','Anchors'],['x','X Posts']];
   return '<div class="panel-card" style="display:flex;gap:0.5rem;justify-content:center">' +
     tabs.map(([v,l]) => `<button data-review-tab="${v}" class="review-tab-btn" style="flex:1;background:${reviewTab===v?'#d4a853':'#141922'};color:${reviewTab===v?'#0a0e14':'#c8d0dc'};border:1px solid #1e2530;padding:0.5rem;border-radius:6px;font-weight:bold;cursor:pointer">${l}</button>`).join('') +
     '</div>';
@@ -768,6 +768,8 @@ function wireReviewModeSelector(panel) {
   panel.querySelectorAll('.review-tab-btn').forEach(btn => btn.addEventListener('click', () => {
     if (btn.dataset.reviewTab === reviewTab) return;
     reviewTab = btn.dataset.reviewTab; reviewPanelMode = 'idle'; anchorRejectMode = false; anchorDecidedView = false;
+    if (reviewTab === 'x') { xQueue = null; xError = false; }
+    xRenderedKey = null;
     renderContentReview();
   }));
 }
@@ -776,6 +778,7 @@ function renderContentReview() {
   const panel = document.getElementById('panel-content-review');
   if (!panel) return;
   if (reviewTab === 'anchors') { renderAnchorReview(); return; }
+  if (reviewTab === 'x') { renderXReview(); return; }
   if (reviewPanelMode === 'edit' || reviewPanelMode === 'reject') return;
   if (currentReviewItem && !isLoadingReview && reviewRenderedItemId === currentReviewItem.post_id) return;
   if (currentReviewItem === null && !isLoadingReview) {
@@ -1061,6 +1064,106 @@ async function onAnchorAction(action) {
     if (result.xp_breakdown) renderXpToast(result.xp_awarded, result.xp_breakdown, result.idempotent);
     currentAnchorItem = null; anchorRejectMode = false; renderAnchorReview();
   }
+}
+
+// --- X POSTS ---
+// Today a post goes out when Chris presses Post in X. item.publish_mode exists so
+// an automatic mode can replace the Open X step later without changing this flow.
+let xQueue = null;
+let xLoading = false;
+let xError = false;
+let xIndex = 0;
+let xOpenedId = null;
+let xBusy = false;
+let xRenderedKey = null;
+
+function xIntentUrl(text) {
+  return 'https://x.com/intent/tweet?text=' + encodeURIComponent(text);
+}
+
+async function loadXQueue() {
+  xLoading = true; xError = false;
+  try {
+    const res = await fetch(`${API_BASE}/api/station/x-review/queue`, { headers: { 'Authorization': 'Bearer ' + getDeviceToken() } });
+    if (res.status === 401 || res.status === 403) { xLoading = false; xError = true; clearAuth(); return; }
+    if (!res.ok) throw new Error('queue ' + res.status);
+    xQueue = (await res.json()).items || [];
+    xIndex = 0; xOpenedId = null;
+  } catch { xError = true; }
+  xLoading = false;
+  if (reviewTab === 'x') renderXReview();
+}
+
+async function submitXDecision(item, decision) {
+  xBusy = true; renderXReview();
+  try {
+    const res = await fetch(`${API_BASE}/api/station/x-review/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getDeviceToken() },
+      body: JSON.stringify({ review_id: item.review_id, decision }),
+    });
+    if (res.status === 401 || res.status === 403) { xBusy = false; clearAuth(); return; }
+    if (!res.ok && res.status !== 404 && res.status !== 409) { alert('Could not save that: ' + res.status); xBusy = false; xRenderedKey = null; renderXReview(); return; }
+    xQueue = xQueue.filter(p => p.review_id !== item.review_id);
+    xOpenedId = null;
+    if (xIndex >= xQueue.length) xIndex = 0;
+    if (res.status === 404 || res.status === 409) alert('That post was already handled.');
+  } catch { alert('Network error. Nothing was saved, so try again.'); }
+  xBusy = false; xRenderedKey = null; renderXReview();
+}
+
+function renderXReview() {
+  const panel = document.getElementById('panel-content-review');
+  if (!panel) return;
+  if (xQueue === null && !xLoading && !xError) loadXQueue();
+  const item = xQueue && xQueue.length ? xQueue[xIndex % xQueue.length] : null;
+  const key = [xLoading, xError, xQueue ? xQueue.length : 'none', item ? item.review_id : '', xOpenedId, xBusy].join('|');
+  if (key === xRenderedKey) return;
+  xRenderedKey = key;
+  const refreshBtn = '<button data-x-action="refresh" class="x-btn" style="background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Refresh</button>';
+  let body;
+  if (xLoading) body = '<div class="panel-card"><div class="panel-card-title">Loading X posts...</div></div>';
+  else if (xError) body = `<div class="panel-card"><div class="panel-card-title">Could not load X posts</div>${refreshBtn}</div>`;
+  else if (!item) body = `<div class="panel-card"><div class="panel-card-title">No X posts waiting</div>${refreshBtn}</div>`;
+  else {
+    const opened = xOpenedId === item.review_id;
+    const dis = xBusy ? 'disabled' : '';
+    const big = 'flex:1;border:none;padding:0.85rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1rem;text-align:center;text-decoration:none;display:block';
+    const actions = opened ? `
+      <div style="text-align:center;color:#1a1206;font-weight:bold;margin-bottom:0.6rem">Did it go out on X?</div>
+      <div style="display:flex;gap:0.5rem">
+        <button data-x-action="posted" class="x-btn" ${dis} style="${big};background:#22c55e;color:#0a0e14">Yes, it's posted</button>
+        <button data-x-action="not-yet" class="x-btn" ${dis} style="${big};background:#444;color:#c8d0dc">Not yet</button>
+      </div>` : `
+      <a id="x-open-link" href="${esc(xIntentUrl(item.content))}" target="_blank" rel="noopener" style="${big};background:#d4a853;color:#0a0e14">Open X to post</a>
+      <div style="display:flex;gap:0.5rem;margin-top:0.6rem">
+        <button data-x-action="decline" class="x-btn" ${dis} style="${big};background:#ef4444;color:#0a0e14">Decline</button>
+        ${xQueue.length > 1 ? `<button data-x-action="next" class="x-btn" ${dis} style="${big};background:#444;color:#c8d0dc">Next</button>` : ''}
+      </div>`;
+    body = `
+      <div class="panel-card">
+        <div class="panel-card-title">X post ${(xIndex % xQueue.length) + 1} of ${xQueue.length}</div>
+        <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id)} | ${item.content.length}/280 characters</div>
+        <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-size:0.95rem;color:#e6edf3;white-space:pre-wrap;word-break:break-word">${esc(item.content)}</div>
+      </div>
+      <div class="panel-card">${actions}</div>`;
+  }
+  panel.innerHTML = reviewModeSelectorHtml() + body;
+  wireReviewModeSelector(panel);
+  document.getElementById('x-open-link')?.addEventListener('click', () => {
+    const id = item.review_id;
+    setTimeout(() => { xOpenedId = id; renderXReview(); }, 250);
+  });
+  panel.querySelectorAll('.x-btn').forEach(btn => btn.addEventListener('click', () => onXAction(btn.dataset.xAction, item)));
+}
+
+function onXAction(action, item) {
+  if (action === 'refresh') { xQueue = null; xError = false; xRenderedKey = null; renderXReview(); return; }
+  if (!item || xBusy) return;
+  if (action === 'next') { xIndex = (xIndex + 1) % xQueue.length; xOpenedId = null; renderXReview(); return; }
+  if (action === 'not-yet') { xOpenedId = null; renderXReview(); return; }
+  if (action === 'decline' && !confirm('Decline this post? It will not be offered again.')) return;
+  submitXDecision(item, action === 'decline' ? 'declined' : 'posted');
 }
 
 // --- MISSIONS ---
