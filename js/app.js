@@ -1,6 +1,7 @@
 import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
+import { initCasProjects } from './cas-projects.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -434,6 +435,12 @@ async function initCasScene() {
   initChat(API_BASE, getDeviceToken, onCasMessageUpdate, getDeviceId());
   initWorkControls();
   initCasSafety();
+  initCasProjects(document.getElementById('cas-composer-area'), API_BASE, getDeviceToken, async text => {
+    const item = await sendMessage(text, []);
+    setCasActivity(item.status);
+    addOrUpdateCasExchange(item);
+    scrollCasMessages();
+  });
 
   // Load history
   const draft = loadDraft();
@@ -448,6 +455,7 @@ async function initCasScene() {
     if (e.status === 401 || e.status === 403) { clearAuth(); return; }
     renderCasEmpty('Your conversation with Cas will appear here.');
   }
+  startCasNoticeRefresh();
 
   let attachments=pendingAttachments();
   let preparing=false;
@@ -607,6 +615,25 @@ function renderCasEmpty(msg) {
   container.append(el);
 }
 
+// Cas can message first: questions, finished projects and the daily digest.
+let casNoticeRefresh = null;
+
+function startCasNoticeRefresh() {
+  if (casNoticeRefresh) return;
+  casNoticeRefresh = async () => {
+    if (document.hidden) return;
+    try {
+      const items = await loadHistory(20);
+      const fresh = [...items].reverse().filter(item => !document.getElementById('cas-msg-' + item.id));
+      if (!fresh.length) return;
+      fresh.forEach(addOrUpdateCasExchange);
+      scrollCasMessages();
+    } catch { /* the next refresh tries again */ }
+  };
+  setInterval(casNoticeRefresh, 60000);
+  document.addEventListener('visibilitychange', casNoticeRefresh);
+}
+
 function renderCasHistory(items) {
   const container = document.getElementById('cas-messages');
   if (!container) return;
@@ -671,7 +698,8 @@ function buildExchangeEl(item) {
     if(!/^data:image\/(png|jpeg|webp);base64,/.test(attachment.url || '') || attachment.url.length>180000)continue;
     const screenshot=document.createElement('img');screenshot.src=attachment.url;screenshot.alt='Screenshot sent to Cas';screenshot.className='cas-chat-screenshot';userEl.append(screenshot);
   }
-  wrap.append(userEl);
+  // A message Cas started itself has no bubble from Chris.
+  if (item.message || (item.attachments || []).length) wrap.append(userEl);
 
   // Cas bubble (status / reply)
   const casEl = document.createElement('div');

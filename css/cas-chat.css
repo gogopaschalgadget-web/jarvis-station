@@ -363,3 +363,31 @@
   .cas-status { font-size: 13px; }
   .cas-send-btn { min-height: 44px; padding: 12px 28px; }
 }
+
+/* Live project progress, above the Cas message box */
+.cas-projects { display:flex; flex-direction:column; gap:0.4rem; margin:0.25rem 0 0.4rem; max-height:45vh; overflow-y:auto; }
+.cas-projects[hidden] { display:none; }
+.cas-project { border:1px solid #b98a3b; border-radius:6px; background:#0e1109e6; color:#f0e0c0; padding:0.45rem 0.55rem; font-size:0.82rem; }
+.cas-project-head { display:block; width:100%; background:none; border:none; color:inherit; font:inherit; text-align:left; padding:0; cursor:pointer; }
+.cas-project-title { display:flex; justify-content:space-between; gap:0.5rem; font-weight:bold; }
+.cas-project-goal { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.cas-project-count { flex:none; color:#d4a853; }
+.cas-project-track { height:9px; margin:0.3rem 0; background:#2a2415; border-radius:5px; overflow:hidden; }
+.cas-project-fill { height:100%; background:#d4a853; border-radius:5px; transition:width 0.6s ease; }
+.cas-project-done .cas-project-fill { background:#22c55e; }
+.cas-project-waiting_chris .cas-project-fill, .cas-project-blocked .cas-project-fill { background:#e0803a; }
+.cas-project-live { animation:cas-project-pulse 1.6s ease-in-out infinite; }
+@keyframes cas-project-pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+@media (prefers-reduced-motion: reduce) { .cas-project-live { animation:none; } }
+.cas-project-line { margin:0; color:#c8b896; }
+.cas-project-warn { margin:0.3rem 0 0; color:#e0803a; }
+.cas-project-tasks { margin-top:0.4rem; display:flex; flex-direction:column; gap:0.15rem; }
+.cas-project-task { display:flex; gap:0.4rem; }
+.cas-project-mark { flex:none; width:1em; color:#d4a853; }
+.cas-task-pending { opacity:0.65; }
+.cas-project-ask { margin-top:0.45rem; padding-top:0.4rem; border-top:1px solid #b98a3b66; }
+.cas-project-ask p { margin:0 0 0.35rem; }
+.cas-project-ask small { color:#c8b896; }
+.cas-project-ask-buttons { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.25rem; }
+.cas-project-ask-buttons button { flex:1 1 40%; min-height:40px; background:#d4a853; color:#0a0e14; border:none; border-radius:6px; font-weight:bold; font-size:0.82rem; cursor:pointer; padding:0.35rem; }
+.cas-project-ask-buttons button:disabled { opacity:0.5; }
