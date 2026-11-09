@@ -683,7 +683,7 @@ function buildExchangeEl(item) {
     casText.textContent = 'Queued. Worker will pick this up when running.';
   } else if (item.status === 'running') {
     casText.className = 'cas-msg-running';
-    casText.textContent = 'Cas is thinking...';
+    casText.textContent = 'Cas is working on this. Longer jobs can take several minutes.';
   } else if (item.status === 'completed' && item.reply) {
     casText.textContent = item.reply; // textContent: XSS-safe
   } else if (item.status === 'failed') {
@@ -691,6 +691,7 @@ function buildExchangeEl(item) {
     casText.textContent = item.error || 'Message not delivered.';
   }
 
+  casText.style.whiteSpace = 'pre-wrap';
   casEl.append(casText);
   const cardOpen = item.card && !casCardsAnswered.has(item.card.id) && Date.now() / 1000 < item.card.expires_at;
   if (item.status === 'completed' && cardOpen) casEl.append(buildCasCard(item.card));

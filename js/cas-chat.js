@@ -12,7 +12,7 @@ let _sending = null;
 
 const _polling = new Map(); // requestId -> timerId
 const POLL_DELAY_MS = 3_000;
-const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
+const POLL_TIMEOUT_MS = 40 * 60 * 1000; // long enough for a Claude job
 const DRAFT_KEY = 'cas-draft';
 
 /** Initialise the adapter. Call once after authentication. */
