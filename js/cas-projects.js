@@ -1,6 +1,8 @@
 // cas-projects.js - live progress of Cas's projects, above the message box.
 // ES Module. No em-dashes. Server text is set through textContent only.
 
+import { setCasProjectWork } from './cas-animation.js';
+
 const POLL_MS = 20_000;
 const STALE_AFTER_S = 150;
 const MARKS = { done: '✓', skipped: '-', held: '?', blocked: '!', pending: '○' };
@@ -92,6 +94,13 @@ function projectCard(project, ageSeconds, stopped) {
 
 let _last = null;
 
+/** The caption while Cas is really at work: only a running project, from a PC that reported recently. */
+function workLabel(status, ageSeconds) {
+  if (!status || status.stopped || ageSeconds > STALE_AFTER_S) return '';
+  const active = (status.projects || []).find(project => project.status === 'running');
+  return active ? 'Working on project ' + active.number : '';
+}
+
 function render(status) {
   _last = status;
   if (!_panel) return;
@@ -100,6 +109,7 @@ function render(status) {
   const projects = (status && status.projects) || [];
   _panel.hidden = !projects.length;
   const age = status ? Date.now() / 1000 - status.updated_at : 0;
+  setCasProjectWork(workLabel(status, age));
   projects.forEach(project => _panel.append(projectCard(project, age, !!status.stopped)));
   _panel.scrollTop = scroll;
 }
@@ -108,10 +118,10 @@ async function refresh() {
   if (document.hidden) return;
   try {
     const res = await fetch(_apiBase + '/api/station/cas/projects', { headers: { Authorization: 'Bearer ' + _getToken() } });
-    if (!res.ok) return;
+    if (!res.ok) { setCasProjectWork(''); return; }
     const data = await res.json();
     if (data && (data.status === null || typeof data.status === 'object')) render(data.status);
-  } catch { /* the next refresh tries again */ }
+  } catch { setCasProjectWork(''); /* the next refresh tries again */ }
 }
 
 /** Show the progress panel inside the given container and keep it current. Call once. */
