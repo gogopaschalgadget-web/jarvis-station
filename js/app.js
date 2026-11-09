@@ -869,7 +869,7 @@ function wirePlatformSelector(panel) {
 }
 
 function reviewModeSelectorHtml() {
-  const tabs = [['posts','Posts'],['anchors','Anchors'],['x','X Posts']];
+  const tabs = [['posts','Posts'],['anchors','Anchors'],['x','X Posts'],['tracker','X Tracker']];
   return '<div class="panel-card" style="display:flex;gap:0.5rem;justify-content:center">' +
     tabs.map(([v,l]) => `<button data-review-tab="${v}" class="review-tab-btn" style="flex:1;background:${reviewTab===v?'#d4a853':'#141922'};color:${reviewTab===v?'#0a0e14':'#c8d0dc'};border:1px solid #1e2530;padding:0.5rem;border-radius:6px;font-weight:bold;cursor:pointer">${l}</button>`).join('') +
     '</div>';
@@ -880,6 +880,7 @@ function wireReviewModeSelector(panel) {
     if (btn.dataset.reviewTab === reviewTab) return;
     reviewTab = btn.dataset.reviewTab; reviewPanelMode = 'idle'; anchorRejectMode = false; anchorDecidedView = false;
     if (reviewTab === 'x') { xQueue = null; xError = false; }
+    if (reviewTab === 'tracker') { xTracker = null; xTrackerError = false; xTrackerLoading = false; }
     xRenderedKey = null;
     renderContentReview();
   }));
@@ -890,6 +891,7 @@ function renderContentReview() {
   if (!panel) return;
   if (reviewTab === 'anchors') { renderAnchorReview(); return; }
   if (reviewTab === 'x') { renderXReview(); return; }
+  if (reviewTab === 'tracker') { renderXTracker(); return; }
   if (reviewPanelMode === 'edit' || reviewPanelMode === 'reject') return;
   if (currentReviewItem && !isLoadingReview && reviewRenderedItemId === currentReviewItem.post_id) return;
   if (currentReviewItem === null && !isLoadingReview) {
@@ -1275,6 +1277,163 @@ function onXAction(action, item) {
   if (action === 'not-yet') { xOpenedId = null; renderXReview(); return; }
   if (action === 'decline' && !confirm('Decline this post? It will not be offered again.')) return;
   submitXDecision(item, action === 'decline' ? 'declined' : 'posted');
+}
+
+// --- X TRACKER ---
+// Every value from the server goes in through textContent, never innerHTML.
+let xTracker = null;
+let xTrackerLoading = false;
+let xTrackerError = false;
+const xTrackerLinkMsg = {};
+const xTrackerSaving = {};
+
+function xAgo(when) {
+  const t = Date.parse(when);
+  if (!when || isNaN(t)) return 'checked at an unknown time';
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 1) return 'checked just now';
+  if (m < 60) return `checked ${m} min ago`;
+  if (m < 1440) return `checked ${Math.round(m / 60)} h ago`;
+  return `checked ${Math.round(m / 1440)} d ago`;
+}
+
+function xTrackerAuthHeaders(json) {
+  const h = { 'Authorization': 'Bearer ' + getDeviceToken() };
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
+
+async function loadXTracker() {
+  xTrackerLoading = true; xTrackerError = false;
+  try {
+    const res = await fetch(`${API_BASE}/api/station/x-review/tracker`, { headers: xTrackerAuthHeaders(false) });
+    if (res.status === 401 || res.status === 403) { xTrackerLoading = false; xTrackerError = true; clearAuth(); return; }
+    if (!res.ok) throw new Error('tracker ' + res.status);
+    xTracker = await res.json();
+  } catch { xTrackerError = true; }
+  xTrackerLoading = false;
+  if (reviewTab === 'tracker') renderXTracker();
+}
+
+async function saveXTrackerLink(post, url) {
+  const id = post.review_id;
+  xTrackerSaving[id] = true; xTrackerLinkMsg[id] = '';
+  renderXTracker();
+  try {
+    const res = await fetch(`${API_BASE}/api/station/x-review/link`, {
+      method: 'POST', headers: xTrackerAuthHeaders(true),
+      body: JSON.stringify({ review_id: id, url }),
+    });
+    if (res.status === 401 || res.status === 403) { xTrackerSaving[id] = false; clearAuth(); return; }
+    let data = null;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) {
+      const why = data && (data.error || data.detail || data.message);
+      xTrackerLinkMsg[id] = typeof why === 'string' && why ? why : 'That link was not accepted. Paste the x.com or twitter.com link to your post.';
+    } else {
+      const saved = data && data.post_url;
+      post.post_url = typeof saved === 'string' && saved ? saved : url;
+      xTrackerLinkMsg[id] = 'Link saved.';
+    }
+  } catch { xTrackerLinkMsg[id] = 'Network error. Nothing was saved, so try again.'; }
+  xTrackerSaving[id] = false;
+  renderXTracker();
+}
+
+function xEl(tag, text, style) {
+  const e = document.createElement(tag);
+  if (text != null) e.textContent = text;
+  if (style) e.style.cssText = style;
+  return e;
+}
+
+function xCard(title) {
+  const c = xEl('div'); c.className = 'panel-card';
+  if (title) { const t = xEl('div', title); t.className = 'panel-card-title'; c.appendChild(t); }
+  return c;
+}
+
+function xRefreshBtn() {
+  const b = xEl('button', 'Refresh', 'background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer');
+  b.addEventListener('click', () => { xTracker = null; xTrackerError = false; renderXTracker(); });
+  return b;
+}
+
+function xSalesCard(sales) {
+  const c = xCard('Gumroad sales');
+  const count = sales && sales.count != null ? Number(sales.count) : NaN;
+  if (!sales || !isFinite(count)) { c.appendChild(xEl('div', 'Sales unknown', 'color:#888')); return c; }
+  const total = typeof sales.total === 'number' ? '$' + sales.total.toFixed(2) : 'unknown';
+  [['Sales', String(count)], ['Total', total]].forEach(([l, v]) => {
+    const r = xEl('div'); r.className = 'stat-row';
+    const a = xEl('span', l); a.className = 'stat-label';
+    const b = xEl('span', v); b.className = 'stat-value';
+    r.append(a, b); c.appendChild(r);
+  });
+  const recent = Array.isArray(sales.recent) ? sales.recent.slice(0, 5) : [];
+  recent.forEach(sl => {
+    const name = sl.product || 'Sale';
+    const amt = typeof sl.amount === 'number' ? '$' + sl.amount.toFixed(2) : '';
+    const d = sl.date && !isNaN(Date.parse(sl.date)) ? new Date(sl.date).toLocaleDateString() : '';
+    c.appendChild(xEl('div', [name, amt, d].filter(Boolean).join(' | '), 'font-size:0.85rem;color:#c8d0dc;margin-top:0.35rem;word-break:break-word'));
+  });
+  if (sales.saved_at) c.appendChild(xEl('div', 'Sales ' + xAgo(sales.saved_at), 'font-size:0.8rem;color:#888;margin-top:0.4rem'));
+  return c;
+}
+
+function xMetricLine(label, value, when) {
+  const known = value !== null && value !== undefined;
+  return xEl('div', known ? `${label}: ${value} (${xAgo(when)})` : `${label}: not checked yet`, 'font-size:0.85rem;color:' + (known ? '#e6edf3' : '#888') + ';margin-top:0.25rem');
+}
+
+function xPostCard(post) {
+  const c = xCard('X post');
+  const text = String(post.content_preview || '');
+  c.appendChild(xEl('div', text.length > 140 ? text.slice(0, 140) + '...' : text, 'background:#0a0e14;padding:0.6rem;border-radius:6px;font-size:0.9rem;color:#e6edf3;white-space:pre-wrap;word-break:break-word'));
+  c.appendChild(xEl('div', 'Status: ' + (post.status || 'unknown'), 'font-size:0.85rem;color:#888;margin-top:0.4rem'));
+  const link = typeof post.post_url === 'string' ? post.post_url : '';
+  if (link) {
+    const safe = /^https:\/\/(www\.)?(x|twitter)\.com\//i.test(link);
+    if (safe) {
+      const a = xEl('a', link, 'display:block;margin-top:0.4rem;font-size:0.85rem;color:#22d3ee;word-break:break-all');
+      a.href = link; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      c.appendChild(a);
+    } else c.appendChild(xEl('div', link, 'margin-top:0.4rem;font-size:0.85rem;color:#888;word-break:break-all'));
+  }
+  c.appendChild(xMetricLine('Likes', post.likes ?? null, post.metrics_checked_at));
+  c.appendChild(xMetricLine('Views', post.views ?? null, post.metrics_checked_at));
+  if (String(post.status).toLowerCase() === 'posted') {
+    const id = post.review_id;
+    const row = xEl('div', null, 'display:flex;gap:0.5rem;margin-top:0.6rem');
+    const input = xEl('input'); input.type = 'url'; input.placeholder = 'Paste the link to this post'; input.value = link; input.maxLength = 300;
+    input.style.cssText = 'flex:1;min-width:0;background:#0a0e14;color:#e6edf3;border:1px solid #1e2530;border-radius:6px;padding:0.5rem';
+    const btn = xEl('button', xTrackerSaving[id] ? 'Saving...' : 'Save link', 'background:#d4a853;color:#0a0e14;border:none;padding:0.5rem 0.9rem;border-radius:6px;font-weight:bold;cursor:pointer');
+    btn.disabled = !!xTrackerSaving[id];
+    btn.addEventListener('click', () => { const v = input.value.trim(); if (v) saveXTrackerLink(post, v); });
+    row.append(input, btn); c.appendChild(row);
+    if (xTrackerLinkMsg[id]) c.appendChild(xEl('div', xTrackerLinkMsg[id], 'margin-top:0.4rem;font-size:0.85rem;color:' + (xTrackerLinkMsg[id] === 'Link saved.' ? '#22c55e' : '#ef4444')));
+  }
+  return c;
+}
+
+function renderXTracker() {
+  const panel = document.getElementById('panel-content-review');
+  if (!panel) return;
+  if (xTracker === null && !xTrackerLoading && !xTrackerError) loadXTracker();
+  // do not wipe a link box Chris is typing in
+  const ae = document.activeElement;
+  if (panel.contains(ae) && ae.tagName === 'INPUT' && !Object.values(xTrackerSaving).some(Boolean)) return;
+  panel.innerHTML = reviewModeSelectorHtml();
+  wireReviewModeSelector(panel);
+  if (xTrackerLoading) { panel.appendChild(xCard('Loading X tracker...')); return; }
+  if (xTrackerError || !xTracker) {
+    const c = xCard('Could not load the X tracker'); c.appendChild(xRefreshBtn()); panel.appendChild(c); return;
+  }
+  panel.appendChild(xSalesCard(xTracker.sales));
+  const posts = Array.isArray(xTracker.posts) ? xTracker.posts : [];
+  if (!posts.length) panel.appendChild(xCard('No X posts yet'));
+  posts.forEach(p => panel.appendChild(xPostCard(p)));
+  const r = xCard(); r.appendChild(xRefreshBtn()); panel.appendChild(r);
 }
 
 // --- MISSIONS ---
