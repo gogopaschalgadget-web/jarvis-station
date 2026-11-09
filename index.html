@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="css/cas-identity.css?v=4">
 <link rel="stylesheet" href="css/cas-chat.css?v=3">
 <link rel="stylesheet" href="css/storyboard.css?v=2">
-<link rel="stylesheet" href="css/features.css?v=4"><meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="css/features.css?v=5"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -48,6 +48,10 @@
       <div id="cas-messages" class="cas-messages" role="log" aria-live="polite"></div>
     </div>
     <div id="cas-composer-area" class="cas-composer-area">
+      <button type="button" id="cas-card-handle" class="cas-card-handle" aria-controls="cas-card-fold" aria-expanded="true">
+        <span>Talk with Cas</span><small id="cas-card-note"></small><b aria-hidden="true">▲</b>
+      </button>
+      <div id="cas-card-fold" class="cas-card-fold"><div id="cas-card-body" class="cas-card-body">
       <form id="cas-composer" autocomplete="off">
         <label for="cas-textarea" class="cas-label">TALK WITH CAS</label>
         <div class="cas-work-controls"><button type="button" id="cas-draft-mode" aria-pressed="false">Create draft</button><button type="button" id="cas-propose-draft" aria-pressed="false">Review draft first</button><button type="button" id="cas-inspect-work">Inspect work</button></div>
@@ -63,6 +67,7 @@
           <button type="submit" id="cas-send-btn" class="cas-send-btn">Send</button>
         </div>
       </form>
+      </div></div>
     </div>
   </div>
 </div>
@@ -108,7 +113,7 @@
 <nav class="station-nav" id="station-nav" aria-label="Station navigation"></nav>
 
 <!-- SCRIPTS (ES Modules) -->
-<script type="module" src="js/app.js?v=cas35"></script>
+<script type="module" src="js/app.js?v=cas36"></script>
 <script type="module" src="js/pwa.js?v=cas28"></script>
 </body>
 </html>

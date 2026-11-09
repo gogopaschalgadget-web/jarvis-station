@@ -83,3 +83,20 @@ body.cas-home .station-install-help{display:none;}
 .custom-portrait .cas-animation{display:none;}
 .custom-portrait .cas-scene-portrait{filter:none;object-fit:contain;object-position:center;}
 @media(min-width:960px){.cas-visual{flex-basis:clamp(180px,29vh,280px);}}
+
+/* The message card drops away while reading. Only a strip stays, and pressing it brings the card back. */
+.cas-card-handle{display:none;}
+@media(max-width:959px){
+ .cas-card-fold{display:grid;grid-template-rows:1fr;transition:grid-template-rows .26s ease;}
+ .cas-card-body{min-height:0;overflow:hidden;}
+ #cas-composer-area{transition:margin-bottom .12s ease-out,padding .26s ease;}
+ #cas-composer-area.cas-card-tucked{padding:0 12px;}
+ .cas-card-tucked .cas-card-fold{grid-template-rows:0fr;}
+ .cas-card-tucked .cas-card-body{visibility:hidden;transition:visibility 0s .26s;}
+ .cas-card-tucked .cas-card-handle{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:6px 2px;background:none;border:0;color:#efca86;font:600 14px var(--font-ui);text-align:left;cursor:pointer;}
+ .cas-card-handle span{flex:none;}
+ .cas-card-handle small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c8b896;font-size:12px;font-weight:400;}
+ .cas-card-handle b{flex:none;font-size:13px;}
+ .cas-card-attention small,.cas-card-attention b{color:#f0a04f;font-weight:600;}
+}
+@media(max-width:959px) and (prefers-reduced-motion:reduce){.cas-card-fold,#cas-composer-area,.cas-card-tucked .cas-card-body{transition:none;}}

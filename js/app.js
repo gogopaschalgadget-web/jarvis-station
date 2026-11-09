@@ -2,6 +2,7 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
+import { initCasCard, nearBottom } from './cas-card.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -435,12 +436,13 @@ async function initCasScene() {
   initChat(API_BASE, getDeviceToken, onCasMessageUpdate, getDeviceId());
   initWorkControls();
   initCasSafety();
-  initCasProjects(document.getElementById('cas-composer-area'), API_BASE, getDeviceToken, async text => {
+  initCasProjects(document.getElementById('cas-card-body'), API_BASE, getDeviceToken, async text => {
     const item = await sendMessage(text, []);
     setCasActivity(item.status);
     addOrUpdateCasExchange(item);
     scrollCasMessages();
   });
+  initCasCard();
 
   // Load history
   const draft = loadDraft();
@@ -528,7 +530,7 @@ async function initCasScene() {
 
 // --- Cas signed commands ---
 function initCasSafety() {
-  const area = document.getElementById('cas-composer-area');
+  const area = document.getElementById('cas-card-body');
   if (!area || document.getElementById('cas-stop-btn')) return;
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin:0.25rem 0;font-size:0.8rem';
@@ -626,8 +628,9 @@ function startCasNoticeRefresh() {
       const items = await loadHistory(20);
       const fresh = [...items].reverse().filter(item => !document.getElementById('cas-msg-' + item.id));
       if (!fresh.length) return;
+      const follow = nearBottom(document.getElementById('cas-messages'));
       fresh.forEach(addOrUpdateCasExchange);
-      scrollCasMessages();
+      if (follow) scrollCasMessages();
     } catch { /* the next refresh tries again */ }
   };
   setInterval(casNoticeRefresh, 60000);
@@ -669,8 +672,10 @@ function addOrUpdateCasExchange(item) {
 
 function onCasMessageUpdate(item) {
   setCasActivity(item.status);
+  // This runs every few seconds during a job, so it must not pull Chris away from what they are reading.
+  const follow = nearBottom(document.getElementById('cas-messages'));
   addOrUpdateCasExchange(item);
-  scrollCasMessages();
+  if (follow) scrollCasMessages();
   const statusEl = document.getElementById('cas-status');
   if (!statusEl) return;
   if (item.status === 'completed') {
