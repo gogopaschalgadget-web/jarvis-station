@@ -100,3 +100,10 @@ body.cas-home .station-install-help{display:none;}
  .cas-card-attention small,.cas-card-attention b{color:#f0a04f;font-weight:600;}
 }
 @media(max-width:959px) and (prefers-reduced-motion:reduce){.cas-card-fold,#cas-composer-area,.cas-card-tucked .cas-card-body{transition:none;}}
+
+/* 3D Station map (js/map3d.js) */
+#station-map3d { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #050708; }
+.map3d-toggle { position: absolute; left: 8px; top: 8px; z-index: 5; min-height: 44px; padding: 0 14px; color: #f3e1bd; background: #211b13; border: 1px solid #c9a227; border-radius: 6px; font: 700 14px system-ui, sans-serif; }
+.map3d-confirm { position: absolute; left: 16px; right: 16px; top: 64px; z-index: 6; padding: 14px; color: #f3e1bd; background: #211b13; border: 1px solid #c9a227; border-radius: 8px; font: 15px/1.4 system-ui, sans-serif; }
+.map3d-confirm p { margin: 0 0 10px; }
+.map3d-confirm button { min-height: 44px; margin-right: 8px; padding: 0 14px; color: #f3e1bd; background: #3a2c17; border: 1px solid #c9a227; border-radius: 6px; font: inherit; }
