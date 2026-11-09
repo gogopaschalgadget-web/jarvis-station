@@ -1392,6 +1392,33 @@ function xMetricLine(label, value, when) {
   return xEl('div', known ? `${label}: ${value} (${xAgo(when)})` : `${label}: not checked yet`, 'font-size:0.85rem;color:' + (known ? '#e6edf3' : '#888') + ';margin-top:0.25rem');
 }
 
+const xTrackerMarking = {};
+
+// Coming back from the X app can lose the "Did it go out?" question, so the tracker offers the same step.
+async function markXTrackerPosted(post) {
+  const id = post.review_id;
+  if (xTrackerMarking[id] || !confirm('Mark this as posted on X? This cannot be undone.')) return;
+  xTrackerMarking[id] = true; delete xTrackerLinkMsg[id]; renderXTracker();
+  try {
+    const res = await fetch(`${API_BASE}/api/station/x-review/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getDeviceToken() },
+      body: JSON.stringify({ review_id: id, decision: 'posted' }),
+    });
+    if (res.status === 401 || res.status === 403) { xTrackerMarking[id] = false; clearAuth(); return; }
+    if (res.ok) {
+      post.status = 'posted';
+      if (typeof xTracker.needs_link_count === 'number' && !post.post_url) xTracker.needs_link_count += 1;
+    } else if (res.status === 404 || res.status === 409) {
+      xTracker = null;  // already handled somewhere else, so show what is true now
+    } else {
+      xTrackerLinkMsg[id] = 'Could not save that. Try again.';
+    }
+  } catch { xTrackerLinkMsg[id] = 'Network error. Nothing was saved, so try again.'; }
+  xTrackerMarking[id] = false;
+  renderXTracker();
+}
+
 function xPostCard(post) {
   const c = xCard('X post');
   const text = String(post.content_preview || '');
@@ -1418,6 +1445,13 @@ function xPostCard(post) {
     btn.addEventListener('click', () => { const v = input.value.trim(); if (v) saveXTrackerLink(post, v); });
     row.append(input, btn); c.appendChild(row);
     if (xTrackerLinkMsg[id]) c.appendChild(xEl('div', xTrackerLinkMsg[id], 'margin-top:0.4rem;font-size:0.85rem;color:' + (xTrackerLinkMsg[id] === 'Link saved.' ? '#22c55e' : '#ef4444')));
+  } else if (String(post.status).toLowerCase() === 'pending') {
+    const id = post.review_id;
+    const btn = xEl('button', xTrackerMarking[id] ? 'Saving...' : 'I posted this', 'display:block;width:100%;box-sizing:border-box;min-height:44px;margin-top:0.6rem;background:#22c55e;color:#0a0e14;border:none;padding:0.5rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer');
+    btn.disabled = !!xTrackerMarking[id];
+    btn.addEventListener('click', () => markXTrackerPosted(post));
+    c.appendChild(btn);
+    if (xTrackerLinkMsg[id]) c.appendChild(xEl('div', xTrackerLinkMsg[id], 'margin-top:0.4rem;font-size:0.85rem;color:#ef4444'));
   }
   return c;
 }
