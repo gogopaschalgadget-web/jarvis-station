@@ -77,11 +77,12 @@ async function _sendMessage(text, attachments) {
   saveDraft(text);
   const message = text.trim();
   // Screenshots are not part of a signed command yet, so those messages go unsigned and the PC refuses them.
-  const pending = _loadPending() || { request_key: _genKey(), message, attachments,
+  // Only the same text reuses the saved key, so a lost reply can never send it twice.
+  // Changed text is a new message: an unconfirmed older one must not block the box.
+  const saved = _loadPending();
+  const isRetry = saved && saved.message === message && JSON.stringify(saved.attachments || []) === JSON.stringify(attachments);
+  const pending = isRetry ? saved : { request_key: _genKey(), message, attachments,
     envelope: attachments.length ? null : await signEnvelope('message', message) };
-  if (pending.message !== message || JSON.stringify(pending.attachments || []) !== JSON.stringify(attachments)) {
-    throw new Error('Retry the pending message before sending changed text.');
-  }
   // Storage failures stop the send before it reaches the server.
   localStorage.setItem(_pendingKey(), JSON.stringify(pending));
   const body = JSON.stringify(pending);
