@@ -883,7 +883,7 @@ function wireReviewModeSelector(panel) {
     if (btn.dataset.reviewTab === reviewTab) return;
     reviewTab = btn.dataset.reviewTab; reviewPanelMode = 'idle'; anchorRejectMode = false; anchorDecidedView = false;
     if (reviewTab === 'x') { xQueue = null; xError = false; }
-    if (reviewTab === 'tracker') { xTracker = null; xTrackerError = false; xTrackerLoading = false; }
+    if (reviewTab === 'tracker') { xTracker = null; xTrackerError = false; xTrackerLoading = false; xTrackerOnlyNoLink = false; }
     xRenderedKey = null;
     renderContentReview();
   }));
@@ -1287,6 +1287,7 @@ function onXAction(action, item) {
 let xTracker = null;
 let xTrackerLoading = false;
 let xTrackerError = false;
+let xTrackerOnlyNoLink = false;
 const xTrackerLinkMsg = {};
 const xTrackerSaving = {};
 
@@ -1335,7 +1336,9 @@ async function saveXTrackerLink(post, url) {
       xTrackerLinkMsg[id] = typeof why === 'string' && why ? why : 'That link was not accepted. Paste the x.com or twitter.com link to your post.';
     } else {
       const saved = data && data.post_url;
+      const hadLink = typeof post.post_url === 'string' && post.post_url.trim();
       post.post_url = typeof saved === 'string' && saved ? saved : url;
+      if (!hadLink && xTracker && typeof xTracker.needs_link_count === 'number' && xTracker.needs_link_count > 0) xTracker.needs_link_count -= 1;
       xTrackerLinkMsg[id] = 'Link saved.';
     }
   } catch { xTrackerLinkMsg[id] = 'Network error. Nothing was saved, so try again.'; }
@@ -1433,8 +1436,19 @@ function renderXTracker() {
     const c = xCard('Could not load the X tracker'); c.appendChild(xRefreshBtn()); panel.appendChild(c); return;
   }
   panel.appendChild(xSalesCard(xTracker.sales));
-  const posts = Array.isArray(xTracker.posts) ? xTracker.posts : [];
-  if (!posts.length) panel.appendChild(xCard('No X posts yet'));
+  const n = xTracker.needs_link_count;
+  const known = typeof n === 'number' && isFinite(n);
+  const nb = xEl('button', 'Needs a link: ' + (known ? n : 'unknown'),
+    'display:block;width:100%;box-sizing:border-box;min-height:44px;margin:0 0 0.75rem;padding:0.5rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer;' +
+    (xTrackerOnlyNoLink ? 'background:#d4a853;color:#0a0e14;border:2px solid #d4a853' : 'background:#0a0e14;color:#d4a853;border:2px solid #d4a853'));
+  nb.setAttribute('aria-pressed', xTrackerOnlyNoLink ? 'true' : 'false');
+  nb.addEventListener('click', () => { xTrackerOnlyNoLink = !xTrackerOnlyNoLink; renderXTracker(); });
+  panel.appendChild(nb);
+  const allPosts = Array.isArray(xTracker.posts) ? xTracker.posts : [];
+  const posts = xTrackerOnlyNoLink
+    ? allPosts.filter(p => String(p.status).toLowerCase() === 'posted' && !(typeof p.post_url === 'string' && p.post_url.trim()))
+    : allPosts;
+  if (!posts.length) panel.appendChild(xCard(xTrackerOnlyNoLink ? 'Every posted item has a link' : 'No X posts yet'));
   posts.forEach(p => panel.appendChild(xPostCard(p)));
   const r = xCard(); r.appendChild(xRefreshBtn()); panel.appendChild(r);
 }
