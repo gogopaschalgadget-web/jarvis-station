@@ -259,7 +259,6 @@ function updateHeader(data) {
   const totalSvc = Object.keys(svcs).length;
   const liveCount = (h.live_posts || []).length;
   if (s) {
-    setMetric('m-days', s.days_remaining, s.days_remaining < 30 ? 'warn' : '');
     setMetric('m-budget', '$' + s.budget_remaining.toFixed(2), s.budget_remaining < 10 ? 'warn' : 'good');
     setMetric('m-services', aliveCount + '/' + totalSvc, aliveCount < totalSvc ? 'warn' : 'good');
     setMetric('m-posts', String(liveCount), liveCount > 0 ? 'good' : '');
