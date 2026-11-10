@@ -412,7 +412,7 @@
 .cas-slim-line { color:#c8b896; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* The Projects screen: between the header and the bottom bar, above the Cas card. */
-.cas-sheet { position:fixed; left:0; right:0; top:calc(var(--header-height) + env(safe-area-inset-top, 0px)); bottom:calc(var(--nav-height) + env(safe-area-inset-bottom, 0px)); z-index:95; display:flex; flex-direction:column; background:#0b0d08f7; border-top:2px groove #c19a56; color:#f0e0c0; }
+.cas-sheet { position:fixed; left:0; right:0; top:calc(var(--header-height) + env(safe-area-inset-top, 0px)); bottom:var(--nav-height); z-index:95; display:flex; flex-direction:column; background:#0b0d08f7; border-top:2px groove #c19a56; color:#f0e0c0; }
 .cas-sheet[hidden] { display:none; }
 .cas-sheet-head { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.9rem 0.3rem; font-size:1.05rem; }
 .cas-sheet-close { min-height:40px; padding:0 1rem; background:transparent; color:#d4a853; border:1px solid #b98a3b; border-radius:6px; font-weight:bold; cursor:pointer; }

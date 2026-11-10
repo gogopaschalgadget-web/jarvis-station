@@ -95,7 +95,7 @@ html, body {
 /* --- ROOM DETAIL OVERLAY --- */
 .room-overlay {
   position: fixed;
-  top: var(--header-height);
+  top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
   bottom: var(--nav-height);
   left: 0; right: 0;
   background: rgba(5,8,12,0.92);
