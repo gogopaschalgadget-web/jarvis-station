@@ -34,7 +34,7 @@ export function initCasCard() {
 
   // What Chris would otherwise miss while the card is away.
   function refreshNote() {
-    const asking = !!body.querySelector('.cas-project-ask');
+    const asking = !!body.querySelector('.cas-project-ask, .cas-needs-you');
     note.textContent = asking ? 'Cas has a question for you'
       : status.textContent.trim() || (textarea.value.trim() ? 'Your draft is saved here' : '');
     handle.classList.toggle('cas-card-attention', asking);

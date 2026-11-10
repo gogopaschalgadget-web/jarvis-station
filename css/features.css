@@ -94,7 +94,7 @@ body.cas-home .station-install-help{display:none;}
  #cas-scene .cas-card-fold{flex:1 1 auto;min-height:0;}
  #cas-scene .cas-card-body{display:flex;flex-direction:column;}
  #cas-scene .cas-card-body > *{flex:none;}
- #cas-scene .cas-card-body > .cas-projects{flex:0 1 auto;min-height:72px;overscroll-behavior:contain;}
+ #cas-scene .cas-card-body > .cas-projects{flex:none;}
  #cas-composer-area{transition:margin-bottom .12s ease-out,padding .26s ease;}
  #cas-composer-area.cas-card-tucked{padding:0 12px;}
  .cas-card-tucked .cas-card-fold{grid-template-rows:0fr;}

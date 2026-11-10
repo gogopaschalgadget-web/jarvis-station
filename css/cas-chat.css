@@ -392,8 +392,47 @@
 .cas-project-ask-buttons button { flex:1 1 40%; min-height:40px; background:#d4a853; color:#0a0e14; border:none; border-radius:6px; font-weight:bold; font-size:0.82rem; cursor:pointer; padding:0.35rem; }
 .cas-project-ask-buttons button:disabled { opacity:0.5; }
 .cas-project-error { margin:0.3rem 0 0; color:#e0a070; font-size:0.78rem; overflow-wrap:anywhere; }
-.cas-project-controls { display:flex; justify-content:flex-end; margin-top:0.45rem; }
-.cas-project-controls button { min-height:40px; padding:0.35rem 0.9rem; border-radius:6px; font-weight:bold; font-size:0.82rem; cursor:pointer; }
+.cas-project-controls { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0.4rem; margin-top:0.45rem; }
+.cas-project-controls button, .cas-filed-body .cas-project-resume { min-height:40px; padding:0.35rem 0.9rem; border-radius:6px; font-weight:bold; font-size:0.82rem; cursor:pointer; }
 .cas-project-stop { background:transparent; color:#f08a6a; border:1px solid #f08a6a; }
 .cas-project-resume { background:#d4a853; color:#0a0e14; border:none; }
-.cas-project-controls button:disabled { opacity:0.5; }
+.cas-project-file { background:transparent; color:#d4a853; border:1px solid #b98a3b; }
+.cas-project-controls button:disabled, .cas-filed-body button:disabled { opacity:0.5; }
+
+/* Home: one slim project line and, only when Cas has a question, a gold button. */
+.cas-projects { max-height:none; overflow:visible; }
+.cas-needs-you { display:block; width:100%; min-height:44px; background:#d4a853; color:#0a0e14; border:none; border-radius:6px; font-weight:bold; font-size:0.9rem; cursor:pointer; }
+.cas-project-slim { display:flex; flex-direction:column; gap:0.25rem; width:100%; min-height:44px; padding:0.4rem 0.55rem; background:#0e1109e6; color:#f0e0c0; border:1px solid #b98a3b; border-radius:6px; font:inherit; font-size:0.82rem; text-align:left; cursor:pointer; }
+.cas-project-slim-quiet { color:#c8b896; justify-content:center; }
+.cas-slim-top { display:flex; justify-content:space-between; gap:0.5rem; font-weight:bold; }
+.cas-slim-goal { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.cas-slim-more { flex:none; color:#d4a853; }
+.cas-slim-track { display:block; height:5px; background:#2a2415; border-radius:3px; overflow:hidden; }
+.cas-slim-fill { display:block; height:100%; background:#d4a853; border-radius:3px; }
+.cas-slim-line { color:#c8b896; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* The Projects screen: between the header and the bottom bar, above the Cas card. */
+.cas-sheet { position:fixed; left:0; right:0; top:calc(var(--header-height) + env(safe-area-inset-top, 0px)); bottom:calc(var(--nav-height) + env(safe-area-inset-bottom, 0px)); z-index:95; display:flex; flex-direction:column; background:#0b0d08f7; border-top:2px groove #c19a56; color:#f0e0c0; }
+.cas-sheet[hidden] { display:none; }
+.cas-sheet-head { display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.9rem 0.3rem; font-size:1.05rem; }
+.cas-sheet-close { min-height:40px; padding:0 1rem; background:transparent; color:#d4a853; border:1px solid #b98a3b; border-radius:6px; font-weight:bold; cursor:pointer; }
+.cas-sheet-tabs { display:flex; gap:0.4rem; padding:0.3rem 0.9rem 0.5rem; }
+.cas-sheet-tab { flex:1; min-height:40px; background:#141710; color:#c8b896; border:1px solid #3c3423; border-radius:6px; font-weight:bold; cursor:pointer; }
+.cas-sheet-tab-on { background:#d4a853; color:#0a0e14; border-color:#d4a853; }
+.cas-sheet-body { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:0.5rem; padding:0.2rem 0.9rem 1rem; }
+.cas-sheet-empty { color:#c8b896; text-align:center; margin:2rem 0; }
+.cas-filed { border:1px solid #3c3423; border-radius:6px; background:#0e1109; font-size:0.82rem; }
+.cas-filed-head { display:flex; flex-direction:column; gap:0.15rem; width:100%; padding:0.5rem 0.6rem; background:none; border:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.cas-filed-top { display:flex; justify-content:space-between; gap:0.5rem; font-weight:bold; }
+.cas-filed-goal { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.cas-filed-test { flex:none; padding:0 0.4rem; border:1px solid #7fa8c8; border-radius:4px; color:#9cc4e4; font-size:0.7rem; line-height:1.5; }
+.cas-filed-meta { color:#c8b896; }
+.cas-filed-body { padding:0 0.6rem 0.6rem; display:flex; flex-direction:column; gap:0.3rem; }
+.cas-filed-body p { margin:0; overflow-wrap:anywhere; }
+
+/* Filing: the card shrinks up into the Archive tab. */
+.cas-filing { animation:cas-file-away 0.52s ease-in forwards; pointer-events:none; transform-origin:85% 0; }
+@keyframes cas-file-away { 0% { transform:none; opacity:1; } 60% { transform:translate(10%,-30%) scale(0.55); opacity:0.8; } 100% { transform:translate(22%,-120%) scale(0.12); opacity:0; } }
+.cas-tab-catch { animation:cas-tab-catch 0.7s ease-out 0.4s; }
+@keyframes cas-tab-catch { 0%,100% { box-shadow:none; } 40% { box-shadow:0 0 0 3px #d4a853aa; } }
+@media (prefers-reduced-motion: reduce) { .cas-filing { animation-duration:0.01s; } .cas-tab-catch { animation:none; } }
