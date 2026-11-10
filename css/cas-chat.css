@@ -391,3 +391,8 @@
 .cas-project-ask-buttons { display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.25rem; }
 .cas-project-ask-buttons button { flex:1 1 40%; min-height:40px; background:#d4a853; color:#0a0e14; border:none; border-radius:6px; font-weight:bold; font-size:0.82rem; cursor:pointer; padding:0.35rem; }
 .cas-project-ask-buttons button:disabled { opacity:0.5; }
+.cas-project-controls { display:flex; justify-content:flex-end; margin-top:0.45rem; }
+.cas-project-controls button { min-height:40px; padding:0.35rem 0.9rem; border-radius:6px; font-weight:bold; font-size:0.82rem; cursor:pointer; }
+.cas-project-stop { background:transparent; color:#f08a6a; border:1px solid #f08a6a; }
+.cas-project-resume { background:#d4a853; color:#0a0e14; border:none; }
+.cas-project-controls button:disabled { opacity:0.5; }
