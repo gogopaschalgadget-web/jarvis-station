@@ -80,7 +80,9 @@ function projectCard(project, ageSeconds, stopped) {
   const head = el('button', 'cas-project-head');
   head.type = 'button';
   head.setAttribute('aria-expanded', String(_open.has(project.number)));
-  const counts = project.total ? project.done + ' of ' + project.total + ' tasks' : 'Planning';
+  const counts = project.status === 'closed' ? 'Closed'
+    : project.total ? project.done + ' of ' + project.total + ' tasks'
+    : project.status === 'stopped' ? 'Stopped' : 'Planning';
   const title = el('div', 'cas-project-title');
   title.append(el('span', 'cas-project-goal', 'Project ' + project.number + ': ' + project.goal), el('span', 'cas-project-count', counts));
   const track = el('div', 'cas-project-track');

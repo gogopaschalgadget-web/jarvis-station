@@ -89,6 +89,12 @@ body.cas-home .station-install-help{display:none;}
 @media(max-width:959px){
  .cas-card-fold{display:grid;grid-template-rows:1fr;transition:grid-template-rows .26s ease;}
  .cas-card-body{min-height:0;overflow:hidden;}
+ /* When the card is taller than the screen, the project list shrinks and scrolls, so the message box and Send stay on screen. */
+ #cas-scene .cas-composer-area{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;}
+ #cas-scene .cas-card-fold{flex:1 1 auto;min-height:0;}
+ #cas-scene .cas-card-body{display:flex;flex-direction:column;}
+ #cas-scene .cas-card-body > *{flex:none;}
+ #cas-scene .cas-card-body > .cas-projects{flex:0 1 auto;min-height:72px;overscroll-behavior:contain;}
  #cas-composer-area{transition:margin-bottom .12s ease-out,padding .26s ease;}
  #cas-composer-area.cas-card-tucked{padding:0 12px;}
  .cas-card-tucked .cas-card-fold{grid-template-rows:0fr;}
