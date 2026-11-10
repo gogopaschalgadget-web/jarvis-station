@@ -486,10 +486,10 @@ function loopRoom(stages,cast){const root=new THREE.Group();const amber=mat(0xf0
    track only when an agent reports the room working, or during the labelled preview. */
 const SKIN={iron:{tex:'rust_iron',tile:1.6,color:[.6,.55,.52],metal:.15,rough:.8,decay:.65,verd:.25},brass:{tex:'gold_panel',tile:.6,color:[.95,.72,.42],metal:.3,rough:.6,decay:.65,verd:.6},deck:{tex:'rust_iron',repeat:5,color:[.62,.55,.5],metal:.45,rough:.6},belt:{tex:'rust_iron',tile:.8,color:[.05,.045,.04],metal:.2,rough:.9,decay:.5,verd:0}};   /* station_kit recipes iron_decay, brass_pipe */
 function skin(o,k){if(k)o.userData.skin=SKIN[k];return o;}
-const LOOP_STATE={working:[0x3fd07f,1.6],waiting:[0xf0b040,1.2],blocked:[0xd03030,1.8],error:[0xd03030,1.8],paused:[0x8a6a3a,.5],unknown:[0x6a5a3a,.35],future:[0x1a1612,0]};
+const LOOP_STATE={idle:[0x4a8a78,.7],working:[0x3fd07f,1.6],waiting:[0xf0b040,1.2],blocked:[0xd03030,1.8],error:[0xd03030,1.8],paused:[0x8a6a3a,.5],unknown:[0x6a5a3a,.35],future:[0x1a1612,0]};
 function loopStatus(id){return ((window.STATION_STATUS||{}).loops||{})[id]||{};}
 function stageState(id,sid){const st=(loopStatus(id).stages||{})[sid];return (st&&st.state)||'unknown';}
-const STATE_WORD={working:['WORKING','#5fe08f'],waiting:['WAITING','#f0b040'],blocked:['BLOCKED','#ff5040'],error:['ERROR','#ff5040'],paused:['PAUSED','#b08a5a'],unknown:['NOT REPORTED','#a89878'],future:['FUTURE','#7a7068']};
+const STATE_WORD={idle:['IDLE','#8fc8b8'],working:['WORKING','#5fe08f'],waiting:['WAITING','#f0b040'],blocked:['BLOCKED','#ff5040'],error:['ERROR','#ff5040'],paused:['PAUSED','#b08a5a'],unknown:['NOT REPORTED','#a89878'],future:['FUTURE','#7a7068']};
 function sign(num,name,what,state){const cv=document.createElement('canvas');cv.width=640;cv.height=240;const x=cv.getContext('2d');const fut=state==='future';
  const [word,wc]=STATE_WORD[state]||STATE_WORD.unknown;x.fillStyle='rgba(18,14,12,.9)';x.fillRect(0,0,640,240);x.strokeStyle=fut?'#5a5048':'#c9a227';x.lineWidth=6;x.strokeRect(3,3,634,234);
  x.font='bold 30px Georgia';x.textAlign='right';x.textBaseline='middle';x.fillStyle=wc;x.fillText(word,616,36);const ww=x.measureText(word).width;x.beginPath();x.arc(616-ww-22,36,11,0,Math.PI*2);x.fill();

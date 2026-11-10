@@ -2,7 +2,7 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { enterMap3d, leaveMap3d } from './map3d.js';
+import { enterMap3d, leaveMap3d, feedMap3d } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
@@ -186,6 +186,7 @@ async function fetchStatus() {
     if (getDeviceToken() !== requestToken) return;
     apiData = statusData;
     setApiData(apiData);
+    feedMap3d(apiData);
     updateHeader(apiData);
     updateTabContent();
   } catch (err) {

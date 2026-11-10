@@ -53,7 +53,7 @@
       await models(manifest);
       progress(0.92, 'Building the scene');
       await new Promise(resolve => setTimeout(resolve, 30));
-      for (const src of manifest.scripts) await script(`${src}?v=${manifest.version}`);
+      for (const src of manifest.scripts) await script(`${src}?v=${manifest.code}`);
       screen.hidden = true;
     } catch (error) {
       progress(0, 'The map could not load. Check your connection and try again.');

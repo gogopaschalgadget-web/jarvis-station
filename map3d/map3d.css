@@ -13,6 +13,8 @@ body #station-mobile-diagnostic-1 .diagnostic-map .map-stage { height: 100vh !im
 .map-stage canvas { width: 100% !important; height: 100% !important; }
 
 #map3d-tag { position: fixed; left: 8px; bottom: 56px; z-index: 20; padding: 3px 8px; color: #f3e1bd; background: #5a1414e0; border-radius: 4px; font: 700 11px/1.4 system-ui, sans-serif; letter-spacing: .04em; pointer-events: none; }
+#map3d-tag[data-mode="live"] { background: #14532de0; }
+#map3d-tag[data-mode="stale"] { color: #1a1408; background: #f0b040e8; }
 #map3d-demo { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 20; width: calc(100% - 16px); min-height: 44px; padding: 0 10px; color: #f3e1bd; background: #211b13; border: 1px solid #c9a227; border-radius: 6px; font: 15px system-ui, sans-serif; }
 body.sd-cin #map3d-tag, body.sd-cin #map3d-demo { display: none; }
 

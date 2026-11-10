@@ -1,6 +1,9 @@
 // map3d.js - the 3D Station map inside the Station tab (ES Module).
 // It downloads only after a tap, and is removed on leaving the tab to free the phone's memory.
 // The flat map stays underneath as the fallback. No credentials, no em-dashes.
+// The map never talks to the server: this page passes it plain status, so the map needs no sign-in of its own.
+
+import { toMapStatus } from './map3d-status.js';
 
 const OPENED_KEY = 'station-map3d-opened';
 const DOWNLOAD_NOTE = 'The first time downloads about 20 MB.';
@@ -10,6 +13,27 @@ let frame = null;
 let toggle = null;
 let confirmBox = null;
 let wantsFlat = false;
+let mapReady = false;
+let lastStatus = null;
+
+function sendStatus() {
+  if (!frame || !frame.contentWindow || !mapReady || !lastStatus) return;
+  frame.contentWindow.postMessage({ type: 'station-status', status: lastStatus }, window.location.origin);
+}
+
+window.addEventListener('message', event => {
+  if (event.origin !== window.location.origin || !frame || event.source !== frame.contentWindow) return;
+  if (!event.data || event.data.type !== 'map3d-ready') return;
+  mapReady = true;
+  sendStatus();
+});
+
+export function feedMap3d(data) {
+  const status = toMapStatus(data);
+  if (!status) return;
+  lastStatus = status;
+  sendStatus();
+}
 
 function readOpened() {
   try { return localStorage.getItem(OPENED_KEY) === '1'; } catch { return false; }
@@ -44,6 +68,7 @@ function openFrame() {
 function closeFrame() {
   if (frame) frame.remove();
   frame = null;
+  mapReady = false;
   setLabel();
 }
 
