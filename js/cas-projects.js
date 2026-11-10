@@ -59,8 +59,9 @@ function askBox(ask) {
 /** Stop or resume this one project. Cas itself keeps running; a signed message carries the request. */
 function controlRow(project) {
   const row = el('div', 'cas-project-controls');
-  const stopping = project.status !== 'stopped';
-  const button = el('button', stopping ? 'cas-project-stop' : 'cas-project-resume', stopping ? 'Stop this project' : 'Resume this project');
+  const stopping = project.status !== 'stopped' && project.status !== 'blocked';
+  const label = stopping ? 'Stop this project' : project.status === 'blocked' ? 'Try again' : 'Resume this project';
+  const button = el('button', stopping ? 'cas-project-stop' : 'cas-project-resume', label);
   button.type = 'button';
   button.addEventListener('click', async () => {
     if (stopping && !confirm('Stop project ' + project.number + '? Anything it is in the middle of is thrown away. Finished tasks are kept.')) return;
@@ -104,6 +105,7 @@ function projectCard(project, ageSeconds, stopped) {
   card.append(head);
   if (stopped) card.append(el('p', 'cas-project-warn', 'Cas is stopped. Work has paused.'));
   else if (ageSeconds > STALE_AFTER_S) card.append(el('p', 'cas-project-warn', 'The PC last reported ' + minutes(ageSeconds) + ' ago, so this may be out of date.'));
+  if (project.error) card.append(el('p', 'cas-project-error', 'Last error: ' + project.error));
   (project.asks || []).forEach(ask => card.append(askBox(ask)));
   // While all of Cas is stopped it refuses every command, so the buttons would only fail.
   if (!stopped && (STOPPABLE.has(project.status) || project.status === 'stopped')) card.append(controlRow(project));
