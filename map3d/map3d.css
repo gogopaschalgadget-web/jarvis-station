@@ -18,6 +18,17 @@ body #station-mobile-diagnostic-1 .diagnostic-map .map-stage { height: 100vh !im
 #map3d-demo { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 20; width: calc(100% - 16px); min-height: 44px; padding: 0 10px; color: #f3e1bd; background: #211b13; border: 1px solid #c9a227; border-radius: 6px; font: 15px system-ui, sans-serif; }
 body.sd-cin #map3d-tag, body.sd-cin #map3d-demo { display: none; }
 
+/* Touch: a held finger must never start text selection or the phone's callout. */
+html, body, canvas { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+#map3d-back { position: fixed; left: 8px; bottom: 88px; z-index: 21; min-height: 44px; padding: 0 16px; color: #1a1408; background: #c9a227; border: 0; border-radius: 6px; font: 700 15px system-ui, sans-serif; }
+#map3d-back[hidden], #map3d-note-line[hidden] { display: none; }
+body.sd-cin #map3d-back, body.sd-cin #map3d-note-line, body.sd-cin .touch-cancel { display: none !important; }
+#map3d-note-line { position: fixed; left: 8px; right: 8px; top: 8px; z-index: 22; padding: 10px 12px; color: #f3e1bd; background: #211b13f2; border: 1px solid #c9a227; border-radius: 6px; font: 600 15px/1.3 system-ui, sans-serif; text-align: center; pointer-events: none; }
+body > .touch-cancel { display: none; position: fixed; right: 8px; bottom: 88px; z-index: 21; min-height: 44px; padding: 0 16px; color: #f3e1bd; background: #5a1414; border: 1px solid #f3e1bd; border-radius: 6px; font: 700 15px system-ui, sans-serif; }
+body[data-moving="yes"] > .touch-cancel:not([hidden]) { display: block; }
+/* Street-level settings do nothing inside a room and cover its signs. */
+body[data-inside="yes"] .open-rooms-toggle, body[data-inside="yes"] select[aria-label="Backdrop"], body[data-inside="yes"] select[aria-label="Level"] { display: none !important; }
+
 /* The demo overlay was laid out for video. On a phone its parts stack instead of overlapping. */
 @media (max-width: 600px) {
   body .sd .sd-ban { top: 0 !important; height: auto !important; padding: 5px 4px !important; font-size: 10px !important; line-height: 1.3 !important; letter-spacing: 0 !important; white-space: nowrap !important; }
