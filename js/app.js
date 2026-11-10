@@ -2,7 +2,7 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { enterMap3d, leaveMap3d, feedMap3d } from './map3d.js';
+import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
@@ -786,6 +786,19 @@ let isLoadingReview = false;
 let reviewPlatform = 'reddit';
 let reviewTab = 'posts';
 let reviewRenderedItemId = null;
+
+// The 3D map's "Waiting on you" button opens the screen where that work is done.
+function openReviewFromMap(which) {
+  reviewPanelMode = 'idle'; anchorRejectMode = false; anchorDecidedView = false;
+  if (which === 'x') {
+    reviewTab = 'x'; xQueue = null; xError = false;
+  } else {
+    reviewTab = 'posts'; reviewPlatform = 'reddit'; currentReviewItem = null; reviewRenderedItemId = null;
+  }
+  xRenderedKey = null;
+  switchTab('content-review');
+}
+setMap3dReviewOpener(openReviewFromMap);
 
 const VALID_RUBRIC_DIMS = new Set([
   'task_fulfillment','factual_grounding','clarity_scannability','voice_fit','value_usefulness'

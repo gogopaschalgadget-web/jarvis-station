@@ -21,12 +21,24 @@ function sendStatus() {
   frame.contentWindow.postMessage({ type: 'station-status', status: lastStatus }, window.location.origin);
 }
 
+let openReview = null;
+
 window.addEventListener('message', event => {
   if (event.origin !== window.location.origin || !frame || event.source !== frame.contentWindow) return;
-  if (!event.data || event.data.type !== 'map3d-ready') return;
-  mapReady = true;
-  sendStatus();
+  const data = event.data;
+  if (!data) return;
+  if (data.type === 'map3d-ready') {
+    mapReady = true;
+    sendStatus();
+  } else if (data.type === 'open-review' && (data.which === 'x' || data.which === 'reddit') && openReview) {
+    openReview(data.which);
+  }
 });
+
+// The page decides how to open its own review screens; the map only asks.
+export function setMap3dReviewOpener(fn) {
+  openReview = typeof fn === 'function' ? fn : null;
+}
 
 export function feedMap3d(data) {
   const status = toMapStatus(data);

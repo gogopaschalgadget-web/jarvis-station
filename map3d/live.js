@@ -101,6 +101,33 @@
     if (id === 'content') setCards(root, Number.isInteger(report.queue) ? report.queue : 0);
   }
 
+  // "Waiting on you": only from fresh data, and the tap asks the Station to open the right screen.
+  const needs = document.createElement('button');
+  needs.type = 'button';
+  needs.id = 'map3d-needs';
+  needs.hidden = true;
+  const needsTitle = document.createElement('strong');
+  const needsCounts = document.createElement('span');
+  needs.append(needsTitle, needsCounts);
+  needs.addEventListener('click', () => {
+    const waiting = latest && latest.waiting;
+    if (!waiting || window.parent === window) return;
+    window.parent.postMessage({ type: 'open-review', which: waiting.x > 0 ? 'x' : 'reddit' }, window.location.origin);
+  });
+  document.body.append(needs);
+
+  function showNeeds(fresh) {
+    const waiting = fresh && latest && latest.waiting;
+    const total = waiting ? (waiting.x || 0) + (waiting.reddit || 0) : 0;
+    needs.hidden = !total;
+    if (!total) return;
+    const parts = [];
+    if (waiting.x) parts.push(`${waiting.x} X ${waiting.x === 1 ? 'post' : 'posts'}`);
+    if (waiting.reddit) parts.push(`${waiting.reddit} Reddit`);
+    needsTitle.textContent = waiting.xPaused ? 'Paused: waiting on you' : 'Waiting on you';
+    needsCounts.textContent = parts.join(', ');
+  }
+
   function publish(fresh) {
     if (!shared || !shared.loops) return;
     shared.feed = fresh ? 'live' : 'not reporting';
@@ -120,7 +147,8 @@
     showTag();
     if (demo || !latest) return;
     const fresh = ageMs() <= STALE_MS;
-    const signature = JSON.stringify([fresh, latest.loops]);
+    showNeeds(fresh);
+    const signature = JSON.stringify([fresh, latest.loops, latest.waiting]);
     if (signature === applied) return;
     applied = signature;
     ROOMS.forEach(id => applyRoom(id, fresh ? (latest.loops[id] || {}) : allUnknown(id)));

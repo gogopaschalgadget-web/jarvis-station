@@ -26,6 +26,9 @@ body.sd-cin #map3d-back, body.sd-cin #map3d-note-line, body.sd-cin .touch-cancel
 #map3d-note-line { position: fixed; left: 8px; right: 8px; top: 8px; z-index: 22; padding: 10px 12px; color: #f3e1bd; background: #211b13f2; border: 1px solid #c9a227; border-radius: 6px; font: 600 15px/1.3 system-ui, sans-serif; text-align: center; pointer-events: none; }
 body > .touch-cancel { display: none; position: fixed; right: 8px; bottom: 88px; z-index: 21; min-height: 44px; padding: 0 16px; color: #f3e1bd; background: #5a1414; border: 1px solid #f3e1bd; border-radius: 6px; font: 700 15px system-ui, sans-serif; }
 body[data-moving="yes"] > .touch-cancel:not([hidden]) { display: block; }
+#map3d-needs { position: fixed; right: 8px; bottom: 88px; z-index: 21; max-width: calc(100% - 170px); min-height: 44px; padding: 6px 12px; color: #1a1408; background: #f0b040; border: 0; border-radius: 6px; font: 13px/1.25 system-ui, sans-serif; text-align: left; }
+#map3d-needs strong { display: block; font-size: 14px; }
+#map3d-needs[hidden], body.sd-cin #map3d-needs, body[data-moving="yes"] #map3d-needs { display: none; }
 /* Street-level settings do nothing inside a room and cover its signs. */
 body[data-inside="yes"] .open-rooms-toggle, body[data-inside="yes"] select[aria-label="Backdrop"], body[data-inside="yes"] select[aria-label="Level"] { display: none !important; }
 

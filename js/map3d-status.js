@@ -33,6 +33,15 @@ function forgeState(generator, madeToday) {
   return madeToday > 0 ? 'working' : 'idle';
 }
 
+// Work held for Chris. Older servers do not send it, so it is simply absent.
+function waitingOn(block) {
+  if (!block || typeof block !== 'object') return null;
+  const x = whole(block.x_to_post);
+  const reddit = whole(block.reddit_to_review);
+  if (x === null || reddit === null) return null;
+  return { x, reddit, xPaused: block.x_writer_paused === true };
+}
+
 function hubState(x, reddit) {
   const both = [x, reddit];
   if (both.includes('working')) return 'working';
@@ -54,13 +63,17 @@ export function toMapStatus(data) {
   const ready = counts ? counts.ready : null;
   const approval = counts ? counts.approval : null;
   const madeToday = health.generation ? whole(health.generation.last_24h) : null;
+  const waiting = waitingOn(health.waiting);
+  // A running writer that is holding back because Chris has not posted is waiting, not idle.
+  const forge = generator === 'working' && waiting && waiting.xPaused ? 'waiting' : forgeState(generator, madeToday);
 
   return {
     updated_at: stamp,
+    waiting,
     loops: {
       content: {
         stages: {
-          forge: { state: forgeState(generator, madeToday) },
+          forge: { state: forge },
           'job-board': { state: queueState(ready) },
         },
         queue: ready,
