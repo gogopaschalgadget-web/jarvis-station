@@ -4,6 +4,9 @@ import { initWorkControls, workMessage, observeWork } from './station-work-view.
 import { initCasProjects } from './cas-projects.js';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
+import {
+  initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading,
+} from './cas-threads.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -356,7 +359,7 @@ async function initCasScene() {
 
   // Portrait
   const img = document.getElementById('cas-scene-img');
-  const defaultSrc = 'assets/cas/console.png';
+  const defaultSrc = 'assets/cas/console.jpg';
 
   let customPortrait=false;
   function displayPortrait(blob) {
@@ -438,27 +441,27 @@ async function initCasScene() {
   initChat(API_BASE, getDeviceToken, onCasMessageUpdate, getDeviceId());
   initWorkControls();
   initCasSafety();
+  // Project answers and controls belong with Cas's questions, in the main chat. They are commands,
+  // and the first line marks anything else as a question, so a stray button press cannot start a code change.
   initCasProjects(document.getElementById('cas-card-body'), API_BASE, getDeviceToken, async text => {
-    const item = await sendMessage(text, []);
+    const item = await sendMessage(text, [], { threadId: null, header: '@sonnet ask' });
     setCasActivity(item.status);
-    addOrUpdateCasExchange(item);
-    scrollCasMessages();
+    if (currentKey() === 'main') {
+      addOrUpdateCasExchange(item);
+      scrollCasMessages();
+    } else {
+      toast('Sent in the main chat, where Cas asked');
+    }
   });
-  initCasCard();
+  initCasCard(reading);
 
   // Load history
   const draft = loadDraft();
   const textarea = document.getElementById('cas-textarea');
   if (textarea && draft) textarea.value = draft;
 
-  try {
-    const items = await loadHistory(20);
-    renderCasHistory(items);
-    resumePendingPolling(items);
-  } catch (e) {
-    if (e.status === 401 || e.status === 403) { clearAuth(); return; }
-    renderCasEmpty('Your conversation with Cas will appear here.');
-  }
+  const opened = await initThreads(showCasThread);
+  if (!await showCasThread(opened)) return;
   startCasNoticeRefresh();
 
   let attachments=pendingAttachments();
@@ -493,17 +496,18 @@ async function initCasScene() {
       const textarea = document.getElementById('cas-textarea');
       const statusEl = document.getElementById('cas-status');
       if (!textarea || !sendBtn) return;
-      const rawText = textarea.value.trim() || (attachments.length?'Please review this screenshot.':'');
-      const text = workMessage(rawText);
+      const text = textarea.value.trim() || (attachments.length?'Please review this screenshot.':'');
       if (!text || preparing) return;
       sendBtn.disabled = true;
       if (statusEl) statusEl.textContent = 'Sending...';
       try {
-        const item = await sendMessage(text, attachments);
+        const route = await routeFor(text, currentMode());
+        const item = await sendMessage(text, attachments, route);
         attachments=[];showAttachment();
         textarea.value = '';
         textarea.style.height = '';
         setCasActivity(item.status);
+        touch(route.key, text);
         addOrUpdateCasExchange(item);
         scrollCasMessages();
         if (statusEl) statusEl.textContent = '';
@@ -559,7 +563,10 @@ async function onCasStop() {
   if (!confirm('Stop Cas? It can only be restarted from the PC.')) return;
   const statusEl = document.getElementById('cas-status');
   try {
-    addOrUpdateCasExchange(await sendSigned('stop', 'Stop Cas', ''));
+    // Stop always goes in the main chat: no thread check on the server can ever hold it back.
+    const item = await sendSigned('stop', 'Stop Cas', '');
+    if (currentKey() === 'main') addOrUpdateCasExchange(item);
+    else toast('Stop sent. Its answer is in the main chat.');
     scrollCasMessages();
   } catch (err) {
     if (err.status === 401 || err.status === 403) { clearAuth(); return; }
@@ -569,19 +576,17 @@ async function onCasStop() {
 
 const casCardsAnswered = new Set();
 
-function buildCasCard(card) {
+function buildCasCard(card, threadId = null) {
   const box = document.createElement('div');
-  box.className = 'cas-card';
-  box.style.cssText = 'margin-top:0.5rem;padding:0.6rem;border:1px solid #d4a853;border-radius:8px';
+  box.className = 'cas-card cas-approve';
   const summary = document.createElement('p');
   summary.textContent = card.summary || 'Confirm this action?'; // textContent: XSS-safe
-  summary.style.margin = '0 0 0.5rem';
   const answer = async decision => {
     casCardsAnswered.add(card.id);
     box.querySelectorAll('button').forEach(b => { b.disabled = true; });
     const body = JSON.stringify({ card_id: card.id, args_hash: card.args_hash, decision });
     try {
-      addOrUpdateCasExchange(await sendSigned('approval', decision === 'approve' ? 'Approved' : 'Cancelled', body));
+      addOrUpdateCasExchange(await sendSigned('approval', decision === 'approve' ? 'Approved' : 'Cancelled', body, threadId));
       box.remove();
       scrollCasMessages();
     } catch (err) {
@@ -591,12 +596,11 @@ function buildCasCard(card) {
     }
   };
   const buttons = document.createElement('div');
-  buttons.style.cssText = 'display:flex;gap:0.5rem';
-  for (const [label, decision, colour] of [['Approve', 'approve', '#22c55e'], ['Cancel', 'decline', '#444']]) {
+  for (const [label, decision, cls] of [['Approve', 'approve', 'cas-crimson-btn'], ['Cancel', 'decline', 'cas-brass-btn']]) {
     const button = document.createElement('button');
     button.type = 'button';
+    button.className = cls;
     button.textContent = label;
-    button.style.cssText = `flex:1;background:${colour};color:${decision === 'approve' ? '#0a0e14' : '#c8d0dc'};border:none;border-radius:6px;padding:0.55rem;font-weight:bold;cursor:pointer`;
     button.addEventListener('click', () => answer(decision));
     buttons.append(button);
   }
@@ -619,15 +623,49 @@ function renderCasEmpty(msg) {
   container.append(el);
 }
 
-// Cas can message first: questions, finished projects and the daily digest.
+// Show one thread's conversation. Returns false when the device has been signed out.
+let casShowing = 0;
+async function showCasThread(key) {
+  const shown = ++casShowing;
+  if (key === 'new') {
+    renderCasEmpty('A new thread. Its title comes from your first message.');
+    return true;
+  }
+  try {
+    const items = await loadHistory(20, key);
+    if (shown !== casShowing) return true; // another thread was opened meanwhile
+    renderCasHistory(items, key === 'main' ? 'Your conversation with Cas will appear here.'
+      : 'Nothing here yet. Cas remembers this thread on its own, even days later.');
+    resumePendingPolling(items);
+    if (key === 'main') noteMainSeen(items);
+  } catch (e) {
+    if (e.status === 401 || e.status === 403) { clearAuth(); return false; }
+    renderCasEmpty('Your conversation with Cas will appear here.');
+  }
+  return true;
+}
+
+// Cas can message first: questions, finished projects and the daily digest. They arrive in the main chat.
 let casNoticeRefresh = null;
+const MAIN_SEEN_KEY = 'cas-main-seen';
+
+function noteMainSeen(items) {
+  const newest = items.reduce((max, item) => Math.max(max, item.created || 0), 0);
+  try { localStorage.setItem(MAIN_SEEN_KEY, String(newest)); } catch {}
+}
 
 function startCasNoticeRefresh() {
   if (casNoticeRefresh) return;
   casNoticeRefresh = async () => {
     if (document.hidden) return;
     try {
-      const items = await loadHistory(20);
+      const items = await loadHistory(20, 'main');
+      if (currentKey() !== 'main') {
+        const seenAt = Number(localStorage.getItem(MAIN_SEEN_KEY) || 0);
+        setMainUnread(items.some(item => (item.created || 0) > seenAt));
+        return;
+      }
+      noteMainSeen(items);
       const fresh = [...items].reverse().filter(item => !document.getElementById('cas-msg-' + item.id));
       if (!fresh.length) return;
       const follow = nearBottom(document.getElementById('cas-messages'));
@@ -639,12 +677,14 @@ function startCasNoticeRefresh() {
   document.addEventListener('visibilitychange', casNoticeRefresh);
 }
 
-function renderCasHistory(items) {
+const inView = item => (item.thread_id || 'main') === currentKey();
+
+function renderCasHistory(items, emptyText = 'Your conversation with Cas will appear here.') {
   const container = document.getElementById('cas-messages');
   if (!container) return;
   container.textContent = '';
   if (!items.length) {
-    renderCasEmpty('Your conversation with Cas will appear here.');
+    renderCasEmpty(emptyText);
     return;
   }
   // items arrive newest-first; reverse to show oldest first
@@ -659,7 +699,7 @@ function renderCasHistory(items) {
 
 function addOrUpdateCasExchange(item) {
   const container = document.getElementById('cas-messages');
-  if (!container) return;
+  if (!container || !inView(item)) return;
   // Remove empty state if present
   container.querySelectorAll('.cas-msg-empty').forEach(e => e.parentElement?.remove());
   const existing = document.getElementById('cas-msg-' + item.id);
@@ -674,6 +714,13 @@ function addOrUpdateCasExchange(item) {
 
 function onCasMessageUpdate(item) {
   setCasActivity(item.status);
+  const finished = item.status === 'completed' || item.status === 'failed';
+  if (item.thread_id && finished) touch(item.thread_id, item.reply || item.error || '', { reply: true });
+  // A reply for a thread that is not open waits there; the lamp on the thread name shows it.
+  if (!inView(item)) {
+    if (!item.thread_id && finished) setMainUnread(true);
+    return;
+  }
   // This runs every few seconds during a job, so it must not pull Chris away from what they are reading.
   const follow = nearBottom(document.getElementById('cas-messages'));
   addOrUpdateCasExchange(item);
@@ -691,13 +738,72 @@ function onCasMessageUpdate(item) {
   }
 }
 
+const GEAR_SVG = '<svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.5 3.5-2.1-.6-.5-1.3 1-1.9-1.6-1.6-1.9 1-1.3-.5-.6-2.1h-2.2l-.6 2.1-1.3.5-1.9-1-1.6 1.6 1 1.9-.5 1.3-2.1.6v2.2l2.1.6.5 1.3-1 1.9 1.6 1.6 1.9-1 1.3.5.6 2.1h2.2l.6-2.1 1.3-.5 1.9 1 1.6-1.6-1-1.9.5-1.3 2.1-.6Z"/></svg>';
+const ACT_SVG = {
+  wrench: '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>',
+  branch: '<svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="9" r="2"/><path d="M6 7v10M18 11c0 4-6 3-12 6"/></svg>',
+};
+const REFERRED_NOTE = '(Sonnet passed this one to Opus.)';
+
+// Who answered, under each reply. Read from the PC's note on the reply, not from what this phone asked for.
+function replyMeta(item) {
+  const meta = document.createElement('span');
+  const dot = document.createElement('i');
+  const by = item.card && typeof item.card.answered_by === 'string' ? item.card.answered_by : '';
+  let cls = '', text = '';
+  if (!item.message && !(item.attachments || []).length) text = 'Cas update';
+  else if (by && item.mode === 'change') { cls = 'change'; text = `Made by ${by} · own branch, tested`; }
+  else if (by && (item.reply || '').includes(REFERRED_NOTE)) { cls = 'opus'; text = 'Sonnet passed this to Opus · read only'; }
+  else if (by) { cls = by === 'Opus' ? 'opus' : (item.model || '').startsWith('chatgpt:') ? 'gpt' : ''; text = `Answered by ${by} · read only`; }
+  if (!text) return null;
+  meta.className = 'cas-meta' + (cls ? ' ' + cls : '');
+  meta.append(dot, document.createTextNode(text));
+  return meta;
+}
+
+function offerActions(item) {
+  const acts = document.createElement('div');
+  acts.className = 'cas-acts';
+  const make = document.createElement('button');
+  make.type = 'button';
+  make.className = 'cas-act go';
+  make.innerHTML = ACT_SVG.wrench;
+  make.append('Make this a code change');
+  make.addEventListener('click', () => {
+    // The wording goes in the box first, so a code job never starts from one stray tap.
+    const box = document.getElementById('cas-textarea');
+    if (box.value.trim()) { toast('Send or clear your message first'); return; }
+    setMode('change', { quiet: true });
+    box.value = 'Make the change you described in your last answer.';
+    saveDraft(box.value);
+    document.getElementById('cas-card-handle')?.click();
+    box.focus();
+    toast('Change code is on. Check the wording, then Send.');
+  });
+  const branch = document.createElement('button');
+  branch.type = 'button';
+  branch.className = 'cas-act';
+  branch.innerHTML = ACT_SVG.branch;
+  branch.append('Branch off');
+  branch.addEventListener('click', () => branchOff(item.thread_id || 'main'));
+  acts.append(make, branch);
+  return acts;
+}
+
 function buildExchangeEl(item) {
   observeWork(item);
   const wrap = document.createElement('div');
+  wrap.className = 'cas-turn';
 
   // User bubble
   const userEl = document.createElement('div');
   userEl.className = 'cas-message-user';
+  if (item.mode === 'change') {
+    const stamp = document.createElement('span');
+    stamp.className = 'cas-stamp';
+    stamp.textContent = 'CODE CHANGE';
+    userEl.append(stamp);
+  }
   const userText = document.createElement('p');
   userText.textContent = item.message || ''; // textContent: XSS-safe
   userEl.append(userText);
@@ -708,7 +814,13 @@ function buildExchangeEl(item) {
   // A message Cas started itself has no bubble from Chris.
   if (item.message || (item.attachments || []).length) wrap.append(userEl);
 
-  // Cas bubble (status / reply)
+  // Cas bubble (status / reply), with her face beside it
+  const says = document.createElement('div');
+  says.className = 'cas-says';
+  const face = document.createElement('img');
+  face.className = 'cas-face' + (item.status === 'running' || item.status === 'queued' ? ' cas-face-busy' : '');
+  face.src = 'assets/cas/face.jpg';
+  face.alt = '';
   const casEl = document.createElement('div');
   casEl.className = 'cas-message-cas';
   const casText = document.createElement('p');
@@ -717,8 +829,16 @@ function buildExchangeEl(item) {
     casText.className = 'cas-msg-queued';
     casText.textContent = 'Queued. Worker will pick this up when running.';
   } else if (item.status === 'running') {
-    casText.className = 'cas-msg-running';
-    casText.textContent = 'Cas is working on this. Longer jobs can take several minutes.';
+    if (item.mode === 'ask') {
+      casText.className = 'cas-thinking';
+      const gears = document.createElement('span');
+      gears.className = 'cas-gears';
+      gears.innerHTML = GEAR_SVG + GEAR_SVG;
+      casText.append(gears, document.createTextNode(`${modelLabel(item.model).name} is reading the code, the live data and this thread...`));
+    } else {
+      casText.className = 'cas-msg-running';
+      casText.textContent = 'Cas is working on this on its own branch. Longer jobs can take several minutes.';
+    }
   } else if (item.status === 'completed' && item.reply) {
     casText.textContent = item.reply; // textContent: XSS-safe
   } else if (item.status === 'failed') {
@@ -728,9 +848,15 @@ function buildExchangeEl(item) {
 
   casText.style.whiteSpace = 'pre-wrap';
   casEl.append(casText);
-  const cardOpen = item.card && !casCardsAnswered.has(item.card.id) && Date.now() / 1000 < item.card.expires_at;
-  if (item.status === 'completed' && cardOpen) casEl.append(buildCasCard(item.card));
-  wrap.append(casEl);
+  if (item.status === 'completed') {
+    const meta = replyMeta(item);
+    if (meta) casEl.append(meta);
+    if (item.card && item.card.offer === 'change') casEl.append(offerActions(item));
+  }
+  const cardOpen = item.card && item.card.id && !casCardsAnswered.has(item.card.id) && Date.now() / 1000 < item.card.expires_at;
+  if (item.status === 'completed' && cardOpen) casEl.append(buildCasCard(item.card, item.thread_id || null));
+  says.append(face, casEl);
+  wrap.append(says);
   return wrap;
 }
 

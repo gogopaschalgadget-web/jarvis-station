@@ -66,13 +66,19 @@ function _genKey() {
  * Returns the queued request item on success.
  * Throws with .status set to the HTTP status on auth/server errors.
  */
-export async function sendMessage(text, attachments = []) {
+export async function sendMessage(text, attachments = [], route = {}) {
   if (_sending) return _sending;
-  _sending = _sendMessage(text, attachments);
+  _sending = _sendMessage(text, attachments, route);
   try { return await _sending; } finally { _sending = null; }
 }
 
-async function _sendMessage(text, attachments) {
+// route.header is the signed first line ("@sonnet ask"), saying who answers and whether this only asks.
+// route.threadId picks the thread; it is not signed because it only chooses which memory Cas reads.
+const HEADER = /^@(sonnet|opus|chatgpt:[a-z0-9][a-z0-9.\-]{0,47}) (ask|change)$/;
+
+async function _sendMessage(text, attachments, route) {
+  const header = route.header && HEADER.test(route.header) ? route.header : '';
+  const threadId = route.threadId || null;
   if (!text || !text.trim()) throw new Error('empty message');
   saveDraft(text);
   const message = text.trim();
@@ -80,12 +86,15 @@ async function _sendMessage(text, attachments) {
   // Only the same text reuses the saved key, so a lost reply can never send it twice.
   // Changed text is a new message: an unconfirmed older one must not block the box.
   const saved = _loadPending();
-  const isRetry = saved && saved.message === message && JSON.stringify(saved.attachments || []) === JSON.stringify(attachments);
-  const pending = isRetry ? saved : { request_key: _genKey(), message, attachments,
-    envelope: attachments.length ? null : await signEnvelope('message', message) };
+  const isRetry = saved && saved.message === message && JSON.stringify(saved.attachments || []) === JSON.stringify(attachments)
+    && (saved.thread_id || null) === threadId && (saved.header || '') === header;
+  const pending = isRetry ? saved : { request_key: _genKey(), message, attachments, thread_id: threadId, header,
+    envelope: attachments.length ? null : await signEnvelope('message', header ? header + '\n' + message : message) };
   // Storage failures stop the send before it reaches the server.
   localStorage.setItem(_pendingKey(), JSON.stringify(pending));
-  const body = JSON.stringify(pending);
+  const { header: _signedLine, ...sendable } = pending;
+  if (!sendable.thread_id) delete sendable.thread_id; // the server before threads refuses unknown fields
+  const body = JSON.stringify(sendable);
   const res = await fetch(`${_apiBase}/api/station/cas/messages`, {
     method: 'POST',
     headers: { ..._auth(), 'Content-Type': 'application/json' },
@@ -109,12 +118,14 @@ async function _sendMessage(text, attachments) {
 }
 
 /** Send an approval, a cancel or a stop. Each is signed by this phone. */
-export async function sendSigned(kind, message, body) {
+export async function sendSigned(kind, message, body, threadId = null) {
   const envelope = await signEnvelope(kind, body);
+  const payload = { request_key: _genKey(), message, attachments: [], envelope };
+  if (threadId) payload.thread_id = threadId; // shown in the thread it belongs to
   const res = await fetch(`${_apiBase}/api/station/cas/messages`, {
     method: 'POST',
     headers: { ..._auth(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ request_key: _genKey(), message, attachments: [], envelope }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const e = new Error(`HTTP ${res.status}`);
@@ -146,9 +157,10 @@ export async function offerDeviceKey() {
  * Load recent history for this device, newest first.
  * Throws with .status on HTTP errors (401/403 = auth failure).
  */
-export async function loadHistory(limit = 20) {
+export async function loadHistory(limit = 20, thread = null) {
+  const which = thread ? `&thread=${encodeURIComponent(thread)}` : '';
   const res = await fetch(
-    `${_apiBase}/api/station/cas/messages?limit=${encodeURIComponent(limit)}`,
+    `${_apiBase}/api/station/cas/messages?limit=${encodeURIComponent(limit)}${which}`,
     { headers: _auth() }
   );
   if (!res.ok) {
@@ -237,3 +249,26 @@ async function _doPoll(requestId, deadline) {
 }
 
 export function pendingAttachments() { return _loadPending()?.attachments || []; }
+
+// --- Threads and folders. Only names and placement; what Cas may do is always the signed message. ---
+
+async function _json(method, path, body) {
+  const res = await fetch(`${_apiBase}/api/station/cas${path}`, {
+    method,
+    headers: body ? { ..._auth(), 'Content-Type': 'application/json' } : _auth(),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const e = new Error(typeof err.detail === 'string' ? err.detail : `HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  return res.json();
+}
+export const listThreads = () => _json('GET', '/threads');
+export const createThread = fields => _json('POST', '/threads', fields);
+export const updateThread = (id, changes) => _json('PATCH', `/threads/${encodeURIComponent(id)}`, changes);
+export const createFolder = name => _json('POST', '/folders', { name });
+export const updateFolder = (id, changes) => _json('PATCH', `/folders/${encodeURIComponent(id)}`, changes);
+export const projectStatus = () => _json('GET', '/projects');

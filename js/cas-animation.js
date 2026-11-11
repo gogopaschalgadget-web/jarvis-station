@@ -6,6 +6,8 @@ function showCaption(){
  if(!el)return;
  const chatBusy=state==='running'||state==='queued';
  el.textContent=chatBusy?CHAT_WORDS[state]:projectWork||CHAT_WORDS[state]||'Ready';
+ // While Cas works she is shown at the console; otherwise the rotating scenes show.
+ document.getElementById('cas-visual')?.classList.toggle('working',isWorking());
 }
 export function setCasActivity(value){state=value;showCaption();}
 /** A chat reply and a project are separate work: the picture shows Cas working during either. */

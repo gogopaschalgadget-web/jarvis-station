@@ -14,7 +14,7 @@ export function nearBottom(list) {
 }
 
 /** Wire up the card. Call once, after the panels inside it exist. */
-export function initCasCard() {
+export function initCasCard(onTuck = () => {}) {
   const area = document.getElementById('cas-composer-area');
   const body = document.getElementById('cas-card-body');
   const handle = document.getElementById('cas-card-handle');
@@ -45,6 +45,7 @@ export function initCasCard() {
     refreshNote();
     area.classList.add(TUCKED);
     handle.setAttribute('aria-expanded', 'false');
+    onTuck(); // the picture folds away too, so the conversation gets the room
   }
 
   function open() {
