@@ -61,6 +61,22 @@ async function keepDraft(work) {
   try { return await work(); } finally { if (kept) saveDraft(kept); }
 }
 
+/** The same line the PC fingerprints: what Chris sees on the card is what his approval covers. */
+async function cardFingerprint(card) {
+  const line = [card.goal, card.success_target, card.rounds, card.round_days, Number(card.budget_monthly || 0).toFixed(2)].map(String).join('|');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(line));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+}
+
+async function approveLoop(mission) {
+  const seen = await cardFingerprint(mission.card || {});
+  if (mission.card_fp && seen !== mission.card_fp) {
+    toast('This card does not match what Cas drafted. Wait a moment for it to update, then check it again.');
+    return;
+  }
+  command(mission, `approve loop ${mission.loop} card ${seen}`, 'Approved on this phone. Round 1 gets built next.');
+}
+
 function local(id) { return (_local[id] = _local[id] || {}); }
 
 function toast(text) {
@@ -278,7 +294,7 @@ function cardLoop(mission) {
   const state = local(mission.id);
   if (!state.sent) {
     const b = el('div', 'mx-btns');
-    b.append(btn('mx-btn red', 'Approve', () => command(mission, `approve loop ${mission.loop}`, 'Approved on this phone. Round 1 gets built next.')));
+    b.append(btn('mx-btn red', 'Approve', () => approveLoop(mission)));
     if (!state.editing) b.append(btn('mx-btn brass', 'Change', () => { state.editing = true; render(); }));
     card.append(b);
     if (state.editing) card.append(ownWords(mission, `change loop ${mission.loop}: `, 'What should change? For example: success test 5 orders'));
@@ -288,7 +304,7 @@ function cardLoop(mission) {
 
 function cardAsk(mission) {
   const card = el('div', 'mx-card');
-  card.append(head(numbered(mission.number, mission.kind === 'change' ? ' NEXT ROUND' : ' QUESTION'), mission.source === 'loops' ? `LOOP ${mission.loop || ''}`.trim() : `PROJECT ${mission.project || ''}`.trim()));
+  card.append(head(numbered(mission.number, mission.kind === 'change' ? ' NEXT ROUND' : mission.kind === 'go_live' ? ' START THE CLOCK' : ' QUESTION'), mission.source === 'loops' ? `LOOP ${mission.loop || ''}`.trim() : `PROJECT ${mission.project || ''}`.trim()));
   card.append(el('p', '', mission.title));
   if (mission.why) card.append(el('div', 'mx-note', 'Why: ' + mission.why));
   const state = local(mission.id);
@@ -426,7 +442,7 @@ function cardReview(mission) {
   return card;
 }
 
-const CARDS = { loop_card: cardLoop, ask: cardAsk, change: cardAsk, push: cardPush, publish: cardPublish, standing: cardStanding,
+const CARDS = { loop_card: cardLoop, ask: cardAsk, change: cardAsk, go_live: cardAsk, push: cardPush, publish: cardPublish, standing: cardStanding,
   loop: cardLoopInfo, x: cardX, review: cardReview };
 
 function askRow(mission) {
@@ -561,9 +577,16 @@ export function missionLogStatus() {
   if (watch && watch.problem) return { text: 'Mission log warning: ' + watch.problem, bad: true };
   if (log && log.check && log.check.ok === false) return { text: 'Mission log warning: the daily check found ' + (log.check.problem || 'a break in the chain') + '.', bad: true };
   if (!log) return { text: 'Mission log: waiting for the PC to report.', bad: false };
+  const now = Date.now() / 1000;
+  // The PC sends its newest link with every status; Railway notes when it last matched. Silence is a warning too.
+  if (watch && watch.waiting_since && now - watch.waiting_since > 3600) {
+    return { text: 'Mission log warning: the PC has not let Railway check its log for over an hour.', bad: true };
+  }
+  if (watch && watch.anchored_seq && watch.confirmed_at && now - watch.confirmed_at > 86400) {
+    return { text: 'Mission log warning: the copy held off the PC has not been confirmed for over a day.', bad: true };
+  }
   let text = `Mission log: ${log.check && log.check.ok ? 'intact at the last daily check' : 'not checked yet today'} · ${log.head_seq} entries`
     + (watch && watch.anchored_seq ? ` · copy held off the PC to entry ${watch.anchored_seq}` : ' · not yet held off the PC');
-  if (watch && watch.anchored_at && Date.now() / 1000 - watch.anchored_at > 2 * 86400) text += ' · off-PC copy not updated for over 2 days';
   if (log.failures) text += ` · ${log.failures} write(s) failed`;
   return { text, bad: !!log.failures };
 }
@@ -641,7 +664,7 @@ function subtitle(m) {
   if (m.info) return m.loop.headline;
   if (m.kind === 'publish') return (GATE[(m.compliance || {}).result] || '').replace(/\.$/, '');
   if (m.kind === 'loop_card') return 'Loop card to approve';
-  if (m.kind === 'ask' || m.kind === 'change') return `Question ${m.number}` + (m.created ? ` · ${ago(m.created)} ago` : '');
+  if (m.kind === 'ask' || m.kind === 'change' || m.kind === 'go_live') return `Question ${m.number}` + (m.created ? ` · ${ago(m.created)} ago` : '');
   if (m.kind === 'push') return 'Push for review';
   if (m.kind === 'x') return 'Tap to post on X yourself';
   return '';
