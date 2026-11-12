@@ -241,6 +241,19 @@ export function draftNote() {
 /** 'main', 'new', or a thread id. */
 export function currentKey() { return current; }
 
+/** True when the thread lives in a folder named Brainstorm, where Cas's ideas can start a loop. */
+export function inBrainstorm(id) {
+  const thread = byId(id);
+  const folder = thread && folders.find(f => f.id === thread.folder_id);
+  return !!folder && /brainstorm/i.test(folder.name);
+}
+
+/** Open a thread made elsewhere (such as a mission's own thread). Reloads the list first so a new one is known. */
+export async function showThread(id) {
+  await refresh();
+  if (byId(id)) openThread(id);
+}
+
 function openThread(id, { quiet = false } = {}) {
   current = id;
   if (id !== NEW) { draft = null; store.set(KEY_CURRENT, id); }

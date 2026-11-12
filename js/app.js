@@ -2,11 +2,13 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent } from './cas-missions.js?v=cas52';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
-} from './cas-threads.js?v=cas51'; // versioned with app.js, so a phone never mixes an old file with a new one
+  showThread, inBrainstorm,
+} from './cas-threads.js?v=cas52'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -14,7 +16,7 @@ import { ROOMS, ROOM_COLORS, OP_STATUSES, PROGRESSION_STATES, TIER_COLORS } from
 import { initRenderer, setDrawCallback, setRoomTapHandler, setApiData, requestRedraw, resetView } from './fortress.js';
 import { drawRooms, hexToRgba } from './room-views.js';
 import {
-  initChat, sendMessage, loadHistory, sendSigned, offerDeviceKey,
+  initChat, sendMessage, loadHistory, sendSigned, offerDeviceKey, createThread,
   resumePendingPolling, stopAllPolling,
   saveDraft, loadDraft, clearDraft, pendingAttachments,
 } from './cas-chat.js';
@@ -459,6 +461,18 @@ async function initCasScene() {
     }
   });
   initCasCard(reading);
+  // The Missions tab: every card that needs Chris, by source. Its answers are the same signed commands as above.
+  initMissions(document.getElementById('panel-missions'), {
+    apiBase: API_BASE, getToken: getDeviceToken,
+    send: async text => {
+      const item = await sendMessage(text, [], { threadId: null, header: '@sonnet ask' });
+      setCasActivity(item.status);
+      if (currentKey() === 'main') { addOrUpdateCasExchange(item); scrollCasMessages(); }
+    },
+    openThread: async id => { switchTab('cas'); await showThread(id); },
+    openReview: () => openReviewFromMap('posts'),
+    getHealth: () => apiData?.health || null,
+  });
 
   // Load history
   const draft = loadDraft();
@@ -790,6 +804,53 @@ function replyMeta(item) {
   return meta;
 }
 
+// In a Brainstorm thread, each numbered idea in Cas's answer can start a loop. The loop gets its own
+// sub-thread, and its card waits in Missions. Starting one only asks Cas to draft a card; nothing is spent.
+function loopIdeas(reply) {
+  const ideas = [];
+  for (const line of String(reply).split('\n')) {
+    const found = line.match(/^\s{0,3}(?:\*\*)?(\d{1,2})[.)]\s+(.{3,})$/);
+    if (found && ideas.length < 10 && !ideas.some(i => i.n === found[1])) {
+      ideas.push({ n: found[1], text: found[2].replace(/\*\*/g, '').trim().slice(0, 500) });
+    }
+  }
+  return ideas;
+}
+
+function loopStarters(item) {
+  const ideas = loopIdeas(item.reply);
+  if (ideas.length < 2) return null;
+  const row = document.createElement('div');
+  row.className = 'cas-acts cas-loop-starts';
+  const label = document.createElement('span');
+  label.className = 'cas-loop-label';
+  label.textContent = 'Start loop:';
+  row.append(label);
+  ideas.forEach(idea => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'cas-act';
+    chip.textContent = idea.n;
+    chip.setAttribute('aria-label', `Start a loop for idea ${idea.n}: ${idea.text}`);
+    chip.addEventListener('click', async () => {
+      if (!confirm(`Start a loop for idea ${idea.n}?\n\n${idea.text}\n\nCas drafts its card. It waits for your approval in Missions.`)) return;
+      chip.disabled = true;
+      try {
+        const title = ('Loop: ' + idea.text.replace(/[^\w\s,&'-]/g, ' ').replace(/\s+/g, ' ')).trim().slice(0, 80);
+        const sub = await createThread({ title, folder_id: null, parent_id: item.thread_id, model: 'sonnet' });
+        await sendMessage('loop start: ' + idea.text, [], { threadId: sub.id, header: '@sonnet ask' });
+        chip.textContent = idea.n + ' ✓';
+        toast('Loop started. Its card will wait in Missions, under Loops.');
+      } catch {
+        chip.disabled = false;
+        toast('Could not start the loop. Try again.');
+      }
+    });
+    row.append(chip);
+  });
+  return row;
+}
+
 function offerActions(item) {
   const acts = document.createElement('div');
   acts.className = 'cas-acts';
@@ -881,6 +942,10 @@ function buildExchangeEl(item) {
     const meta = replyMeta(item);
     if (meta) casEl.append(meta);
     if (item.card && item.card.offer === 'change') casEl.append(offerActions(item));
+    if (item.thread_id && item.reply && inBrainstorm(item.thread_id)) {
+      const loops = loopStarters(item);
+      if (loops) casEl.append(loops);
+    }
   }
   const cardOpen = item.card && item.card.id && !casCardsAnswered.has(item.card.id) && Date.now() / 1000 < item.card.expires_at;
   if (item.status === 'completed' && cardOpen) casEl.append(buildCasCard(item.card, item.thread_id || null));
@@ -1655,14 +1720,17 @@ function renderXTracker() {
 }
 
 // --- MISSIONS ---
+// The Missions tab is drawn by cas-missions.js. The content queue numbers below stay on the More > Log screen.
 function renderMissions() {
-  const panel = document.getElementById('panel-missions');
-  if (!panel) return;
+  showMissions();
+}
+
+function contentQueueHtml() {
   const q = apiData?.health?.queue || {};
   const bs = q.by_status || {};
   const parked = apiData?.health?.parked || [];
   const live = apiData?.health?.live_posts || [];
-  panel.innerHTML = `
+  return `
     <div class="panel-card">
       <div class="panel-card-title">Content Queue</div>
       <div class="stat-row"><span class="stat-label">Total</span><span class="stat-value">${esc(q.total||0)}</span></div>
@@ -1743,6 +1811,14 @@ function renderKeysCard(keys) {
 }
 
 // --- LOG ---
+// The master mission log: what happened, when and who, with no message text. Railway's check comes first.
+function missionLogCardHtml() {
+  const state = missionLogStatus();
+  const rows = missionLogRecent().map(e => `<div class="stat-row"><span class="stat-label">${esc(new Date(e.utc).toLocaleString())} · ${esc(e.event)}</span><span class="stat-value">${esc(e.actor)} · ${esc(e.outcome || '')}</span></div>`).join('');
+  return `<div class="panel-card"><div class="panel-card-title">Mission Log</div>
+    <div class="flag-item ${state.bad ? 'flag-error' : 'flag-ok'}">${esc(state.text)}</div>${rows}</div>`;
+}
+
 function renderLog() {
   const panel = document.getElementById('panel-log');
   if (!panel) return;
@@ -1755,7 +1831,9 @@ function renderLog() {
         return `<div class="flag-item ${cls}">${esc(f)}</div>`;
       }).join('')}
     </div>
+    ${missionLogCardHtml()}
     ${renderKeysCard(apiData?.keys)}
+    ${contentQueueHtml()}
     <div class="panel-card">
       <div class="panel-card-title">Generation Rate</div>
       <div class="stat-row"><span class="stat-label">Last 24h</span><span class="stat-value">${esc(apiData?.health?.generation?.last_24h||0)}</span></div>
