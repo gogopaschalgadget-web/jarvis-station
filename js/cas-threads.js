@@ -79,10 +79,18 @@ export function modelLabel(model) {
   return { name: model, cls: '' };
 }
 
-function currentModel() {
+// ChatGPT stays off until its sandbox on the PC is locked down (security review F1, 2026-11-11).
+const CHATGPT_LOCKED = true;
+
+function chosenModel() {
   if (current === MAIN) return store.get(KEY_MAIN_MODEL, 'sonnet');
   if (current === NEW) return draft?.model || 'sonnet';
   return byId(current)?.model || 'sonnet';
+}
+
+function currentModel() {
+  const model = chosenModel();
+  return CHATGPT_LOCKED && model.startsWith('chatgpt:') ? 'sonnet' : model;
 }
 
 function showModel() {
@@ -125,6 +133,8 @@ function openModelMenu(event) {
     menu.append(head);
     if (group === 'Claude') {
       for (const [value, m] of Object.entries(CLAUDE)) menu.append(modelRow(value, m.name, m.what, m.cls, value === now));
+    } else if (group === 'ChatGPT' && CHATGPT_LOCKED) {
+      menu.append(modelRow('', 'ChatGPT models', 'Off for now while the PC side is made safer. Back soon.', 'gpt', false, true));
     } else if (group === 'ChatGPT') {
       if (!chatgpt.list.length) {
         menu.append(modelRow('', 'ChatGPT models', 'They appear once the PC reports what your plan offers.', 'gpt', false, true));
