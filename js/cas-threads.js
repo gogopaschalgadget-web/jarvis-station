@@ -46,7 +46,7 @@ let threads = [];
 let current = MAIN;
 let draft = null;          // a new thread waits for its first message, which names it
 let mode = 'ask';
-let chatgpt = { list: [], ready: false };
+let chatgpt = { list: [], ready: false, safe: false };
 let onOpen = () => {};
 let mainUnread = false;
 let loaded = false;
@@ -79,8 +79,9 @@ export function modelLabel(model) {
   return { name: model, cls: '' };
 }
 
-// ChatGPT stays off until its sandbox on the PC is locked down (security review F1, 2026-11-11).
-const CHATGPT_LOCKED = true;
+// ChatGPT is offered only when the PC says it checks ChatGPT's sandbox before every question
+// (security review F1, 2026-11-11). A PC running older code says nothing, so ChatGPT stays off there.
+function chatgptLocked() { return !chatgpt.safe; }
 
 function chosenModel() {
   if (current === MAIN) return store.get(KEY_MAIN_MODEL, 'sonnet');
@@ -90,7 +91,7 @@ function chosenModel() {
 
 function currentModel() {
   const model = chosenModel();
-  return CHATGPT_LOCKED && model.startsWith('chatgpt:') ? 'sonnet' : model;
+  return chatgptLocked() && model.startsWith('chatgpt:') ? 'sonnet' : model;
 }
 
 function showModel() {
@@ -104,7 +105,8 @@ async function loadModels() {
     const data = await projectStatus();
     const models = data?.status?.models;
     if (models && Array.isArray(models.chatgpt)) {
-      chatgpt = { list: models.chatgpt.filter(m => m && typeof m.slug === 'string'), ready: !!models.chatgpt_ready };
+      chatgpt = { list: models.chatgpt.filter(m => m && typeof m.slug === 'string'), ready: !!models.chatgpt_ready,
+        safe: models.chatgpt_sandbox === 'checked' };
       showModel();
     }
   } catch { /* the menu shows ChatGPT as waiting on the PC */ }
@@ -133,8 +135,8 @@ function openModelMenu(event) {
     menu.append(head);
     if (group === 'Claude') {
       for (const [value, m] of Object.entries(CLAUDE)) menu.append(modelRow(value, m.name, m.what, m.cls, value === now));
-    } else if (group === 'ChatGPT' && CHATGPT_LOCKED) {
-      menu.append(modelRow('', 'ChatGPT models', 'Off for now while the PC side is made safer. Back soon.', 'gpt', false, true));
+    } else if (group === 'ChatGPT' && chatgptLocked()) {
+      menu.append(modelRow('', 'ChatGPT models', 'Off until the PC runs the safer ChatGPT setup.', 'gpt', false, true));
     } else if (group === 'ChatGPT') {
       if (!chatgpt.list.length) {
         menu.append(modelRow('', 'ChatGPT models', 'They appear once the PC reports what your plan offers.', 'gpt', false, true));
