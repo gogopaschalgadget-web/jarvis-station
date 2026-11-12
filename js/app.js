@@ -5,8 +5,8 @@ import { initCasProjects } from './cas-projects.js';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import {
-  initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote,
-} from './cas-threads.js';
+  initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
+} from './cas-threads.js?v=cas51'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -165,7 +165,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!composerArea) return;
       const vp = window.visualViewport;
       const keyboardHeight = Math.max(0, window.innerHeight - vp.height - vp.offsetTop);
-      composerArea.style.marginBottom = keyboardHeight > 10 ? keyboardHeight + 'px' : '';
+      // The keyboard also covers the bottom bar, so lift the card only by the part of the keyboard above that bar.
+      const nav = document.getElementById('station-nav');
+      const below = nav && nav.offsetHeight ? Math.max(0, window.innerHeight - nav.getBoundingClientRect().top) : 0;
+      const lift = keyboardHeight > 10 ? Math.max(0, keyboardHeight - below) : 0;
+      composerArea.style.marginBottom = lift ? lift + 'px' : '';
+      growComposer();
     };
     window.visualViewport.addEventListener('resize', onVpChange);
     window.visualViewport.addEventListener('scroll', onVpChange);
@@ -523,15 +528,39 @@ async function initCasScene() {
     });
   }
 
-  // Auto-grow textarea
+  // Auto-grow textarea, up to a cap; past it the box scrolls inside and Send stays put.
   const ta = document.getElementById('cas-textarea');
   if (ta) {
-    ta.addEventListener('input', () => {
-      saveDraft(ta.value);
-      ta.style.height = '';
-      ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    ta.addEventListener('input', () => { saveDraft(ta.value); growComposer(); });
+    growComposer();
+    // On a phone the picture steps aside while typing, so the box and Send fit above the keyboard.
+    const phone = window.matchMedia('(max-width: 959px)');
+    let typingTimer;
+    ta.addEventListener('focus', () => {
+      clearTimeout(typingTimer);
+      if (!phone.matches) return;
+      document.body.classList.add('cas-typing');
+      typing(true);
+    });
+    ta.addEventListener('blur', () => {
+      clearTimeout(typingTimer);
+      // Wait, so a tap on Send lands before anything moves.
+      typingTimer = setTimeout(() => {
+        if (document.activeElement === ta) return;
+        document.body.classList.remove('cas-typing');
+        typing(false);
+      }, 400);
     });
   }
+}
+
+function growComposer() {
+  const ta = document.getElementById('cas-textarea');
+  if (!ta) return;
+  const room = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  const cap = Math.round(Math.min(160, Math.max(64, room * 0.28)));
+  ta.style.height = '';
+  if (ta.value) ta.style.height = Math.min(ta.scrollHeight, cap) + 'px';
 }
 
 // --- Cas signed commands ---

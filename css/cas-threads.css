@@ -265,3 +265,18 @@
 /* the picture never scrolls, even when something inside it takes focus */
 #cas-scene .cas-visual { overflow: hidden; overflow: clip; }
 .cas-row-menu.cas-model-menu { width: 280px; }
+
+/* ---- the message box: says where it sends, grows to a cap, Send always on screen ---- */
+.cas-compose-where { display: flex; gap: 6px; align-items: baseline; min-width: 0; margin: 0 0 4px; color: #c8b896; font-size: 12px; }
+.cas-compose-where b { flex: none; color: #efca86; font-weight: 600; }
+.cas-compose-where span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cas-textarea { max-height: none; overflow-y: auto; }
+@media (max-width: 959px) {
+  /* When space runs out, the message box gives way first and scrolls inside; Send never leaves the card. */
+  #cas-scene .cas-card-body > #cas-composer { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  #cas-composer > * { flex: none; }
+  #cas-composer > #cas-textarea { flex: 0 1 auto; min-height: 44px; }
+  #cas-scene .cas-composer-area:not(.cas-card-tucked) .cas-card-body { overflow-y: auto; }
+  body.cas-typing .cas-mode-help { display: none; }
+  body.cas-typing .cas-projects { max-height: 72px; }
+}

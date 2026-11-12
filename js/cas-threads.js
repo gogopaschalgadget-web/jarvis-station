@@ -193,6 +193,23 @@ function showPlate() {
   swap($('thread-plate'));
   showEmber();
   showModel();
+  showWhere();
+}
+
+/** The message box says where the next message goes, so replying in an open thread is never a guess. */
+function showWhere() {
+  let where = 'Main chat', hint = 'Ask Cas anything';
+  if (current === NEW) {
+    const folder = folders.find(f => f.id === draft?.folderId);
+    where = draft?.parentTitle ? `a new sub-thread of ${draft.parentTitle}` : `a new thread${folder ? ` in ${folder.name}` : ''}`;
+    hint = 'First message. It becomes the title.';
+  } else if (current !== MAIN) {
+    where = byId(current)?.title || 'this thread';
+    hint = 'Reply in this thread';
+  }
+  const box = $('cas-compose-where');
+  if (box) box.lastElementChild.textContent = where;
+  $('cas-textarea').placeholder = mode === 'change' ? 'Describe the change' : hint;
 }
 
 function seen() { return store.json(KEY_SEEN, {}); }
@@ -508,7 +525,7 @@ export function setMode(next, { quiet = false } = {}) {
   lever.classList.remove('cas-mode-clunk'); void lever.offsetWidth; lever.classList.add('cas-mode-clunk');
   lever.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
   $('cas-composer-area').classList.toggle('is-change', mode === 'change');
-  $('cas-textarea').placeholder = mode === 'change' ? 'Describe the change' : 'Ask Cas anything';
+  showWhere();
   $('cas-mode-help').textContent = mode === 'change'
     ? 'Claude makes it on its own branch and tests it. Nothing is pushed without your tap.'
     : 'Cas answers from the code, live data and this thread. Nothing is changed.';
@@ -533,6 +550,7 @@ function showScene(index) {
 }
 
 function foldPicture(on) {
+  typingFold = false; // Chris's own choice wins over the fold for typing
   dropHint();
   $('cas-visual').classList.toggle('tucked', on);
   $('cas-scene').classList.toggle('pic-folded', on);
@@ -541,6 +559,17 @@ function foldPicture(on) {
 
 /** Called while Chris reads: the picture folds away like the message card. */
 export function reading() { if (!$('cas-visual').classList.contains('tucked')) foldPicture(true); }
+
+/** While Chris types on a phone, the picture steps aside so the message box and Send fit above the keyboard. Not saved. */
+let typingFold = false;
+export function typing(on) {
+  const visual = $('cas-visual');
+  if (on && !visual.classList.contains('tucked')) {
+    visual.classList.add('tucked'); $('cas-scene').classList.add('pic-folded'); typingFold = true;
+  } else if (!on && typingFold) {
+    typingFold = false; visual.classList.remove('tucked'); $('cas-scene').classList.remove('pic-folded');
+  }
+}
 
 function initPicture() {
   const rotate = store.get(KEY_ROTATE, '1') === '1';
