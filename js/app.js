@@ -2,13 +2,13 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { initMissions, showMissions, missionLogStatus, missionLogRecent } from './cas-missions.js?v=cas52';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas53';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
   showThread, inBrainstorm,
-} from './cas-threads.js?v=cas52'; // versioned with app.js, so a phone never mixes an old file with a new one
+} from './cas-threads.js?v=cas53'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -1424,6 +1424,7 @@ let xIndex = 0;
 let xOpenedId = null;
 let xBusy = false;
 let xRenderedKey = null;
+const xAllowed = new Set(); // posts the compliance check left to Chris, which he allowed on this phone
 
 function xIntentUrl(text) {
   return 'https://x.com/intent/tweet?text=' + encodeURIComponent(text);
@@ -1465,7 +1466,7 @@ function renderXReview() {
   if (!panel) return;
   if (xQueue === null && !xLoading && !xError) loadXQueue();
   const item = xQueue && xQueue.length ? xQueue[xIndex % xQueue.length] : null;
-  const key = [xLoading, xError, xQueue ? xQueue.length : 'none', item ? item.review_id : '', xOpenedId, xBusy].join('|');
+  const key = [xLoading, xError, xQueue ? xQueue.length : 'none', item ? item.review_id : '', xOpenedId, xBusy, item && xAllowed.has(item.review_id)].join('|');
   if (key === xRenderedKey) return;
   xRenderedKey = key;
   const refreshBtn = '<button data-x-action="refresh" class="x-btn" style="background:#22d3ee;color:#0a0e14;border:none;padding:0.6rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer">Refresh</button>';
@@ -1477,7 +1478,15 @@ function renderXReview() {
     const opened = xOpenedId === item.review_id;
     const dis = xBusy ? 'disabled' : '';
     const big = 'flex:1;border:none;padding:0.85rem 1rem;border-radius:6px;font-weight:bold;cursor:pointer;font-size:1rem;text-align:center;text-decoration:none;display:block';
-    const actions = opened ? `
+    // Posting is offered only when the compliance check passed, or left it to Chris and he allowed it.
+    const cleared = mayPublish(item.compliance, xAllowed.has(item.review_id));
+    const askAllow = !cleared && item.compliance && item.compliance.result === 'ask';
+    const actions = !cleared ? `
+      ${askAllow ? `<button data-x-action="allow" class="x-btn" ${dis} style="${big};background:#d4a853;color:#0a0e14;margin-bottom:0.6rem">Allow it (your call)</button>` : ''}
+      <div style="display:flex;gap:0.5rem">
+        <button data-x-action="decline" class="x-btn" ${dis} style="${big};background:#ef4444;color:#0a0e14">Decline</button>
+        ${xQueue.length > 1 ? `<button data-x-action="next" class="x-btn" ${dis} style="${big};background:#444;color:#c8d0dc">Next</button>` : ''}
+      </div>` : opened ? `
       <div style="text-align:center;color:#1a1206;font-weight:bold;margin-bottom:0.6rem">Did it go out on X?</div>
       <div style="display:flex;gap:0.5rem">
         <button data-x-action="posted" class="x-btn" ${dis} style="${big};background:#22c55e;color:#0a0e14">Yes, it's posted</button>
@@ -1498,6 +1507,7 @@ function renderXReview() {
   }
   panel.innerHTML = reviewModeSelectorHtml() + body;
   wireReviewModeSelector(panel);
+  if (item) panel.querySelector('.panel-card')?.append(gateBox(item.compliance, xAllowed.has(item.review_id)));
   document.getElementById('x-open-link')?.addEventListener('click', () => {
     const id = item.review_id;
     setTimeout(() => { xOpenedId = id; renderXReview(); }, 250);
@@ -1508,6 +1518,10 @@ function renderXReview() {
 function onXAction(action, item) {
   if (action === 'refresh') { xQueue = null; xError = false; xRenderedKey = null; renderXReview(); return; }
   if (!item || xBusy) return;
+  if (action === 'allow') {
+    if (confirm('The compliance check left this post to you. Allow it?')) { xAllowed.add(item.review_id); xRenderedKey = null; renderXReview(); }
+    return;
+  }
   if (action === 'next') { xIndex = (xIndex + 1) % xQueue.length; xOpenedId = null; renderXReview(); return; }
   if (action === 'not-yet') { xOpenedId = null; renderXReview(); return; }
   if (action === 'decline' && !confirm('Decline this post? It will not be offered again.')) return;

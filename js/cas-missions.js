@@ -335,6 +335,19 @@ function cardPush(mission) {
   return card;
 }
 
+/** Publishing is offered only on a pass, or on an "ask" that Chris has allowed himself. */
+export function mayPublish(check, allowed) {
+  return !!check && (check.result === 'pass' || (check.result === 'ask' && !!allowed));
+}
+
+/** The compliance box shown on every card that would go public. A missing answer counts as not checked. */
+export function gateBox(check, allowed) {
+  const result = (check && check.result) || 'not_connected';
+  const box = el('div', 'mx-gate ' + result, result === 'ask' && allowed ? 'Compliance check: left to you, and you allowed it.' : (GATE[result] || GATE.error));
+  ((check && check.notes) || []).forEach(n => { if (!/not connected yet/i.test(n)) box.append(el('small', '', ' ' + n)); });
+  return box;
+}
+
 function publishLink(item) {
   if (item.kind === 'x_post') return 'https://x.com/intent/tweet?text=' + encodeURIComponent(item.text);
   if (item.kind === 'gumroad_listing') return 'https://app.gumroad.com/products';
@@ -349,14 +362,17 @@ function cardPublish(mission) {
   if (item.title) card.append(el('p', '', item.title));
   if (item.price != null) card.append(el('div', 'mx-note', `Price: ${money(item.price)}. Prices are your call (R26).`));
   card.append(el('div', 'mx-text', item.text || ''));
-  const gate = el('div', 'mx-gate ' + check.result, GATE[check.result] || GATE.error);
-  (check.notes || []).forEach(n => { if (!/not connected yet/i.test(n)) gate.append(el('small', '', ' ' + n)); });
-  card.append(gate);
+  card.append(gateBox(check, mission.allowed));
   const state = local(mission.id);
   if (state.sent) return card;
   const b = el('div', 'mx-btns');
   b.append(btn('mx-btn brass', 'Copy text', () => copy(item.text || '', 'Text copied')));
-  if (check.result === 'pass') {
+  if (check.result === 'ask' && !mission.allowed) {
+    b.append(btn('mx-btn red', 'Allow it (your call)', () => {
+      if (confirm('The compliance check left this one to you. Allow it to be published?')) command(mission, `mission allow ${mission.id}`, 'Allowed. Its Publish button turns on in a moment.');
+    }));
+  }
+  if (mayPublish(check, mission.allowed)) {
     if (state.opened) {
       b.append(btn('mx-btn red', 'Yes, it is out', () => command(mission, `mission done ${mission.id}`, 'Marked as published by you.')));
       b.append(btn('mx-btn brass', 'Not yet', () => { state.opened = false; render(); }));
@@ -416,9 +432,19 @@ function cardX(mission) {
   card.append(head('X POST', `${mission.item.content.length}/280`));
   card.append(el('div', 'mx-text', mission.item.content));
   const state = local(mission.id);
+  const check = mission.item.compliance;
+  card.append(gateBox(check, state.allowed));
   if (state.sent) return card;
   const b = el('div', 'mx-btns');
-  if (state.opened) {
+  if (!mayPublish(check, state.allowed)) {
+    if (check && check.result === 'ask') {
+      b.append(btn('mx-btn red', 'Allow it (your call)', () => {
+        if (confirm('The compliance check left this post to you. Allow it?')) { state.allowed = true; render(); }
+      }));
+    }
+    b.append(btn('mx-btn brass', 'Copy text', () => copy(mission.item.content, 'Text copied')));
+    b.append(btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) xDecision(mission, 'declined'); }));
+  } else if (state.opened) {
     b.append(btn('mx-btn red', "Yes, it's posted", () => xDecision(mission, 'posted')));
     b.append(btn('mx-btn brass', 'Not yet', () => { state.opened = false; render(); }));
   } else {
@@ -666,7 +692,7 @@ function subtitle(m) {
   if (m.kind === 'loop_card') return 'Loop card to approve';
   if (m.kind === 'ask' || m.kind === 'change' || m.kind === 'go_live') return `Question ${m.number}` + (m.created ? ` · ${ago(m.created)} ago` : '');
   if (m.kind === 'push') return 'Push for review';
-  if (m.kind === 'x') return 'Tap to post on X yourself';
+  if (m.kind === 'x') return mayPublish(m.item.compliance, local(m.id).allowed) ? 'Passed the compliance check. Tap to post on X yourself' : (GATE[(m.item.compliance || {}).result] || GATE.not_connected).replace(/\.$/, '');
   return '';
 }
 
