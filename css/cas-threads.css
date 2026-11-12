@@ -253,6 +253,9 @@
 #cas-scene.custom-portrait .cas-scene-shot, #cas-scene.custom-portrait .cas-scene-dots { display: none; }
 .cas-folder-head .more { width: 30px; height: 26px; display: grid; place-items: center; border-radius: 5px; border: 1px solid var(--line); background: #0b0905; color: var(--gold); font-weight: 800; letter-spacing: 0; }
 .cas-folder-empty { margin: 2px 0 8px 4px; color: #a8987a; font-size: 12px; }
+.cas-folder-new { display: block; width: 100%; margin: 0 0 8px; padding: 9px 11px; border: 1px dashed #8a6a33; border-radius: 7px; background: transparent;
+  color: var(--gold); font: 700 13px var(--font-ui); text-align: left; cursor: pointer; }
+.cas-folder-new:active { background: #2b2111; }
 .cas-thread-hint { position: fixed; z-index: 170; padding: 7px 11px; border-radius: 9px; background: var(--gold); color: var(--ink); font: 700 12.5px var(--font-ui);
   box-shadow: 0 4px 14px #000c; animation: cas-hint-bob 1.4s ease-in-out infinite; pointer-events: none; }
 .cas-thread-hint::before { content: ''; position: absolute; left: 16px; top: -7px; border: 7px solid transparent; border-top: 0; border-bottom-color: var(--gold); }

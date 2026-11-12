@@ -5,7 +5,7 @@ import { initCasProjects } from './cas-projects.js';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import {
-  initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading,
+  initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote,
 } from './cas-threads.js';
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
@@ -628,7 +628,7 @@ let casShowing = 0;
 async function showCasThread(key) {
   const shown = ++casShowing;
   if (key === 'new') {
-    renderCasEmpty('A new thread. Its title comes from your first message.');
+    renderCasEmpty(draftNote());
     return true;
   }
   try {

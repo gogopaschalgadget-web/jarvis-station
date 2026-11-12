@@ -178,8 +178,9 @@ function swap(node) { node.classList.remove('cas-plate-swap'); void node.offsetW
 function showPlate() {
   let title = 'Main chat', crumb = 'Everything from before, plus Cas updates';
   if (current === NEW) {
-    title = 'New thread';
-    crumb = draft?.parentTitle ? `Sub-thread of ${draft.parentTitle}` : 'Its title comes from your first message';
+    const folder = folders.find(f => f.id === draft?.folderId);
+    title = draft?.parentId ? 'New sub-thread' : 'New thread';
+    crumb = draft?.parentTitle ? `Sub-thread of ${draft.parentTitle}` : `${folder ? folder.name + ' › ' : ''}Its title comes from your first message`;
   } else if (current !== MAIN) {
     const t = byId(current);
     const parent = t?.parent_id ? byId(t.parent_id) : null;
@@ -213,6 +214,13 @@ function showEmber() {
 /** Cas said something in the main chat while another thread is open. */
 export function setMainUnread(on) { mainUnread = on && current !== MAIN; showEmber(); }
 
+/** What the empty message area says while a new thread waits for its first message. */
+export function draftNote() {
+  if (draft?.parentTitle) return `A sub-thread of "${draft.parentTitle}". Cas already sees the end of that thread, so just say what you want to dig into. Your first message becomes its title.`;
+  const folder = folders.find(f => f.id === draft?.folderId);
+  return `A new thread${folder ? ` in ${folder.name}` : ''}. Your first message becomes its title.`;
+}
+
 /** 'main', 'new', or a thread id. */
 export function currentKey() { return current; }
 
@@ -236,7 +244,9 @@ function startNew({ folderId = null, parent = null } = {}) {
     model: from ? from.model : currentModel(),
   };
   openThread(NEW);
-  toast(from ? `Sub-thread of ${from.title}. It also sees the end of that thread.` : 'New thread. Its title comes from your first message.');
+  const folder = folders.find(f => f.id === draft.folderId);
+  toast(from ? `Sub-thread of ${from.title}. Type its first message; it already sees the end of that thread.`
+    : `New thread${folder ? ` in ${folder.name}` : ''}. Type its first message; that becomes its title.`);
 }
 
 /** Start a sub-thread from the open thread (or from the one given). */
@@ -351,7 +361,8 @@ function renderList() {
     const body = el('div', 'cas-folder-body');
     const inner = el('div');
     if (inside.length) inside.forEach(t => inner.append(row(t)));
-    else inner.append(el('p', 'cas-folder-empty', 'Empty. Use the dots on a thread to move it here.'));
+    else inner.append(el('p', 'cas-folder-empty', 'Empty. Start a thread here, or use the dots on a thread to move it in.'));
+    if (folder && !q) inner.append(menuButton('+ New thread in this folder', () => startNew({ folderId: folder.id }), 'cas-folder-new'));
     body.append(inner);
     list.append(head, body);
   }
@@ -385,7 +396,9 @@ function placeMenu(menu, anchor) {
 function menuButton(label, action, cls = '') {
   const b = el('button', cls, label);
   b.type = 'button';
-  b.addEventListener('click', action);
+  // Stop here: an action may swap the menu's contents, and the page's "tap outside closes menus" check
+  // would then see a button that is no longer inside the menu and close it (Move to folder did this).
+  b.addEventListener('click', event => { event.stopPropagation(); action(event); });
   return b;
 }
 
@@ -448,6 +461,7 @@ function moveMenu(t, anchor) {
 function folderMenu(folder, anchor) {
   const menu = $('row-menu');
   menu.replaceChildren(
+    menuButton('New thread here', () => { menu.hidden = true; startNew({ folderId: folder.id }); }),
     menuButton('Rename folder', () => {
       menu.hidden = true;
       inlineInput(folder.name, 'Folder name', name => {
