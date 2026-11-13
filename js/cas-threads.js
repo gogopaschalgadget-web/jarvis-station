@@ -46,7 +46,7 @@ let threads = [];
 let current = MAIN;
 let draft = null;          // a new thread waits for its first message, which names it
 let mode = 'ask';
-let chatgpt = { list: [], ready: false, safe: false };
+let chatgpt = { list: [], ready: false, safe: false, change: false };
 let onOpen = () => {};
 let mainUnread = false;
 let loaded = false;
@@ -98,6 +98,21 @@ function showModel() {
   const label = modelLabel(currentModel());
   $('model-name').textContent = label.name;
   $('model-chip').className = 'cas-model-chip ' + label.cls;
+  showModeHelp();
+}
+
+/** Who makes a code change in this thread. A PC that cannot have ChatGPT change code gives the change to Sonnet. */
+function changeMaker() {
+  const model = currentModel();
+  return model.startsWith('chatgpt:') && !chatgpt.change ? 'Sonnet' : modelLabel(model).name;
+}
+
+function showModeHelp() {
+  const help = $('cas-mode-help');
+  if (!help) return;
+  help.textContent = mode === 'change'
+    ? `${changeMaker()} makes it on its own branch and tests it. Nothing is pushed without your tap.`
+    : 'Cas answers from the code, live data and this thread. Nothing is changed.';
 }
 
 async function loadModels() {
@@ -106,7 +121,7 @@ async function loadModels() {
     const models = data?.status?.models;
     if (models && Array.isArray(models.chatgpt)) {
       chatgpt = { list: models.chatgpt.filter(m => m && typeof m.slug === 'string'), ready: !!models.chatgpt_ready,
-        safe: models.chatgpt_sandbox === 'checked' };
+        safe: models.chatgpt_sandbox === 'checked', change: models.chatgpt_change === 'checked' };
       showModel();
     }
   } catch { /* the menu shows ChatGPT as waiting on the PC */ }
@@ -541,9 +556,7 @@ export function setMode(next, { quiet = false } = {}) {
   lever.querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
   $('cas-composer-area').classList.toggle('is-change', mode === 'change');
   showWhere();
-  $('cas-mode-help').textContent = mode === 'change'
-    ? 'Claude makes it on its own branch and tests it. Nothing is pushed without your tap.'
-    : 'Cas answers from the code, live data and this thread. Nothing is changed.';
+  showModeHelp();
   if (!quiet) {
     toast(mode === 'change' ? 'Change code: own branch, tested, your tap to push' : 'Ask: Cas answers, nothing is changed');
     if (navigator.vibrate) navigator.vibrate(12);
