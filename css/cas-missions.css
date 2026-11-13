@@ -150,3 +150,23 @@
 .cas-loop-starts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .cas-loop-starts .cas-loop-label { font: 700 12px -apple-system, system-ui, sans-serif; color: #c9b48a; margin-right: 2px; }
 .cas-loop-starts .cas-act { min-width: 40px; min-height: 36px; justify-content: center; }
+
+/* X post mission: four steps, done only when the link and first numbers are in */
+.mx-xsteps { list-style: none; margin: 6px 0 0; padding: 0; }
+.mx-xstep { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-top: 1px dashed #b89a62; opacity: .55; }
+.mx-xstep:first-child { border-top: 0; }
+.mx-xstep i { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 800 11px var(--mx-ui); font-style: normal; background: #e7d3a8; color: #5a3d14; }
+.mx-xstep span { flex: 1; min-width: 0; } .mx-xstep b { display: block; font-size: 13px; color: #3a2610; }
+.mx-xstep small { display: block; font-size: 11px; color: #7a6040; word-break: break-word; }
+.mx-xstep em { flex: none; font-style: normal; font: 800 10px var(--mx-ui); letter-spacing: .06em; color: #7a5a22; padding-top: 3px; }
+.mx-xstep.now, .mx-xstep.done, .mx-xstep.bad, .mx-xstep.wait { opacity: 1; }
+.mx-xstep.now i { background: var(--mx-gold); color: #2a1a06; box-shadow: 0 0 0 3px #e5b95555; }
+.mx-xstep.done i { background: #2d5a2f; color: #e6ffe6; }
+.mx-xstep.wait i { background: #cbb98f; }
+.mx-xstep.bad i { background: #9a2a1c; color: #ffe4b7; } .mx-xstep.bad small { color: #9a2a1c; font-weight: 700; }
+.mx-linkrow { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.mx-linkrow input { flex: 1; min-width: 0; min-height: 42px; border-radius: 8px; border: 1px solid #b89a62; background: #fffaf0; color: var(--mx-ink); font: 14px var(--mx-ui); padding: 0 10px; }
+.mx-linkrow .mx-btn { flex: none; min-width: 74px; }
+.mx-nums { display: flex; gap: 8px; margin-top: 8px; }
+.mx-nums label { flex: 1; font: 700 12px var(--mx-ui); color: #5a3d14; }
+.mx-nums input { display: block; width: 100%; margin-top: 4px; min-height: 42px; border-radius: 8px; border: 1px solid #b89a62; background: #fffaf0; color: var(--mx-ink); font: 800 18px var(--mx-ui); padding: 0 10px; box-sizing: border-box; }

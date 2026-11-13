@@ -1,5 +1,5 @@
 // Static shell only: no authenticated API, cross-origin or user-upload caching.
-const VERSION = 'jarvis-cas-v58';
+const VERSION = 'jarvis-cas-v59';
 const BASE = new URL('./', self.location.href);
 const PATHS = ['./', 'index.html', 'manifest.json', 'offline.html', 'js/app.js', 'js/station-work-view.js', 'js/cas-animation.js', 'js/cas-chat.js', 'js/cas-keys.js', 'js/cas-projects.js', 'js/cas-missions.js', 'js/map3d.js', 'js/map3d-status.js', 'js/cas-card.js', 'js/cas-threads.js', 'js/cas-images.js', 'js/renderer.js', 'js/fortress.js', 'js/rooms.js', 'js/room-views.js', 'js/cas-identity.js', 'js/pwa.js', 'css/station.css', 'css/cas-chat.css', 'css/cas-identity.css', 'css/storyboard.css', 'css/features.css', 'css/cas-threads.css', 'css/cas-missions.css', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'assets/cas/current.png', 'assets/brass-frame.svg', 'assets/cas/console.jpg', 'assets/cas/work-animation.jpg', 'assets/cas/face.jpg', 'assets/cas/scene-current.jpg', 'assets/cas/scene-map.jpg', 'assets/cas/scene-standing.jpg', 'assets/cas/scene-console.jpg', 'assets/cas/map-scene.png', 'assets/fortress-map.png', 'assets/cas/identity.json'];
 const SHELL = PATHS.map(path => new URL(path, BASE).href);

@@ -27,7 +27,7 @@ let _o = { apiBase: '', getToken: () => '', send: async () => {}, openThread: ()
 let _panel = null;
 let _timer = null;
 let _status = null;
-let _x = { items: null, loading: false, error: false };
+let _x = { items: null, posted: null, loading: false, error: false }; // queue (to post) and tracker (posted)
 let _tab = 'projects';
 let _selected = null;            // the mission in the work area
 let _dashOpen = true;
@@ -97,11 +97,36 @@ function ago(seconds) {
 function money(value) { return '$' + Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }); }
 
 // ---- what is waiting, by source ---------------------------------------------------
+function xId(reviewId) {
+  return 'x-' + String(reviewId).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
+}
+
+/** Where an X post stands: 1 check, 2 post, 3 record its link, 4 first numbers. 5 means every step is in. */
+export function xStep(item) {
+  if (!item.posted) return mayPublish(item.compliance, false) || (item.compliance && item.compliance.result === 'ask') ? 2 : 1;
+  if (!item.post_url) return 3;
+  if (item.views == null) return 4;
+  return 5;
+}
+
 function xMissions() {
-  return (_x.items || []).map(item => ({
-    id: 'x-' + String(item.review_id).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30), kind: 'x', source: 'x',
-    title: item.content.split('\n')[0].slice(0, 120), item,
-  }));
+  const out = [];
+  const seen = new Set();
+  for (const item of _x.items || []) {
+    seen.add(item.review_id);
+    const blocked = !mayPublish(item.compliance, local(xId(item.review_id)).allowed) && !(item.compliance && item.compliance.result === 'ask');
+    out.push({ id: xId(item.review_id), kind: 'x', source: 'x', title: item.content.split('\n')[0].slice(0, 120),
+      item: { ...item, posted: false }, blocked });
+  }
+  for (const post of _x.posted || []) {
+    if (post.status !== 'posted' || seen.has(post.review_id)) continue;
+    const item = { ...post, posted: true, content: post.content_preview || '' };
+    const step = xStep(item);
+    if (step === 5) continue; // link and first numbers are in: done
+    // Step 4 is Claude's (it reads the post in Chrome at 4 AM and 4 PM), so it waits without counting as on Chris.
+    out.push({ id: xId(post.review_id), kind: 'x', source: 'x', title: item.content.split('\n')[0].slice(0, 120), item, info: step === 4 });
+  }
+  return out;
 }
 
 function reviewMissions() {
@@ -144,18 +169,61 @@ async function command(mission, text, doneText) {
   state.busy = false; render();
 }
 
+async function xPost(path, body) {
+  const res = await fetch(`${_o.apiBase}/api/station/x-review/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _o.getToken() },
+    body: JSON.stringify(body),
+  });
+  return res;
+}
+
 async function xDecision(mission, decision) {
   const state = local(mission.id);
   state.busy = true; render();
   try {
-    const res = await fetch(`${_o.apiBase}/api/station/x-review/decision`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _o.getToken() },
-      body: JSON.stringify({ review_id: mission.item.review_id, decision }),
-    });
+    const res = await xPost('decision', { review_id: mission.item.review_id, decision });
     if (!res.ok && res.status !== 404 && res.status !== 409) throw new Error(String(res.status));
-    state.sent = decision === 'posted' ? 'Marked as posted by you.' : 'Declined. It will not be offered again.';
-    setTimeout(loadX, 1500);
+    if (decision === 'posted') {
+      state.opened = false; // the mission stays open: next it needs its X link
+      toast('Step 2 done. Now record its X link.');
+    } else {
+      state.sent = 'Declined. It will not be offered again.';
+    }
+    await loadX();
+  } catch { toast('Not saved. Try again.'); }
+  state.busy = false; render();
+}
+
+/** Step 3: the post's own X link, pasted from X's Share button. Railway checks it is an x.com post link. */
+async function xSaveLink(mission) {
+  const state = local(mission.id);
+  const url = (state.link || '').trim();
+  if (!url) return;
+  state.busy = true; render();
+  try {
+    const res = await xPost('link', { review_id: mission.item.review_id, url });
+    if (res.status === 422) { toast('That is not an X post link. On X tap Share, then Copy link.'); }
+    else if (!res.ok) { throw new Error(String(res.status)); }
+    else { state.link = ''; toast('Step 3 done. Claude reads its numbers at 4 AM or 4 PM.'); await loadX(); }
+  } catch { toast('Not saved. Try again.'); }
+  state.busy = false; render();
+}
+
+/** Step 4 fallback: Chris types the two numbers himself. The server stamps the time. */
+async function xSaveNumbers(mission) {
+  const state = local(mission.id);
+  const likes = Number(state.likes), views = Number(state.views);
+  if (!Number.isInteger(likes) || !Number.isInteger(views) || likes < 0 || views < 0 || state.likes === '' || state.views === '') {
+    toast('Type both numbers, 0 or more.');
+    return;
+  }
+  state.busy = true; render();
+  try {
+    const res = await xPost('metrics-from-phone', { review_id: mission.item.review_id, likes, views });
+    if (!res.ok) throw new Error(String(res.status));
+    state.sent = 'All 4 steps recorded.';
+    await loadX();
   } catch { toast('Not saved. Try again.'); }
   state.busy = false; render();
 }
@@ -427,34 +495,97 @@ function cardLoopInfo(mission) {
   return card;
 }
 
+function xStepRow(n, label, note, who, cls) {
+  const li = el('li', 'mx-xstep ' + cls);
+  const words = el('span');
+  words.append(el('b', '', label), el('small', '', note));
+  li.append(el('i', '', cls === 'done' ? '✓' : cls === 'bad' ? '!' : String(n)), words, el('em', '', who));
+  return li;
+}
+
+function when(iso) {
+  const d = iso ? new Date(iso) : null;
+  return d && !isNaN(d) ? d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+}
+
 function cardX(mission) {
-  const card = el('div', 'mx-card');
-  card.append(head('X POST', `${mission.item.content.length}/280`));
-  card.append(el('div', 'mx-text', mission.item.content));
+  const item = mission.item;
   const state = local(mission.id);
-  const check = mission.item.compliance;
-  card.append(gateBox(check, state.allowed));
-  if (state.sent) return card;
-  const b = el('div', 'mx-btns');
-  if (!mayPublish(check, state.allowed)) {
-    if (check && check.result === 'ask') {
-      b.append(btn('mx-btn red', 'Allow it (your call)', () => {
-        if (confirm('The compliance check left this post to you. Allow it?')) { state.allowed = true; render(); }
-      }));
-    }
-    b.append(btn('mx-btn brass', 'Copy text', () => copy(mission.item.content, 'Text copied')));
-    b.append(btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) xDecision(mission, 'declined'); }));
-  } else if (state.opened) {
-    b.append(btn('mx-btn red', "Yes, it's posted", () => xDecision(mission, 'posted')));
-    b.append(btn('mx-btn brass', 'Not yet', () => { state.opened = false; render(); }));
-  } else {
-    const a = el('a', 'mx-btn red', 'Open X to post');
-    a.href = 'https://x.com/intent/tweet?text=' + encodeURIComponent(mission.item.content);
-    a.target = '_blank'; a.rel = 'noopener';
-    a.addEventListener('click', () => setTimeout(() => { state.opened = true; render(); }, 300));
-    b.append(a, btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) xDecision(mission, 'declined'); }));
+  const step = state.sent ? 5 : xStep(item);
+  const check = item.compliance;
+  const card = el('div', 'mx-card');
+  card.append(head('X POST · MISSION', step >= 5 ? 'ALL 4 STEPS RECORDED' : mission.blocked ? 'BLOCKED' : `STEP ${step} OF 4`));
+  card.append(el('div', 'mx-text', item.content));
+
+  const list = el('ol', 'mx-xsteps');
+  const firstNote = item.posted ? 'Checked when it was offered' : (check && check.result === 'pass' ? 'Rules passed, and every link loads' : '');
+  list.append(xStepRow(1, 'Checked by Cas', firstNote || (GATE[(check || {}).result] || GATE.not_connected),
+    'CAS', item.posted || mayPublish(check, state.allowed) ? 'done' : mission.blocked ? 'bad' : 'now'));
+  list.append(xStepRow(2, 'Post it on X', item.posted ? 'Posted ' + when(item.decided_at) : 'Opens X with the text ready', 'YOU',
+    item.posted ? 'done' : step === 2 && !mission.blocked ? 'now' : ''));
+  list.append(xStepRow(3, 'Record its X link', item.post_url ? 'Saved · ' + item.post_url.replace('https://', '') : "From X's Share button: Copy link", 'YOU',
+    item.post_url ? 'done' : step === 3 ? 'now' : ''));
+  list.append(xStepRow(4, 'First numbers', item.views != null ? `${item.views} views · ${item.likes} likes · read ${when(item.metrics_checked_at)}`
+    : 'Claude reads them in your Chrome at 4 AM or 4 PM', 'CLAUDE', item.views != null || step >= 5 ? 'done' : step === 4 ? 'wait' : ''));
+  card.append(list);
+  if (!item.posted) card.append(gateBox(check, state.allowed));
+  if (step >= 5) {
+    card.append(el('div', 'mx-done', 'Mission done: link and first numbers are in.'));
+    return card;
   }
-  card.append(b);
+
+  const b = el('div', 'mx-btns');
+  if (step <= 2) {
+    if (!mayPublish(check, state.allowed)) {
+      if (check && check.result === 'ask') {
+        b.append(btn('mx-btn red', 'Allow it (your call)', () => {
+          if (confirm('The compliance check left this post to you. Allow it?')) { state.allowed = true; render(); }
+        }));
+      }
+      b.append(btn('mx-btn brass', 'Copy text', () => copy(item.content, 'Text copied')));
+    } else if (state.opened) {
+      card.append(el('div', 'mx-note', 'Did it go out on X?'));
+      b.append(btn('mx-btn red', "Yes, it's posted", () => xDecision(mission, 'posted')));
+      b.append(btn('mx-btn brass', 'Not yet', () => { state.opened = false; render(); }));
+    } else {
+      const a = el('a', 'mx-btn red', 'Open X to post');
+      a.href = 'https://x.com/intent/tweet?text=' + encodeURIComponent(item.content);
+      a.target = '_blank'; a.rel = 'noopener';
+      a.addEventListener('click', () => setTimeout(() => { state.opened = true; render(); }, 300));
+      b.append(a);
+    }
+    if (!state.opened) b.append(btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) xDecision(mission, 'declined'); }));
+  } else if (step === 3) {
+    const row = el('div', 'mx-linkrow');
+    const input = el('input');
+    input.type = 'url'; input.inputMode = 'url'; input.placeholder = 'Paste the post’s X link';
+    input.value = state.link || '';
+    input.addEventListener('input', () => { state.link = input.value; });
+    row.append(input, btn('mx-btn brass', 'Paste', async () => {
+      try { state.link = (await navigator.clipboard.readText()).trim(); render(); }
+      catch { toast('Paste did not work here. Long-press the box and paste.'); }
+    }));
+    card.append(row);
+    b.append(btn('mx-btn red', 'Save link', () => xSaveLink(mission)));
+  } else if (step === 4) {
+    card.append(el('div', 'mx-note', 'Not done yet: it waits for its first numbers. Nothing for you to do unless Chrome is not connected.'));
+    if (state.typing) {
+      const nums = el('div', 'mx-nums');
+      for (const [key, label] of [['likes', 'Likes'], ['views', 'Views']]) {
+        const field = el('label', '', label);
+        const input = el('input');
+        input.type = 'number'; input.min = '0'; input.inputMode = 'numeric'; input.value = state[key] ?? '';
+        input.addEventListener('input', () => { state[key] = input.value; });
+        field.append(input);
+        nums.append(field);
+      }
+      card.append(nums);
+      b.append(btn('mx-btn red', 'Save numbers', () => xSaveNumbers(mission)));
+    } else {
+      b.append(btn('mx-btn brass', 'Type them yourself', () => { state.typing = true; render(); }));
+    }
+  }
+  if (b.childElementCount) card.append(b);
   return card;
 }
 
@@ -637,7 +768,7 @@ function renderWork() {
   const head = el('div', 'mx-who');
   const img = el('img'); img.src = FACE; img.alt = '';
   head.append(img, document.createTextNode('Cas'));
-  who.append(head, document.createTextNode(mission.info ? 'Here is where this loop stands.' : 'Here is the mission. Tap to answer, or ask me about it first.'));
+  who.append(head, document.createTextNode(mission.kind === 'loop' ? 'Here is where this loop stands.' : 'Here is the mission. Tap to answer, or ask me about it first.'));
   work.append(who);
   const card = (CARDS[mission.kind] || cardAsk)(mission);
   const state = local(mission.id);
@@ -674,7 +805,7 @@ function renderBoard() {
   else if (!rows.length) list.append(el('div', 'mx-hint', _tab === 'loops' ? 'No loops yet. Tap Start loop on an idea in a Brainstorm thread.' : 'Nothing waiting here.'));
   rows.forEach(m => {
     const r = btn('mx-mrow' + (_selected === m.id ? ' on' : ''), '', () => pick(m));
-    const icon = m.number ? String(m.number) : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R' }[m.kind] || '•');
+    const icon = m.kind === 'x' && m.info ? '⏱' : m.number ? String(m.number) : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R' }[m.kind] || '•');
     const t = el('span', 'mx-mt');
     t.append(el('b', '', m.title), el('small', '', subtitle(m)));
     r.append(el('span', 'mx-mi' + (m.info ? ' info' : ''), icon), t);
@@ -687,12 +818,18 @@ function renderBoard() {
 
 function subtitle(m) {
   if (local(m.id).sent) return 'Done on this phone';
-  if (m.info) return m.loop.headline;
+  if (m.info && m.kind === 'loop') return m.loop.headline;
   if (m.kind === 'publish') return (GATE[(m.compliance || {}).result] || '').replace(/\.$/, '');
   if (m.kind === 'loop_card') return 'Loop card to approve';
   if (m.kind === 'ask' || m.kind === 'change' || m.kind === 'go_live') return `Question ${m.number}` + (m.created ? ` · ${ago(m.created)} ago` : '');
   if (m.kind === 'push') return 'Push for review';
-  if (m.kind === 'x') return mayPublish(m.item.compliance, local(m.id).allowed) ? 'Passed the compliance check. Tap to post on X yourself' : (GATE[(m.item.compliance || {}).result] || GATE.not_connected).replace(/\.$/, '');
+  if (m.kind === 'x') {
+    const step = xStep(m.item);
+    if (step === 3) return `Step 3 of 4 · posted ${when(m.item.decided_at)} · X link missing`;
+    if (step === 4) return 'Waiting · Claude reads it at 4 AM or 4 PM · not on you';
+    if (m.blocked) return (GATE[(m.item.compliance || {}).result] || GATE.not_connected).replace(/\.$/, '');
+    return 'Step 2 of 4 · ready to post';
+  }
   return '';
 }
 
@@ -738,10 +875,12 @@ async function refresh() {
 
 async function loadX() {
   _x.loading = true; _x.error = false; render();
+  const get = path => fetch(`${_o.apiBase}/api/station/x-review/${path}`, { headers: { Authorization: 'Bearer ' + _o.getToken() } })
+    .then(res => { if (!res.ok) throw new Error(String(res.status)); return res.json(); });
   try {
-    const res = await fetch(`${_o.apiBase}/api/station/x-review/queue`, { headers: { Authorization: 'Bearer ' + _o.getToken() } });
-    if (!res.ok) throw new Error(String(res.status));
-    _x.items = ((await res.json()).items || []).filter(i => i && typeof i.content === 'string');
+    const [queue, tracker] = await Promise.all([get('queue'), get('tracker')]);
+    _x.items = (queue.items || []).filter(i => i && typeof i.content === 'string');
+    _x.posted = (tracker.posts || []).filter(p => p && typeof p.review_id === 'string');
   } catch { _x.error = true; }
   _x.loading = false;
   render();
