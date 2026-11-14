@@ -2,13 +2,13 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas55';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas56';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
   showThread, inBrainstorm,
-} from './cas-threads.js?v=cas55'; // versioned with app.js, so a phone never mixes an old file with a new one
+} from './cas-threads.js?v=cas56'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -880,6 +880,41 @@ function offerActions(item) {
   return acts;
 }
 
+// Every bubble can be selected by a long press, and this button is the sure way on a phone.
+const COPY_SVG = '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>';
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* older Safari: fall back below */ }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+  document.body.append(area);
+  area.select();
+  area.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  area.remove();
+  return ok;
+}
+
+function copyButton(text) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'cas-copy';
+  button.setAttribute('aria-label', 'Copy this message');
+  button.innerHTML = COPY_SVG;
+  const label = document.createElement('span');
+  label.textContent = 'Copy';
+  button.append(label);
+  button.addEventListener('click', async event => {
+    event.stopPropagation();
+    label.textContent = await copyText(text) ? 'Copied' : 'Press and hold the text to copy';
+    setTimeout(() => { label.textContent = 'Copy'; }, 2000);
+  });
+  return button;
+}
+
 function buildExchangeEl(item) {
   observeWork(item);
   const wrap = document.createElement('div');
@@ -897,6 +932,7 @@ function buildExchangeEl(item) {
   const userText = document.createElement('p');
   userText.textContent = item.message || ''; // textContent: XSS-safe
   userEl.append(userText);
+  if (item.message) userEl.append(copyButton(item.message));
   for (const attachment of item.attachments || []) {
     if(!/^data:image\/(png|jpeg|webp);base64,/.test(attachment.url || '') || attachment.url.length>180000)continue;
     const screenshot=document.createElement('img');screenshot.src=attachment.url;screenshot.alt='Screenshot sent to Cas';screenshot.className='cas-chat-screenshot';userEl.append(screenshot);
@@ -941,6 +977,7 @@ function buildExchangeEl(item) {
   if (item.status === 'completed') {
     const meta = replyMeta(item);
     if (meta) casEl.append(meta);
+    if (item.reply) casEl.append(copyButton(item.reply));
     if (item.card && item.card.offer === 'change') casEl.append(offerActions(item));
     if (item.thread_id && item.reply && inBrainstorm(item.thread_id)) {
       const loops = loopStarters(item);

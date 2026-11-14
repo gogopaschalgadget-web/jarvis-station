@@ -20,7 +20,7 @@ export function initCasAnimation(){
  draw(0);
  setInterval(()=>{
   const scene=document.getElementById('cas-scene');
-  if(document.hidden||reduced.matches||scene.classList.contains('scene-paused')||scene.classList.contains('custom-portrait'))return;
+  if(document.hidden||reduced.matches||scene.classList.contains('scene-paused')||(scene.classList.contains('custom-portrait')&&!isWorking()))return;
   tick++;
   if(isWorking()){const phase=Math.floor(tick/12)%3;frame=phase===0?2+tick%2:phase===1?4+tick%2:6+tick%2;}
   else {frame=0;if(tick%29===0)blinkUntil=tick+1;if(tick<=blinkUntil)frame=1;}

@@ -579,23 +579,42 @@ function showScene(index) {
 
 function foldPicture(on) {
   typingFold = false; // Chris's own choice wins over the fold for typing
+  workOpen = false;   // and over opening it to show Cas working
+  heldFolded = on && busy();
   dropHint();
   $('cas-visual').classList.toggle('tucked', on);
   $('cas-scene').classList.toggle('pic-folded', on);
   store.set(KEY_FOLDED, on ? '1' : '0');
 }
 
-/** Called while Chris reads: the picture folds away like the message card. */
-export function reading() { if (!$('cas-visual').classList.contains('tucked')) foldPicture(true); }
+const busy = () => $('cas-visual').classList.contains('working');
+function tuck(on) { $('cas-visual').classList.toggle('tucked', on); $('cas-scene').classList.toggle('pic-folded', on); }
+
+/** Called while Chris reads: the picture folds away like the message card. Not while Cas works, so the animation stays in view. */
+export function reading() { if (!busy() && !$('cas-visual').classList.contains('tucked')) foldPicture(true); }
 
 /** While Chris types on a phone, the picture steps aside so the message box and Send fit above the keyboard. Not saved. */
 let typingFold = false;
 export function typing(on) {
   const visual = $('cas-visual');
   if (on && !visual.classList.contains('tucked')) {
-    visual.classList.add('tucked'); $('cas-scene').classList.add('pic-folded'); typingFold = true;
+    tuck(true); typingFold = true;
   } else if (!on && typingFold) {
-    typingFold = false; visual.classList.remove('tucked'); $('cas-scene').classList.remove('pic-folded');
+    typingFold = false; tuck(false);
+  }
+  if (!on) showWork();
+}
+
+// A folded picture hides the working animation, so it opens while Cas works and folds back after. Not saved.
+let workOpen = false;
+let heldFolded = false; // Chris folded it during this job
+function showWork() {
+  const working = busy();
+  if (working && !heldFolded && !document.body.classList.contains('cas-typing') && $('cas-visual').classList.contains('tucked')) {
+    workOpen = true; tuck(false);
+  } else if (!working) {
+    heldFolded = false;
+    if (workOpen) { workOpen = false; tuck(true); }
   }
 }
 
@@ -619,6 +638,11 @@ function initPicture() {
     swipeY = null;
   }, { passive: true });
   if (store.get(KEY_FOLDED, '0') === '1') foldPicture(true);
+  // cas-animation.js marks the picture 'working'; react only when that changes, not to folding.
+  let wasWorking = busy();
+  new MutationObserver(() => { if (busy() !== wasWorking) { wasWorking = busy(); showWork(); } })
+    .observe($('cas-visual'), { attributes: true, attributeFilter: ['class'] });
+  showWork();
   // Older Safari has no overflow: clip, and a focused button can nudge the picture sideways.
   $('cas-visual').addEventListener('scroll', e => { e.currentTarget.scrollTop = 0; e.currentTarget.scrollLeft = 0; });
   const button = $('cas-rotate-btn');

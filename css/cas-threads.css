@@ -280,3 +280,13 @@
   body.cas-typing .cas-mode-help { display: none; }
   body.cas-typing .cas-projects { max-height: 72px; }
 }
+
+/* ---- bubbles: the text can be selected with a long press, and Copy is the sure way ---- */
+.cas-message-cas p, .cas-message-user p { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; cursor: text; }
+.cas-copy { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; margin-top: 6px; padding: 2px 11px; border: 1px solid #8a6a33; border-radius: 7px;
+  background: #0b0905b3; color: #e8c98a; font: 600 12px var(--font-ui); cursor: pointer; }
+.cas-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.cas-message-cas .cas-copy { margin-right: 6px; }
+.cas-message-user .cas-copy { display: flex; margin-left: auto; }
+/* a chosen portrait still gives way to the working animation while Cas works */
+#cas-scene.custom-portrait .cas-visual.working .cas-animation { display: block; }
