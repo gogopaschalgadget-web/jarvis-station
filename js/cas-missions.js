@@ -126,12 +126,13 @@ function xMissions() {
     // Step 4 is Claude's (it reads the post in Chrome at 4 AM and 4 PM), so it waits without counting as on Chris.
     out.push({ id: xId(post.review_id), kind: 'x', source: 'x', title: item.content.split('\n')[0].slice(0, 120), item, info: step === 4 });
   }
+  // Retired posts are a record, never something waiting on Chris: info rows stay out of every count and badge.
   const expired = _status && _status.x_expired;
-  if (expired && (expired.count > 0 || expired.full_count > 0)) {
+  if (expired && (expired.retired_count > 0 || expired.full_count > 0)) {
     const parts = [];
-    if (expired.count) parts.push(`${expired.count} expired`);
+    if (expired.retired_count) parts.push(`${expired.retired_count} retired`);
     if (expired.full_count) parts.push(`${expired.full_count} waiting for room`);
-    out.push({ id: 'x-expired', kind: 'x_expired', source: 'x', expired, title: `X posts not offered: ${parts.join(', ')}` });
+    out.push({ id: 'x-expired', kind: 'x_expired', source: 'x', expired, info: true, title: `Retired X posts (record): ${parts.join(', ')}` });
   }
   return out;
 }
@@ -1107,53 +1108,58 @@ function drawSheet() {
 }
 
 
-/** X posts that waited past the offer window. Chris's rule: nothing disappears without a word. Nothing is posted
- *  or offered again unless he taps; each tap is a signed command, and the PC applies it. */
+/** The record of retired X posts (Chris, 2026-11-15): approved posts not posted within the offer window leave the list
+ *  quietly. Retired is not a judgment of the post and gives no feedback to anything that learns. Read only, with a quiet
+ *  Offer again (a signed command; not approval feedback either) and Copy. */
+function fmtDay(iso) {
+  const d = iso ? new Date(iso) : null;
+  return d && !isNaN(d) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+}
+
 function cardXExpired(mission) {
   const data = mission.expired;
   const card = el('div', 'mx-card');
-  card.append(head('X POSTS · NOT OFFERED', `${data.count + (data.full_count || 0)} IN ALL`));
-  card.append(el('p', '', `Expired posts waited more than ${data.window_days} days, so the Station stopped offering them. ` +
-    'Nothing is posted or offered again unless you tap.'));
+  card.append(head('RETIRED X POSTS · RECORD', `${data.retired_count} RETIRED`));
+  card.append(el('p', '', `An approved post that is not posted within ${data.window_days} days is retired: it leaves the list ` +
+    'quietly and is kept here for the record. Retired says nothing about the post. It is not a decline, and nothing ' +
+    'learns from it; it only means there was no time to post it.'));
   if (data.full_count) {
-    card.append(el('div', 'mx-note', `${data.full_count} more ${data.full_count === 1 ? 'is' : 'are'} still fresh but ${data.full_count === 1 ? 'waits' : 'wait'} ` +
-      `for room: the Station offers at most ${data.max_offered} at a time. Post or decline some on the X posts list to make room.`));
+    card.append(el('div', 'mx-note', `${data.full_count} fresh post${data.full_count === 1 ? '' : 's'} also ${data.full_count === 1 ? 'waits' : 'wait'} ` +
+      `for room: the Station offers at most ${data.max_offered} at a time, so ${data.full_count === 1 ? 'it shows' : 'they show'} when others are posted or retire.`));
   }
-  const total = data.count + (data.full_count || 0);
+  const total = data.retired_count + (data.full_count || 0);
   if (total > data.posts.length) card.append(el('div', 'mx-note', `Showing ${data.posts.length} of ${total}.`));
   data.posts.forEach(post => {
-    // one state per post and per round, so a post that was offered again and expired again gets fresh buttons
-    const state = local(`x-exp-${post.review_id}-${post.offered_again ? 'again' : 'first'}`);
-    // the PC's answer arrives in the main chat; until this list changes the row says it was sent, then the buttons return
+    // one state per post and per round, so a post offered again that retires again gets its button back
+    const state = local(`x-ret-${post.review_id}-${post.retired_on || 'fresh'}`);
     if (state.sentAt && Date.now() - state.sentAt > 60_000) { state.sent = ''; state.sentAt = 0; state.retry = true; }
     const row = el('div', 'mx-xexp');
     row.append(el('div', 'mx-text', post.content));
-    const why = post.reason === 'full' ? 'Fresh, waiting for room' : `Made ${post.age_days} days ago`;
-    row.append(el('small', '', `${why}${post.product ? ' · ' + post.product : ''}${post.offered_again ? ' · offered again before' : ''}`));
+    const when = post.reason === 'full' ? `Made ${fmtDay(post.made_on)} · fresh, waiting for room`
+      : `Made ${fmtDay(post.made_on)} · retired ${fmtDay(post.retired_on)}`;
+    row.append(el('small', '', `${when}${post.product ? ' · ' + post.product : ''}${post.offered_again ? ' · offered again before' : ''}`));
     if (state.retry) row.append(el('div', 'mx-note', 'Not changed yet. The reply is in the main Cas chat; you can tap again.'));
     if (state.sent) {
-      row.append(el('div', 'mx-done', state.sent));
+      row.append(el('div', 'mx-note', state.sent));
     } else {
-      const b = el('div', 'mx-btns');
-      const choose = async (action, done) => {
-        state.busy = true; render();
-        try {
-          await keepDraft(() => _o.send(`x expired ${action} ${post.review_id}`));
-          state.sent = done; state.sentAt = Date.now(); state.retry = false;
-          setTimeout(render, 61_000);
-          [3000, 9000].forEach(ms => setTimeout(refresh, ms));
-          if (action === 'offer') setTimeout(loadX, 9000);
-        } catch { toast('Not sent. Check the connection and try again.'); }
-        state.busy = false; render();
-      };
-      const no = btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) choose('decline', 'Sent: decline. Cas confirms in a moment.'); });
-      no.disabled = !!state.busy;
+      const b = el('div', 'mx-btns quiet');
       if (post.reason !== 'full') {
-        const again = btn('mx-btn red', 'Offer again', () => choose('offer', `Sent: offer again for ${data.window_days} days. Cas confirms in a moment.`));
+        const again = btn('mx-mini', 'Offer again', async () => {
+          state.busy = true; render();
+          try {
+            await keepDraft(() => _o.send(`x retired offer ${post.review_id}`));
+            state.sent = `Sent: offer again for ${data.window_days} days. Cas confirms in a moment.`;
+            state.sentAt = Date.now(); state.retry = false;
+            setTimeout(render, 61_000);
+            [3000, 9000].forEach(ms => setTimeout(refresh, ms));
+            setTimeout(loadX, 9000);
+          } catch { toast('Not sent. Check the connection and try again.'); }
+          state.busy = false; render();
+        });
         again.disabled = !!state.busy;
         b.append(again);
       }
-      b.append(no, btn('mx-btn brass', 'Copy', () => copy(post.content, 'Text copied')));
+      b.append(btn('mx-mini', 'Copy', () => copy(post.content, 'Text copied')));
       row.append(b);
     }
     card.append(row);
@@ -1392,7 +1398,7 @@ function renderBoard() {
     const r = btn('mx-mrow' + (m.info ? ' rust' : ' live') + (_selected === m.id ? ' on' : ''), '', () => pick(m));
     const icon = (m.kind === 'x' || m.kind === 'quora') && m.info ? (m.q && m.q.status === 'done' ? '✓' : '⏱')
       : m.number ? String(m.number) : m.q ? String(Math.min(m.q.step, 7))
-      : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R', quora_pick: 'Q', x_expired: '⌛' }[m.kind] || '•');
+      : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R', quora_pick: 'Q', x_expired: '▤' }[m.kind] || '•');
     const t = el('span', 'mx-mt');
     t.append(el('b', '', m.title), el('small', '', subtitle(m)));
     r.append(el('span', 'mx-mi' + (m.info ? ' info' : ''), icon), t);
@@ -1416,7 +1422,7 @@ function subtitle(m) {
     return `${(q.candidates || []).length} found · ${t.picked || 0} of ${t.limit || 0} picked today`;
   }
   if (m.kind === 'quora') return quoraSubtitle(m.q);
-  if (m.kind === 'x_expired') return 'Not offered right now · offer again or decline · your call';
+  if (m.kind === 'x_expired') return 'Kept for the record · not waiting on you · not feedback';
   if (m.kind === 'x') {
     const step = xStep(m.item);
     if (step === 3) return `Step 3 of 4 · posted ${when(m.item.decided_at)} · X link missing`;

@@ -262,3 +262,4 @@
 .mx-sheet button:disabled { opacity: .5; cursor: default; }
 /* expired X posts */
 .mx-xexp { padding: 8px 0; border-top: 1px dashed #b89a62; } .mx-xexp > small { display: block; font-size: 11px; color: #7a6040; }
+.mx-btns.quiet { justify-content: flex-start; } .mx-btns.quiet .mx-mini { color: var(--mx-brass-hi); }
