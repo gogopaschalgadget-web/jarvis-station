@@ -11,6 +11,8 @@ let _list = null;          // the last listing from Railway
 let _urls = [];            // object URLs of the pictures in rotation
 let _timer = null;
 let _turn = 0;
+let _drawn = 0;            // each draw gets a number; a slower, older draw never paints over a newer state
+let _failed = false;       // the last listing could not be loaded
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -43,6 +45,7 @@ function clearLayer() {
 
 /** Draw the rotating layer behind the Missions page, only when scenes are on and pictures exist. */
 async function applyLayer() {
+  const draw = ++_drawn;
   const scenes = (_list && _list.enabled && _list.scenes) || [];
   if (!scenes.length) { clearLayer(); return; }
   const panel = document.getElementById('panel-missions');
@@ -51,6 +54,7 @@ async function applyLayer() {
   for (const scene of scenes.slice(0, SHOW_MAX)) {
     try { urls.push(await picture(scene.id)); } catch { /* one missing picture never stops the rest */ }
   }
+  if (draw !== _drawn || !(_list && _list.enabled)) { urls.forEach(u => URL.revokeObjectURL(u)); return; } // turned off meanwhile
   clearLayer();
   if (!urls.length) return;
   _urls = urls;
@@ -78,7 +82,8 @@ async function applyLayer() {
 async function reload() {
   try {
     _list = await (await api('')).json();
-  } catch { return; }  // no change on any failure; the next reload tries again
+    _failed = false;
+  } catch { _failed = true; return; }  // no change on any failure; the 30-minute reload tries again
   await applyLayer();
 }
 
@@ -91,9 +96,10 @@ export function renderScenesSettings(panel) {
   card.append(el('div', 'panel-card-title', 'Background scenes'));
   const list = _list;
   if (!list) {
-    card.append(el('p', 'st-scenes-note', 'Not loaded yet.'));
+    // at most one try from here; a failure says so and waits for the 30-minute reload (never a loop of requests)
+    card.append(el('p', 'st-scenes-note', _failed ? 'Not available right now.' : 'Loading...'));
     panel.append(card);
-    reload().then(() => { if (document.getElementById('st-scenes-card')) renderScenesSettings(panel); });
+    if (!_failed) reload().then(() => { if (document.getElementById('st-scenes-card') && (_list || _failed)) renderScenesSettings(panel); });
     return;
   }
   card.append(el('p', 'st-scenes-note', list.enabled
@@ -146,6 +152,25 @@ export function renderScenesSettings(panel) {
     grid.append(cell);
   });
   card.append(grid);
+  const banned = list.banned || [];
+  if (banned.length) {
+    const box = el('details', 'st-scenes-banned');
+    box.append(el('summary', '', `Banned (${banned.length})`));
+    banned.forEach(scene => {
+      const r = el('div', 'st-scenes-row');
+      const undo = el('button', 'st-scenes-btn', 'Unban'); undo.type = 'button';
+      undo.addEventListener('click', async () => {
+        try {
+          await api(`/${scene.id}/mark`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ banned: false }) });
+          await reload();
+        } catch { /* stays as it was */ }
+        renderScenesSettings(panel);
+      });
+      r.append(el('span', '', `${scene.room} · ${scene.mood}`), undo);
+      box.append(r);
+    });
+    card.append(box);
+  }
   panel.append(card);
 }
 
