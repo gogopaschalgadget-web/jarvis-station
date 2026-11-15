@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff1c4"/><stop offset=".45" stop-color="#e5b955"/><stop offset=".7" stop-color="#9a6a1c"/><stop offset="1" stop-color="#5a3a0e"/></linearGradient>
+<filter id="d"><feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-color="#000" flood-opacity=".8"/></filter></defs>
+<g filter="url(#d)"><g fill="url(#g)">
+  <path d="M22 84 L77 17 L81 20 L26 87 Z"/><path d="M71 11 q15 -4 18 13 q-10 -4 -14 4 z"/>
+  <path d="M78 84 L23 17 L19 20 L74 87 Z"/><path d="M29 11 q-15 -4 -18 13 q10 -4 14 4 z"/>
+  <rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(0 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(30 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(60 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(90 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(120 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(150 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(180 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(210 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(240 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(270 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(300 50 50)"/><rect x="47" y="13" width="6" height="8" rx="1" transform="rotate(330 50 50)"/>
+  <path fill-rule="evenodd" d="M50 20 a30 30 0 1 1 0 60 a30 30 0 1 1 0 -60 z M50 26 a24 24 0 1 0 0 48 a24 24 0 1 0 0 -48 z"/>
+  <path fill-rule="evenodd" d="M50 32 c-10 0 -15 7 -15 15 c0 5 2 8 5 10 v6 h20 v-6 c3 -2 5 -5 5 -10 c0 -8 -5 -15 -15 -15 z
+     M43.5 44 a4.5 5 0 1 0 0.1 0 z M56.5 44 a4.5 5 0 1 0 0.1 0 z M50 51 l-2.5 5 h5 z
+     M44 60 h2.2 v3 h-2.2 z M48.9 60 h2.2 v3 h-2.2 z M53.8 60 h2.2 v3 h-2.2 z"/>
+  <circle cx="41" cy="86" r="3.2" fill="none" stroke="url(#g)" stroke-width="2"/><circle cx="50" cy="88" r="3.2" fill="none" stroke="url(#g)" stroke-width="2"/><circle cx="59" cy="86" r="3.2" fill="none" stroke="url(#g)" stroke-width="2"/>
+</g></g></svg>

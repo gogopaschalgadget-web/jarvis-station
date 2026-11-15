@@ -1,0 +1,73 @@
+/* station-theme.css - loaded last. Chris's notes (2026-11-14): no black JARVIS STATION bar at the top; the title is a
+   see-through brass watermark over the page, which runs full height. The bottom bar is a bronze plate that runs to
+   the very bottom edge of the phone, so no black strip shows under it. Original sigil only, no franchise marks.
+   No em dashes. */
+:root {
+  --header-height: 0px;              /* the title floats over the page now; nothing reserves a bar for it */
+  --mark-height: 30px;               /* the room the watermark title takes at the top of a page */
+  --mark-top: calc(var(--mark-height) + env(safe-area-inset-top, 0px));
+}
+
+/* ---- the title: a watermark with depth, no bar behind it ---- */
+.station-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 96;
+  height: var(--mark-top); padding: env(safe-area-inset-top, 0px) 0 0;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(#07050499, #07050433 70%, transparent) !important;
+  border: 0 !important; border-image: none !important; box-shadow: none !important;
+  pointer-events: none;
+}
+.station-title {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 900 13px Georgia, 'Times New Roman', serif; letter-spacing: 5px; text-transform: uppercase;
+  background: linear-gradient(#fff4cf 0%, #f2c86a 40%, #a8741f 62%, #5a3a0e 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
+  filter: drop-shadow(0 1px 0 #3a2208) drop-shadow(0 2px 0 #1e1204) drop-shadow(0 3px 3px #000);
+  opacity: .78;
+}
+.station-title::before {
+  content: ""; flex: none; width: 20px; height: 20px;
+  background: url('../assets/theme/sigil.svg') center / contain no-repeat;
+}
+.station-title small, .station-crest, .header-stats { display: none; }
+
+/* ---- pages run from the very top; their content starts below the title ---- */
+.tab-panel { top: 0; padding-top: calc(var(--mark-top) + 10px); }
+#panel-settings { top: 0; }
+#panel-missions.tab-panel { top: 0; padding-top: 0; }
+body.cas-home #panel-cas.tab-panel { top: env(safe-area-inset-top, 0px); padding-top: 0; }
+.metrics-bar { top: var(--mark-top); left: 8px; right: 8px; border: 1px solid #000; border-radius: 7px;
+  background: linear-gradient(#00000030, #00000060), url('../assets/theme/nav.jpg') center / 100% 100%, #241917; box-shadow: 0 6px 16px #000c; }
+.metrics-bar .metric-lbl { color: #d8c7a8; text-shadow: 0 1px 2px #000; }
+.metrics-bar[hidden], body:has(#panel-missions.visible) .metrics-bar { display: none; }
+.metrics-bar:not([hidden]) ~ .tab-panel { padding-top: calc(var(--mark-top) + var(--metrics-height) + 12px); }
+.station-main { top: calc(var(--mark-top) + var(--metrics-height)); }
+.room-overlay { top: calc(var(--mark-top) + 4px); }
+.cas-sheet { top: var(--mark-top); }
+
+/* ---- the bottom bar: a bronze plate down to the screen edge, with a riveted brass rail on top ---- */
+.station-nav {
+  background: linear-gradient(#00000018, #00000050), url('../assets/theme/nav.jpg') center / 100% 100%, #241917 !important;
+  border: 0 !important; border-top: 1px solid #000 !important; border-image: none !important;
+  box-shadow: 0 -4px 14px #000c !important;
+}
+.station-nav::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -4px; height: 5px; z-index: 2; pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, #fff1c4 0 1px, #8a6122 1.6px, transparent 2.2px) 12px 50% / 48px 5px repeat-x,
+    linear-gradient(#ffe08a, #c9a227 45%, #6b4a1b);
+  box-shadow: 0 1px 2px #000c;
+}
+.station-nav .nav-item { color: #d8c7a8; text-shadow: 0 1px 2px #000; }
+.station-nav .nav-item svg { filter: drop-shadow(0 1px 1px #000); }
+.station-nav .nav-item.active {
+  background: linear-gradient(#fff1c430, #c9a22740 35%, #5a3a0e70);
+  box-shadow: inset 0 3px #ffe08a, inset 0 0 12px #e5b95544; color: #ffe08a;
+}
+html, body { background: #100c07; }
+
+@media (min-width: 960px) {
+  /* the nav is a side rail on wide screens: it starts at the top, under the title */
+  .station-nav { top: var(--mark-top); }
+  .station-nav::before { display: none; }
+}
