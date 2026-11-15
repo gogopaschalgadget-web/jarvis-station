@@ -126,6 +126,11 @@ function xMissions() {
     // Step 4 is Claude's (it reads the post in Chrome at 4 AM and 4 PM), so it waits without counting as on Chris.
     out.push({ id: xId(post.review_id), kind: 'x', source: 'x', title: item.content.split('\n')[0].slice(0, 120), item, info: step === 4 });
   }
+  const expired = _status && _status.x_expired;
+  if (expired && expired.count > 0) {
+    out.push({ id: 'x-expired', kind: 'x_expired', source: 'x', expired,
+      title: `${expired.count} X post${expired.count === 1 ? '' : 's'} expired: waited over ${expired.window_days} days` });
+  }
   return out;
 }
 
@@ -236,6 +241,7 @@ function summaryText(mission) {
   if (mission.item && mission.item.text) lines.push(mission.item.text);
   if (mission.item && mission.item.content) lines.push(mission.item.content);
   if (mission.loop && mission.info) lines.push(mission.loop.headline);
+  if (mission.expired) (mission.expired.posts || []).forEach(p => lines.push(`- ${p.content} (made ${p.age_days} days ago)`));
   if (mission.q) {
     lines.push(`Quora question: ${mission.q.question.url}`, `Step ${Math.min(mission.q.step, 7)} of 7 (${mission.q.status})`);
     const text = mission.q.final || (mission.q.sharpened && mission.q.sharpened.text) || mission.q.answer;
@@ -276,7 +282,8 @@ async function ask(mission, question) {
     const thread = await threadFor(mission);
     Object.assign(entry, { thread: thread.id, folder: thread.folder, title: thread.title });
     // PC missions are found by id; posts and drafts only exist on this phone, so their text goes with the question.
-    const known = mission.kind !== 'x' && mission.kind !== 'review' && !mission.info;
+    // only missions the PC itself sent are known there by id; for everything else the text goes with the question
+    const known = !mission.info && ((_status && _status.missions) || []).some(m => m.id === mission.id);
     const body = known ? `Mission: ${mission.id}\n${question}` : `About this mission:\n${summaryText(mission)}\n\n${question}`;
     const item = await keepDraft(() => sendMessage(body, [], { threadId: thread.id, header: '@sonnet ask' }));
     entry.id = item.id;
@@ -1097,6 +1104,46 @@ function drawSheet() {
   panel.scrollTop = scroll;
 }
 
+
+/** X posts that waited past the offer window. Chris's rule: nothing disappears without a word. Nothing is posted
+ *  or offered again unless he taps; each tap is a signed command, and the PC applies it. */
+function cardXExpired(mission) {
+  const data = mission.expired;
+  const card = el('div', 'mx-card');
+  card.append(head('X POSTS · EXPIRED', `${data.count} PAST ${data.window_days} DAYS`));
+  card.append(el('p', '', `These waited more than ${data.window_days} days, so the Station stopped offering them. ` +
+    'Nothing is posted or offered again unless you tap.'));
+  if (data.count > data.posts.length) card.append(el('div', 'mx-note', `Showing the newest ${data.posts.length} of ${data.count}.`));
+  data.posts.forEach(post => {
+    const state = local('x-exp-' + post.review_id);
+    const row = el('div', 'mx-xexp');
+    row.append(el('div', 'mx-text', post.content));
+    row.append(el('small', '', `Made ${post.age_days} days ago${post.product ? ' · ' + post.product : ''}${post.offered_again ? ' · offered again before' : ''}`));
+    if (state.sent) {
+      row.append(el('div', 'mx-done', state.sent));
+    } else {
+      const b = el('div', 'mx-btns');
+      const choose = async (action, done) => {
+        state.busy = true; render();
+        try {
+          await keepDraft(() => _o.send(`x expired ${action} ${post.review_id}`));
+          state.sent = done;
+          [3000, 9000].forEach(ms => setTimeout(refresh, ms));
+          if (action === 'offer') setTimeout(loadX, 9000);
+        } catch { toast('Not sent. Check the connection and try again.'); }
+        state.busy = false; render();
+      };
+      const again = btn('mx-btn red', 'Offer again', () => choose('offer', `Offered again for ${data.window_days} days. It shows in the list above in a few minutes.`));
+      const no = btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) choose('decline', 'Declined.'); });
+      again.disabled = no.disabled = !!state.busy;
+      b.append(again, no, btn('mx-btn brass', 'Copy', () => copy(post.content, 'Text copied')));
+      row.append(b);
+    }
+    card.append(row);
+  });
+  return card;
+}
+
 function cardReview(mission) {
   const card = el('div', 'mx-card');
   card.append(head('REVIEW · CONTENT ENGINE', `${mission.count} WAITING`));
@@ -1108,7 +1155,7 @@ function cardReview(mission) {
 }
 
 const CARDS = { loop_card: cardLoop, ask: cardAsk, change: cardAsk, go_live: cardAsk, push: cardPush, publish: cardPublish, standing: cardStanding,
-  loop: cardLoopInfo, x: cardX, review: cardReview, quora_pick: cardQuoraPick, quora: cardQuora };
+  loop: cardLoopInfo, x: cardX, review: cardReview, quora_pick: cardQuoraPick, quora: cardQuora, x_expired: cardXExpired };
 
 function askRow(mission) {
   const r = el('div', 'mx-askrow');
@@ -1328,7 +1375,7 @@ function renderBoard() {
     const r = btn('mx-mrow' + (m.info ? ' rust' : ' live') + (_selected === m.id ? ' on' : ''), '', () => pick(m));
     const icon = (m.kind === 'x' || m.kind === 'quora') && m.info ? (m.q && m.q.status === 'done' ? '✓' : '⏱')
       : m.number ? String(m.number) : m.q ? String(Math.min(m.q.step, 7))
-      : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R', quora_pick: 'Q' }[m.kind] || '•');
+      : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R', quora_pick: 'Q', x_expired: '⌛' }[m.kind] || '•');
     const t = el('span', 'mx-mt');
     t.append(el('b', '', m.title), el('small', '', subtitle(m)));
     r.append(el('span', 'mx-mi' + (m.info ? ' info' : ''), icon), t);
@@ -1352,6 +1399,7 @@ function subtitle(m) {
     return `${(q.candidates || []).length} found · ${t.picked || 0} of ${t.limit || 0} picked today`;
   }
   if (m.kind === 'quora') return quoraSubtitle(m.q);
+  if (m.kind === 'x_expired') return 'Not offered any more · offer again or decline · your call';
   if (m.kind === 'x') {
     const step = xStep(m.item);
     if (step === 3) return `Step 3 of 4 · posted ${when(m.item.decided_at)} · X link missing`;
