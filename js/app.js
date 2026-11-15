@@ -2,13 +2,13 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas56';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas57';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
   showThread, inBrainstorm,
-} from './cas-threads.js?v=cas56'; // versioned with app.js, so a phone never mixes an old file with a new one
+} from './cas-threads.js?v=cas57'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -452,7 +452,7 @@ async function initCasScene() {
   // and the first line marks anything else as a question, so a stray button press cannot start a code change.
   initCasProjects(document.getElementById('cas-card-body'), API_BASE, getDeviceToken, async text => {
     const item = await sendMessage(text, [], { threadId: null, header: '@sonnet ask' });
-    setCasActivity(item.status);
+    setCasActivity(item.status, item.id);
     if (currentKey() === 'main') {
       addOrUpdateCasExchange(item);
       scrollCasMessages();
@@ -466,7 +466,7 @@ async function initCasScene() {
     apiBase: API_BASE, getToken: getDeviceToken,
     send: async text => {
       const item = await sendMessage(text, [], { threadId: null, header: '@sonnet ask' });
-      setCasActivity(item.status);
+      setCasActivity(item.status, item.id);
       if (currentKey() === 'main') { addOrUpdateCasExchange(item); scrollCasMessages(); }
     },
     openThread: async id => { switchTab('cas'); await showThread(id); },
@@ -525,7 +525,7 @@ async function initCasScene() {
         attachments=[];showAttachment();
         textarea.value = '';
         textarea.style.height = '';
-        setCasActivity(item.status);
+        setCasActivity(item.status, item.id);
         touch(route.key, text);
         addOrUpdateCasExchange(item);
         scrollCasMessages();
@@ -697,10 +697,21 @@ function noteMainSeen(items) {
   try { localStorage.setItem(MAIN_SEEN_KEY, String(newest)); } catch {}
 }
 
+// Cas may be working in a thread that is not open, or since before the app was opened.
+// The newest messages across every thread say so; each unfinished one is then followed to the end.
+async function sweepCasJobs() {
+  try {
+    const items = await loadHistory(20);
+    items.forEach(item => setCasActivity(['queued', 'running'].includes(item.status) ? item.status : 'seen', item.id));
+    resumePendingPolling(items);
+  } catch { /* the next refresh tries again */ }
+}
+
 function startCasNoticeRefresh() {
   if (casNoticeRefresh) return;
   casNoticeRefresh = async () => {
     if (document.hidden) return;
+    sweepCasJobs();
     try {
       const items = await loadHistory(20, 'main');
       if (currentKey() !== 'main') {
@@ -718,6 +729,7 @@ function startCasNoticeRefresh() {
   };
   setInterval(casNoticeRefresh, 60000);
   document.addEventListener('visibilitychange', casNoticeRefresh);
+  sweepCasJobs();
 }
 
 const inView = item => (item.thread_id || 'main') === currentKey();
@@ -736,7 +748,8 @@ function renderCasHistory(items, emptyText = 'Your conversation with Cas will ap
     el.id = 'cas-msg-' + item.id;
     container.append(el);
   });
-  setCasActivity(items.find(item=>['running','queued'].includes(item.status))?.status || 'completed');
+  items.forEach(item => setCasActivity(item.status, item.id));
+  setCasActivity('completed');
   scrollCasMessages();
 }
 
@@ -756,7 +769,7 @@ function addOrUpdateCasExchange(item) {
 }
 
 function onCasMessageUpdate(item) {
-  setCasActivity(item.status);
+  setCasActivity(item.status, item.id);
   const finished = item.status === 'completed' || item.status === 'failed';
   if (item.thread_id && finished) touch(item.thread_id, item.reply || item.error || '', { reply: true });
   // A reply for a thread that is not open waits there; the lamp on the thread name shows it.

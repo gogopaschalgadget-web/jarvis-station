@@ -1,15 +1,25 @@
-let ready=false, state='completed', projectWork='', frame=0, tick=0, blinkUntil=0;
+let ready=false, last='completed', projectWork='', frame=0, tick=0, blinkUntil=0;
+// Every unfinished message, in any thread, by id. One message finishing or a thread switch
+// must not hide work that is still going on elsewhere.
+const jobs=new Map();
 const CHAT_WORDS={running:'Responding',queued:'Waiting for worker',failed:'Reply needs attention'};
-function isWorking(){return state==='running'||!!projectWork;}
+function chatState(){const all=[...jobs.values()];return all.includes('running')?'running':all.includes('queued')?'queued':last;}
+function isWorking(){return chatState()==='running'||!!projectWork;}
 function showCaption(){
  const el=document.getElementById('cas-activity');
  if(!el)return;
+ const state=chatState();
  const chatBusy=state==='running'||state==='queued';
  el.textContent=chatBusy?CHAT_WORDS[state]:projectWork||CHAT_WORDS[state]||'Ready';
  // While Cas works she is shown at the console; otherwise the rotating scenes show.
  document.getElementById('cas-visual')?.classList.toggle('working',isWorking());
 }
-export function setCasActivity(value){state=value;showCaption();}
+/** Status of one message. Without an id it only sets the finished word (Ready or needs attention). */
+export function setCasActivity(value,id){
+ if(id&&(value==='running'||value==='queued'))jobs.set(id,value);
+ else{if(id)jobs.delete(id);if(value==='completed'||value==='failed')last=value;}
+ showCaption();
+}
 /** A chat reply and a project are separate work: the picture shows Cas working during either. */
 export function setCasProjectWork(label){projectWork=label||'';showCaption();}
 export function initCasAnimation(){
