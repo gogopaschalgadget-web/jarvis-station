@@ -9,7 +9,7 @@ const ASK_POLL_MS = 4_000;
 const ASK_WAIT_MS = 15 * 60_000;
 const GOAL = 8000;
 const FACE = 'assets/cas/face.jpg';
-const SOURCES = [['projects', 'Projects'], ['loops', 'Loops'], ['review', 'Review'], ['x', 'X posts']];
+const SOURCES = [['projects', 'Projects'], ['loops', 'Loops'], ['review', 'Review'], ['x', 'X posts'], ['quora', 'Quora']];
 const KEY_THREADS = 'mx-threads';
 const KEY_UI = 'mx-ui';
 const DONE_EVENTS = new Set(['mission_done', 'project_answered', 'loop_approved', 'loop_answered', 'loop_standing', 'loop_changed', 'loop_stopped']);
@@ -144,8 +144,9 @@ function missions(source) {
   const server = ((_status && _status.missions) || []).filter(m => !source || m.source === source);
   if (source === 'x') return xMissions();
   if (source === 'review') return reviewMissions();
+  if (source === 'quora') return quoraMissions();
   if (source === 'loops') return [...server, ...loopRows()];
-  if (!source) return [...server, ...reviewMissions(), ...xMissions()];
+  if (!source) return [...server, ...reviewMissions(), ...xMissions(), ...quoraMissions()];
   return server;
 }
 
@@ -235,6 +236,11 @@ function summaryText(mission) {
   if (mission.item && mission.item.text) lines.push(mission.item.text);
   if (mission.item && mission.item.content) lines.push(mission.item.content);
   if (mission.loop && mission.info) lines.push(mission.loop.headline);
+  if (mission.q) {
+    lines.push(`Quora question: ${mission.q.question.url}`, `Step ${Math.min(mission.q.step, 7)} of 7 (${mission.q.status})`);
+    const text = mission.q.final || (mission.q.sharpened && mission.q.sharpened.text) || mission.q.answer;
+    if (text) lines.push('Answer so far:', text);
+  }
   return lines.join('\n');
 }
 
@@ -589,6 +595,493 @@ function cardX(mission) {
   return card;
 }
 
+// ---- Quora missions: 7 steps, done only when every one is recorded ----------------------------------
+// The PC keeps the records; every tap here is a signed command. Nothing on this phone posts to Quora.
+const Q_STEPS = [['Pick a question', 'YOU'], ['Answer it', 'YOU'], ['Sharpen', 'CAS → YOU'], ['Compliance check', 'CAS'],
+  ['Post it on Quora', 'YOU'], ['Answer link', 'AUTO'], ['First numbers', 'CLAUDE']];
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const Q_WAIT_MS = 3 * 60_000;
+let _qSubject = '';   // the subject chip chosen on the Pick card ('' means all)
+let _sheet = null;    // the + Subject form while it is open
+
+function quora() { return (_status && _status.quora) || null; }
+
+/** The same 12 characters the PC checks: Chris's Post tap covers exactly the text on his screen. */
+export async function textFingerprint(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text)));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+}
+
+function quoraMissions() {
+  const q = quora();
+  if (!q) return [];
+  const t = q.today || {};
+  const left = Math.max(0, (t.limit || 0) - (t.picked || 0));
+  const out = [{ id: 'quora-pick', kind: 'quora_pick', source: 'quora', title: 'Pick a question to answer', info: !(left && (q.candidates || []).length) }];
+  for (const m of q.missions || []) {
+    if (!m || !m.question) continue;
+    out.push({ id: 'quora-' + m.id, kind: 'quora', source: 'quora', title: m.question.title, q: m, info: !m.on_chris, created: m.created });
+  }
+  return out;
+}
+
+function subjectName(id) {
+  const s = ((quora() || {}).subjects || []).find(x => x.id === id);
+  return s ? s.name : 'Your own link';
+}
+
+/** A Quora tap: signed like every command. The card waits for the PC to move the mission on. */
+async function qsend(mission, text, said) {
+  const state = mission ? local(mission.id) : {};
+  state.busy = true; render();
+  try {
+    await keepDraft(() => _o.send(text));
+    if (mission && mission.q) state.pending = { status: mission.q.status, at: Date.now() };
+    toast(said || 'Sent. Cas updates the card in a moment.');
+    [3000, 9000, 20000].forEach(ms => setTimeout(refresh, ms));
+    state.busy = false; render();
+    return true;
+  } catch {
+    toast('Not sent. Check the connection and try again.');
+    state.busy = false; render();
+    return false;
+  }
+}
+
+function waitingOnPc(mission) {
+  const state = local(mission.id);
+  const p = state.pending;
+  if (!p) return false;
+  if (p.status !== mission.q.status || Date.now() - p.at > Q_WAIT_MS) { state.pending = null; return false; }
+  return true;
+}
+
+function link(cls, text, href) {
+  const a = el('a', cls, text);
+  a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
+  return a;
+}
+
+function chip(text, on, onClick, cls = '') {
+  const c = btn('mx-chip' + (on ? ' on' : '') + (cls ? ' ' + cls : ''), text, onClick);
+  c.setAttribute('aria-pressed', String(!!on));
+  return c;
+}
+
+function cardQuoraPick(mission) {
+  const q = quora();
+  const t = q.today || {};
+  const left = Math.max(0, (t.limit || 0) - (t.picked || 0));
+  const card = el('div', 'mx-card');
+  card.append(head('QUORA · PICK', `${t.picked || 0} OF ${t.limit || 0} TODAY`));
+  const subjects = q.subjects || [];
+  if (_qSubject && !subjects.some(s => s.id === _qSubject)) _qSubject = '';
+
+  const chips = el('div', 'mx-chips');
+  chips.append(chip('All', !_qSubject, () => { _qSubject = ''; render(); }));
+  subjects.forEach(s => {
+    const c = chip(s.name, _qSubject === s.id, () => { _qSubject = s.id; render(); }, s.on ? '' : 'off');
+    if (!s.on) c.append(el('small', '', ' off'));
+    chips.append(c);
+  });
+  chips.append(chip('+ Subject', false, () => openSheet(null), 'add'));
+  card.append(chips);
+  const chosen = subjects.find(s => s.id === _qSubject);
+  if (chosen) {
+    const r = el('div', 'mx-subjline');
+    r.append(el('span', '', `${chosen.words.join(', ')} · ${repeatText(chosen.repeat)} · ${chosen.per_day} a day${chosen.on ? '' : ' · OFF'}`),
+      btn('mx-mini', 'Edit subject', () => openSheet(chosen)));
+    card.append(r);
+  }
+
+  if (!left) card.append(el('div', 'mx-note', `That is today's pace (${t.limit} a day). More open up tomorrow.`));
+  const found = (q.candidates || []).filter(c => !_qSubject || c.subject === _qSubject);
+  if (!found.length) {
+    card.append(el('div', 'mx-note', subjects.length ? 'No questions waiting here. Ask Cas to find more, or paste one you found.'
+      : 'Add a subject first: what kind of questions Cas should look for each morning.'));
+  }
+  found.slice(0, 8).forEach(c => {
+    const row = el('div', 'mx-qcand');
+    const words = el('span');
+    words.append(el('b', '', c.title), el('small', '', subjectName(c.subject) + (c.why ? ' · ' + c.why : '')));
+    words.append(link('mx-qread', 'Read it on Quora ›', c.url));
+    const acts = el('span', 'mx-qacts');
+    const pick = btn('mx-mini hot', 'Pick', () => qsend(null, `quora pick ${c.id}`, 'Picked. Its mission opens on the board in a moment.'));
+    pick.disabled = !left;
+    acts.append(pick, btn('mx-mini', 'Skip', () => qsend(null, `quora skip ${c.id}`, 'Skipped.')));
+    row.append(words, acts);
+    card.append(row);
+  });
+
+  const finding = (q.settings || {}).finding || [];
+  if (finding.length) card.append(el('div', 'mx-note', 'Cas is searching Quora for more: ' + finding.map(subjectName).join(', ') + '.'));
+  const b = el('div', 'mx-btns');
+  b.append(btn('mx-btn red', 'Find 8 more', () => {
+    if (!chosen) { toast('Pick a subject chip first.'); return; }
+    qsend(null, `quora find ${chosen.id}`, `Looking for more ${chosen.name} questions.`);
+  }));
+  const words = chosen ? chosen.words.join(' ') : 'home repair DIY';
+  b.append(link('mx-btn brass', 'Open Quora', chosen && chosen.topic_url ? chosen.topic_url : 'https://www.quora.com/search?q=' + encodeURIComponent(words)));
+  card.append(b);
+
+  const state = local(mission.id);
+  const row = el('div', 'mx-linkrow');
+  const input = el('input');
+  input.type = 'url'; input.inputMode = 'url'; input.placeholder = 'Or paste a question you found';
+  input.value = state.link || '';
+  input.addEventListener('input', () => { state.link = input.value; });
+  row.append(input, btn('mx-btn brass', 'Start', async () => {
+    const url = (state.link || '').trim();
+    if (!/^https:\/\/(www\.)?quora\.com\/[A-Za-z0-9]/.test(url)) { toast('Paste a Quora question link.'); return; }
+    if (!left) { toast('That is today\'s pace already.'); return; }
+    if (await qsend(null, `quora paste ${url}`, 'Started from your link.')) { state.link = ''; render(); }
+  }));
+  card.append(row);
+  return card;
+}
+
+function repeatText(r) {
+  r = r || {};
+  if (r.kind === 'weekdays') return 'weekdays';
+  if (r.kind === 'days') return (r.days || []).map(d => DAYS[d]).join(' ');
+  if (r.kind === 'yearly') return `each year ${r.from} to ${r.to}`;
+  return 'every day';
+}
+
+/** Sharpened text with Cas's additions marked; an addition without a published source is marked red. */
+function marked(text, adds) {
+  const box = el('div', 'mx-text');
+  let rest = String(text || '');
+  const list = (adds || []).filter(a => a && a.text && rest.includes(a.text));
+  while (rest) {
+    let first = null;
+    for (const a of list) { const i = rest.indexOf(a.text); if (i >= 0 && (!first || i < first.i)) first = { i, a }; }
+    if (!first) { box.append(document.createTextNode(rest)); break; }
+    if (first.i) box.append(document.createTextNode(rest.slice(0, first.i)));
+    box.append(el('mark', first.a.sourced ? '' : 'bad', first.a.text));
+    rest = rest.slice(first.i + first.a.text.length);
+  }
+  return box;
+}
+
+function words(text) { return String(text || '').trim().split(/\s+/).filter(Boolean).length; }
+
+function answerBox(mission, prefill) {
+  const state = local(mission.id);
+  const box = el('div', 'mx-answer');
+  const area = el('textarea');
+  area.placeholder = 'Your answer, in your own words. Tap the microphone on the keyboard to talk instead of typing.';
+  area.value = state.words ?? prefill ?? '';
+  const count = el('small', '', words(area.value) + ' words');
+  area.addEventListener('input', () => { state.words = area.value; count.textContent = words(area.value) + ' words'; });
+  const send = btn('mx-btn red', 'Send to Cas to sharpen', () => {
+    const text = (state.words ?? prefill ?? '').trim();
+    if (words(text) < 15) { toast('Add a few more sentences first.'); return; }
+    if (text.length > 4000) { toast('Keep it under 4,000 characters.'); return; }
+    qsend(mission, `quora answer ${mission.q.id}: ${text}`, 'Sent. Cas is sharpening it.').then(ok => { if (ok) { state.words = undefined; state.rewrite = false; render(); } });
+  });
+  box.append(area, count, send);
+  return box;
+}
+
+function qWhen(seconds) { return seconds ? when(new Date(seconds * 1000).toISOString()) : ''; }
+
+function cardQuora(mission) {
+  const m = mission.q;
+  const state = local(mission.id);
+  const card = el('div', 'mx-card');
+  card.append(head('QUORA · ' + String(m.id || '').toUpperCase(), m.status === 'done' ? 'ALL 7 STEPS RECORDED' : `STEP ${Math.min(m.step, 7)} OF 7`));
+  const qline = el('p', 'mx-qtitle');
+  qline.append(el('b', '', m.question.title), document.createTextNode(' '), link('mx-qread', 'Open the question ›', m.question.url));
+  card.append(qline);
+  if (m.subject) card.append(el('div', 'mx-note', 'Subject: ' + subjectName(m.subject)));
+
+  const list = el('ol', 'mx-xsteps');
+  const at = m.status === 'done' ? 8 : m.step;
+  const notes = ['Picked ' + qWhen(m.created), m.answer ? 'In your words' : 'Type it, or tap the keyboard microphone',
+    m.kept ? (m.kept === 'mine' ? 'You kept your own words' : 'You kept the sharpened version') : m.status === 'sharpening' ? 'Cas is sharpening it now' : 'Facts you published, a clear next step, your credential',
+    m.compliance ? (GATE[m.compliance.result] || '') : 'Runs on the exact final text',
+    m.posted_at ? 'Posted ' + qWhen(m.posted_at) : 'You post it; nothing posts by itself',
+    m.answer_url ? (m.link_source === 'auto' ? 'Recorded automatically · ' : 'Saved · ') + m.answer_url.replace('https://www.', '') : 'Recorded automatically when you post',
+    m.numbers ? `${m.numbers.views} views · ${m.numbers.upvotes} upvotes` : 'Claude reads them in your Chrome at 4 AM or 4 PM'];
+  Q_STEPS.forEach(([label, who], i) => {
+    const n = i + 1;
+    const cls = n < at ? 'done' : n === at ? (m.status === 'fix' ? 'bad' : m.on_chris ? 'now' : 'wait') : '';
+    list.append(xStepRow(n, label, notes[i], who, cls));
+  });
+  card.append(list);
+  if (m.note) card.append(el('div', 'mx-note warn', m.note));
+
+  if (m.status === 'done') { card.append(el('div', 'mx-done', 'Mission done: link and first numbers are in.')); return card; }
+  if (waitingOnPc(mission)) { card.append(el('div', 'mx-note', 'Sent. Cas moves this card on in a moment.')); return card; }
+  const b = el('div', 'mx-btns');
+
+  if (m.status === 'answer' || state.rewrite) {
+    card.append(answerBox(mission, state.rewrite ? m.answer : ''));
+    if (state.rewrite) b.append(btn('mx-btn brass', 'Cancel', () => { state.rewrite = false; state.words = undefined; render(); }));
+    else b.append(btn('mx-btn brass', 'Drop this question', () => { if (confirm('Drop this question? It will not come back.')) qsend(mission, `quora drop ${m.id}`, 'Dropped.'); }));
+  } else if (m.status === 'sharpening' || m.status === 'checking') {
+    card.append(el('div', 'mx-note', m.status === 'sharpening' ? 'Cas is sharpening your answer. Both versions will be here.' : 'The compliance check is reading the final text.'));
+  } else if (m.status === 'keep') {
+    const sh = m.sharpened;
+    if (sh) {
+      card.append(el('div', 'mx-label', 'SHARPENED BY CAS · ADDITIONS MARKED'));
+      card.append(marked(sh.text, sh.additions));
+      if ((sh.additions || []).length) {
+        const src = el('div', 'mx-srcl');
+        src.append(el('b', '', 'WHERE EACH ADDITION COMES FROM'));
+        sh.additions.forEach(a => {
+          const line = el('span', a.sourced ? '' : 'bad');
+          line.append(el('mark', a.sourced ? '' : 'bad', a.sourced ? '✓' : '!'), document.createTextNode(' ' + a.text + ' · '),
+            el('i', '', a.sourced ? a.source : 'no source you published: keep your own words, or change it'));
+          src.append(line);
+        });
+        card.append(src);
+      }
+      card.append(el('div', 'mx-cred', 'Credential line: ' + ((quora().settings || {}).credential || '')));
+      b.append(btn('mx-btn red', 'Use sharpened', () => qsend(mission, `quora keep ${m.id} sharpened`, 'Kept. The compliance check runs now.')));
+    }
+    const mine = el('details', 'mx-mine');
+    mine.append(el('summary', '', 'Your own words'), el('div', 'mx-text', m.answer));
+    if (!sh) mine.open = true;
+    card.append(mine);
+    b.append(btn('mx-btn brass', 'Use mine', () => qsend(mission, `quora keep ${m.id} mine`, 'Kept your words. The compliance check runs now.')));
+    b.append(btn('mx-btn brass', 'Change my answer', () => { state.rewrite = true; render(); }));
+  } else if (m.status === 'fix') {
+    card.append(el('div', 'mx-text', m.final));
+    card.append(gateBox(m.compliance, false));
+    b.append(btn('mx-btn red', 'Change my answer', () => { state.rewrite = true; render(); }));
+    b.append(btn('mx-btn brass', 'Drop it', () => { if (confirm('Drop this question?')) qsend(mission, `quora drop ${m.id}`, 'Dropped.'); }));
+  } else if (m.status === 'post') {
+    card.append(el('div', 'mx-label', 'THE ANSWER YOU ARE AGREEING TO POST'));
+    card.append(el('div', 'mx-text mx-final', m.final));
+    card.append(gateBox(m.compliance, m.allowed));
+    if (!mayPublish(m.compliance, m.allowed)) {
+      if (m.compliance && m.compliance.result === 'ask') {
+        b.append(btn('mx-btn red', 'Allow it (your call)', () => { if (confirm('The check left this answer to you. Allow it?')) qsend(mission, `quora allow ${m.id}`, 'Allowed.'); }));
+      }
+      b.append(btn('mx-btn brass', 'Change my answer', () => { state.rewrite = true; render(); }));
+    } else if (state.opened) {
+      card.append(el('div', 'mx-note', 'Did it go out on Quora?'));
+      b.append(btn('mx-btn red', "Yes, it's posted", async () => {
+        const fp = await textFingerprint(m.final);
+        if (fp !== m.fp) { toast('This is not the checked version. Wait a moment, then check it again.'); refresh(); return; }
+        qsend(mission, `quora posted ${m.id} ${fp}`, 'Step 5 done. Its link records itself.');
+      }));
+      b.append(btn('mx-btn brass', 'Not yet', () => { state.opened = false; render(); }));
+    } else {
+      const a = link('mx-btn red', 'Copy and open Quora', m.question.url);
+      a.addEventListener('click', () => { copy(m.final, 'Answer copied. Paste it on Quora.'); setTimeout(() => { state.opened = true; render(); }, 300); });
+      b.append(a, btn('mx-btn brass', 'Change my answer', () => { state.rewrite = true; render(); }));
+    }
+  } else if (m.status === 'link') {
+    const settings = quora().settings || {};
+    card.append(el('div', 'mx-note', settings.profile ? 'The automatic link did not open your answer. Paste it once from Quora: on your answer tap Share, then Copy link.'
+      : 'Add your Quora profile name once and every answer link records itself. Or paste this one.'));
+    const row = el('div', 'mx-linkrow');
+    const input = el('input');
+    input.type = 'url'; input.inputMode = 'url'; input.placeholder = 'Paste your answer link';
+    input.value = state.link || '';
+    input.addEventListener('input', () => { state.link = input.value; });
+    row.append(input, btn('mx-btn brass', 'Save', () => { const u = (state.link || '').trim(); if (u) qsend(mission, `quora link ${m.id} ${u}`, 'Link sent.'); }));
+    card.append(row);
+    if (!settings.profile) {
+      const prow = el('div', 'mx-linkrow');
+      const p = el('input');
+      p.placeholder = 'Quora profile name, e.g. Chris-Smith-12';
+      p.value = state.profile || '';
+      p.addEventListener('input', () => { state.profile = p.value; });
+      prow.append(p, btn('mx-btn brass', 'Save name', () => {
+        const name = (state.profile || '').trim().replace(/^.*quora\.com\/profile\//, '').replace(/\/.*$/, '');
+        if (/^[A-Za-z0-9][A-Za-z0-9-]{2,80}$/.test(name)) qsend(mission, `quora profile ${name}`, 'Saved. Links record themselves now.');
+        else toast('It is the part after quora.com/profile/ in your profile link.');
+      }));
+      card.append(prow);
+    }
+  } else if (m.status === 'numbers') {
+    card.append(el('div', 'mx-note', 'Not done yet: it waits for its first numbers. Nothing for you to do unless Chrome reading is off.'));
+    if (m.answer_url) card.append(link('mx-qread', 'Open your answer ›', m.answer_url));
+    if (state.typing) {
+      const nums = el('div', 'mx-nums');
+      for (const [key, label] of [['views', 'Views'], ['upvotes', 'Upvotes']]) {
+        const f = el('label', '', label);
+        const input = el('input');
+        input.type = 'number'; input.min = '0'; input.inputMode = 'numeric'; input.value = state[key] ?? '';
+        input.addEventListener('input', () => { state[key] = input.value; });
+        f.append(input);
+        nums.append(f);
+      }
+      card.append(nums);
+      b.append(btn('mx-btn red', 'Save numbers', () => {
+        const v = Number(state.views), u = Number(state.upvotes);
+        if (state.views === '' || state.upvotes === '' || state.views == null || state.upvotes == null
+            || !Number.isInteger(v) || !Number.isInteger(u) || v < 0 || u < 0) { toast('Type both numbers, 0 or more.'); return; }
+        qsend(mission, `quora numbers ${m.id} ${v} ${u}`, 'All 7 steps recorded.');
+      }));
+    } else {
+      b.append(btn('mx-btn brass', 'Type them yourself', () => { state.typing = true; render(); }));
+    }
+  }
+  if (m.posted_at && m.status !== 'done') {
+    b.append(btn('mx-btn brass', 'Quora removed it', () => {
+      if (confirm('Did Quora remove this answer? Pace drops to 1 a day and links pause until you reset them.')) qsend(mission, `quora removed ${m.id}`, 'Noted. The brake is on.');
+    }));
+  }
+  if (b.childElementCount) card.append(b);
+  return card;
+}
+
+// ---- + Subject: every field the morning finder reads, saved without code -------------------------------
+function openSheet(subject) {
+  const s = subject || {};
+  _sheet = { id: s.id || '', name: s.name || '', words: (s.words || []).join(', '), leave_out: (s.leave_out || []).join(', '),
+    topic_url: s.topic_url || '', repeat: { kind: 'daily', days: [], from: '', to: '', ...(s.repeat || {}) }, per_day: s.per_day ?? 2,
+    support: { mode: 'cas', link: '', idea: '', options: [], ...(s.support || {}) }, sales: { url: '', ...(s.sales || {}) },
+    label: s.label || '', amazon_tag: s.amazon_tag || '', on: s.on !== false, editing: !!subject, labelTouched: !!subject };
+  drawSheet();
+}
+
+function closeSheet() { _sheet = null; document.getElementById('mx-sheet')?.remove(); }
+
+function field(label, input, hint) {
+  const f = el('label', 'mx-field');
+  f.append(el('b', '', label), input);
+  if (hint) f.append(el('small', '', hint));
+  return f;
+}
+
+function textInput(key, placeholder, obj) {
+  const target = obj || _sheet;
+  const input = el('input');
+  input.value = target[key] || '';
+  input.placeholder = placeholder;
+  input.addEventListener('input', () => { target[key] = input.value; });
+  return input;
+}
+
+function slugify(text) { return String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30); }
+
+function drawSheet() {
+  const old = document.getElementById('mx-sheet');
+  const scroll = old ? old.querySelector('.mx-sheet-in').scrollTop : 0;
+  old?.remove();
+  if (!_sheet) return;
+  const d = _sheet;
+  const wrap = el('div', 'mx-sheet');
+  wrap.id = 'mx-sheet';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-label', d.editing ? 'Edit subject' : 'Add a subject');
+  const panel = el('div', 'mx-sheet-in');
+  const top = el('div', 'mx-sheet-top');
+  top.append(el('b', '', d.editing ? 'Edit subject' : '+ Subject'), btn('mx-mini', 'Close', closeSheet));
+  panel.append(top);
+
+  panel.append(el('h5', '', 'WHAT TO FIND'));
+  const labelBox = textInput('label', 'water-heaters');
+  const name = textInput('name', 'e.g. Water heaters');
+  name.addEventListener('input', () => { if (!d.labelTouched) { d.label = slugify(d.name); labelBox.value = d.label; } });
+  panel.append(field('Name', name));
+  panel.append(field('Search words', textInput('words', 'water heater, pilot light, tank flush'), 'Separate with commas.'));
+  panel.append(field('Leave out', textInput('leave_out', 'tankless, commercial'), 'Questions with these words are skipped.'));
+  panel.append(field('Quora topic link', textInput('topic_url', 'https://www.quora.com/topic/Plumbing'), 'Optional. Cas starts its search there.'));
+
+  panel.append(el('h5', '', 'WHEN'));
+  const kind = el('select');
+  [['daily', 'Every day'], ['weekdays', 'Weekdays'], ['days', 'Certain days'], ['yearly', 'Each year between dates']].forEach(([v, t]) => {
+    const o = el('option', '', t); o.value = v; o.selected = d.repeat.kind === v; kind.append(o);
+  });
+  kind.addEventListener('change', () => { d.repeat.kind = kind.value; drawSheet(); });
+  panel.append(field('Repeat', kind));
+  if (d.repeat.kind === 'days') {
+    const days = el('div', 'mx-chips');
+    DAYS.forEach((label, i) => days.append(chip(label, d.repeat.days.includes(i), () => {
+      d.repeat.days = d.repeat.days.includes(i) ? d.repeat.days.filter(x => x !== i) : [...d.repeat.days, i].sort();
+      drawSheet();
+    })));
+    panel.append(days);
+  }
+  if (d.repeat.kind === 'yearly') {
+    const two = el('div', 'mx-two');
+    two.append(field('From (month-day)', textInput('from', '11-01', d.repeat)), field('To', textInput('to', '12-24', d.repeat)));
+    panel.append(two);
+  }
+  const qty = el('input');
+  qty.type = 'number'; qty.min = '0'; qty.max = '5'; qty.inputMode = 'numeric'; qty.value = String(d.per_day);
+  qty.addEventListener('input', () => { d.per_day = qty.value; });
+  panel.append(field('Questions a day', qty, 'Up to 5. Your overall pace still applies.'));
+
+  panel.append(el('h5', '', 'SUPPORTING PAGE'));
+  const modes = el('div', 'mx-chips');
+  [['cas', 'Cas ideas'], ['own', 'My own link'], ['idea', 'My idea'], ['none', 'None']].forEach(([v, t]) =>
+    modes.append(chip(t, d.support.mode === v, () => { d.support.mode = v; drawSheet(); })));
+  panel.append(modes);
+  if (d.support.mode === 'cas') {
+    const opts = d.support.options || [];
+    opts.forEach(o => {
+      const r = el('div', 'mx-opt');
+      r.append(el('i', '', '•'));
+      const t = el('span'); t.append(el('b', '', o.title), el('small', '', o.why || '')); r.append(t);
+      panel.append(r);
+    });
+    if (!opts.length) panel.append(el('div', 'mx-note', d.editing ? 'No ideas yet.' : 'Save the subject first, then ask for ideas.'));
+    if (d.editing) panel.append(btn('mx-mini', opts.length ? 'New ideas' : 'Get 3 ideas', () => qsend(null, `quora support ideas ${d.id}`, 'Cas is thinking up 3 ideas.')));
+  } else if (d.support.mode === 'own') {
+    panel.append(field('Page link', textInput('link', 'https://tradesprotools.com/blog/...', d.support), 'A page on tradesprotools.com.'));
+  } else if (d.support.mode === 'idea') {
+    const idea = el('textarea');
+    idea.value = d.support.idea || ''; idea.placeholder = 'What the page should cover';
+    idea.addEventListener('input', () => { d.support.idea = idea.value; });
+    panel.append(field('My idea', idea, 'Cas drafts it for the TradesPro Guide; it goes live only with your yes.'));
+  }
+
+  panel.append(el('h5', '', 'SALES PAGE'));
+  panel.append(field('Your store page', textInput('url', 'https://store.tradesprotools.com/l/...', d.sales), 'Where the supporting page leads. Never linked from Quora itself.'));
+  panel.append(btn('mx-mini', '+ New sales page from my idea', () => {
+    const idea = prompt('Your idea for a new sales page:');
+    if (idea && idea.trim()) qsend(null, `loop start: New sales page for ${d.name || 'a Quora subject'}: ${idea.trim().slice(0, 500)}`, 'Cas drafts a loop card for it in Missions, under Loops.');
+  }));
+
+  panel.append(el('h5', '', 'TRACKING · WHICH SUBJECTS PAY'));
+  panel.append(el('div', 'mx-note', 'The link label goes on links from your supporting page, so page visits, store clicks and sales can be counted per subject.'));
+  labelBox.addEventListener('input', () => { d.labelTouched = true; });
+  panel.append(field('Link label', labelBox, 'Made from the name. Change it if you like.'));
+  panel.append(field('Amazon tracking ID', textInput('amazon_tag', 'optional'), 'The same idea inside your Associates report.'));
+  const amz = btn('mx-mini', 'Set it up on Amazon ›', () => {});
+  amz.disabled = true;
+  panel.append(amz, el('small', 'mx-hint2', ' Turns on once your new Associates account is approved.'));
+
+  panel.append(el('h5', '', 'SUBJECT'));
+  panel.append(chip(d.on ? 'On' : 'Off', d.on, () => { d.on = !d.on; drawSheet(); }, 'switch'),
+    el('small', 'mx-hint2', ' Off pauses it, whatever Repeat says, until you turn it back on.'));
+
+  panel.append(el('div', 'mx-who-reads', 'Who reads this: Cas, each morning after 6 AM, to find questions for this subject. Nothing here posts anything.'));
+  const foot = el('div', 'mx-btns');
+  foot.append(btn('mx-btn red', 'Save subject', async () => {
+    const payload = { name: d.name.trim(), words: d.words.split(',').map(w => w.trim()).filter(Boolean),
+      leave_out: d.leave_out.split(',').map(w => w.trim()).filter(Boolean), topic_url: d.topic_url.trim(),
+      repeat: { kind: d.repeat.kind, days: d.repeat.days, from: (d.repeat.from || '').trim(), to: (d.repeat.to || '').trim() },
+      per_day: Math.max(0, Math.min(5, parseInt(d.per_day, 10) || 0)),
+      support: { mode: d.support.mode, link: (d.support.link || '').trim(), idea: (d.support.idea || '').trim() },
+      sales: { url: (d.sales.url || '').trim() }, label: (d.label || '').trim(), amazon_tag: (d.amazon_tag || '').trim(), on: d.on };
+    if (d.id) payload.id = d.id;
+    if (payload.name.length < 2) { toast('Give the subject a name.'); return; }
+    if (!payload.words.length) { toast('Add at least one search word.'); return; }
+    const text = 'quora subject save ' + JSON.stringify(payload);
+    if (text.length > 5800) { toast('That is too long. Shorten the idea or the words.'); return; }
+    if (await qsend(null, text, 'Saved. Cas confirms in a moment.')) closeSheet();
+  }));
+  if (d.editing) {
+    foot.append(btn('mx-btn brass', d.on ? 'Pause subject' : 'Turn it on',
+      () => qsend(null, `quora subject ${d.on ? 'off' : 'on'} ${d.id}`, d.on ? 'Paused.' : 'On.').then(ok => { if (ok) closeSheet(); })));
+  }
+  panel.append(foot);
+  wrap.append(panel);
+  wrap.addEventListener('click', e => { if (e.target === wrap) closeSheet(); });
+  document.body.append(wrap); // above the bottom bar, which sits over the Missions panel
+  panel.scrollTop = scroll;
+}
+
 function cardReview(mission) {
   const card = el('div', 'mx-card');
   card.append(head('REVIEW · CONTENT ENGINE', `${mission.count} WAITING`));
@@ -600,7 +1093,7 @@ function cardReview(mission) {
 }
 
 const CARDS = { loop_card: cardLoop, ask: cardAsk, change: cardAsk, go_live: cardAsk, push: cardPush, publish: cardPublish, standing: cardStanding,
-  loop: cardLoopInfo, x: cardX, review: cardReview };
+  loop: cardLoopInfo, x: cardX, review: cardReview, quora_pick: cardQuoraPick, quora: cardQuora };
 
 function askRow(mission) {
   const r = el('div', 'mx-askrow');
@@ -754,8 +1247,13 @@ export function missionLogRecent() { return (((_status && _status.log) || {}).re
 function renderWork() {
   const work = document.getElementById('mx-work');
   if (!work) return;
-  if (work.contains(document.activeElement) && document.activeElement.tagName === 'TEXTAREA') return; // do not wipe what is being typed
+  if (work.contains(document.activeElement) && ['TEXTAREA', 'INPUT', 'SELECT'].includes(document.activeElement.tagName)) return; // do not wipe what is being typed
   work.textContent = '';
+  if (_dashOpen && _boardOpen) {
+    const gap = btn('mx-gapzone', '', () => { _dashOpen = false; _boardOpen = false; saveUi(); render(); });
+    gap.append(el('b', '', 'Tap here to fold both'), el('small', '', 'The summary and the board never cover the work.'));
+    work.append(gap);
+  }
   const mission = _selected ? find(_selected) : null;
   if (!mission) {
     if (_selected && local(_selected).sent) {
@@ -800,12 +1298,22 @@ function renderBoard() {
   });
   const list = el('div', 'mx-list');
   const rows = missions(_tab);
+  if (rows.length) {
+    const legend = el('div', 'mx-legend');
+    const q = _tab === 'quora' && quora();
+    legend.append(el('span', 'brass', 'Brass: on you or working'), el('span', 'rust', 'Rust: waiting or idle'));
+    if (q) legend.append(el('em', '', `${(q.today || {}).posted || 0} posted today · pace ${(q.today || {}).limit || 0} a day`));
+    list.append(legend);
+  }
+  if (_tab === 'quora' && !quora()) list.append(el('div', 'mx-hint', 'Quora missions appear once the PC reports them.'));
   if (_tab === 'x' && _x.loading) list.append(el('div', 'mx-hint', 'Loading X posts...'));
   else if (_tab === 'x' && _x.error) list.append(el('div', 'mx-hint', 'Could not load X posts. Tap X posts to try again.'));
   else if (!rows.length) list.append(el('div', 'mx-hint', _tab === 'loops' ? 'No loops yet. Tap Start loop on an idea in a Brainstorm thread.' : 'Nothing waiting here.'));
   rows.forEach(m => {
-    const r = btn('mx-mrow' + (_selected === m.id ? ' on' : ''), '', () => pick(m));
-    const icon = m.kind === 'x' && m.info ? '⏱' : m.number ? String(m.number) : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R' }[m.kind] || '•');
+    const r = btn('mx-mrow' + (m.info ? ' rust' : ' live') + (_selected === m.id ? ' on' : ''), '', () => pick(m));
+    const icon = (m.kind === 'x' || m.kind === 'quora') && m.info ? (m.q && m.q.status === 'done' ? '✓' : '⏱')
+      : m.number ? String(m.number) : m.q ? String(Math.min(m.q.step, 7))
+      : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R', quora_pick: 'Q' }[m.kind] || '•');
     const t = el('span', 'mx-mt');
     t.append(el('b', '', m.title), el('small', '', subtitle(m)));
     r.append(el('span', 'mx-mi' + (m.info ? ' info' : ''), icon), t);
@@ -823,6 +1331,12 @@ function subtitle(m) {
   if (m.kind === 'loop_card') return 'Loop card to approve';
   if (m.kind === 'ask' || m.kind === 'change' || m.kind === 'go_live') return `Question ${m.number}` + (m.created ? ` · ${ago(m.created)} ago` : '');
   if (m.kind === 'push') return 'Push for review';
+  if (m.kind === 'quora_pick') {
+    const q = quora() || {};
+    const t = q.today || {};
+    return `${(q.candidates || []).length} found · ${t.picked || 0} of ${t.limit || 0} picked today`;
+  }
+  if (m.kind === 'quora') return quoraSubtitle(m.q);
   if (m.kind === 'x') {
     const step = xStep(m.item);
     if (step === 3) return `Step 3 of 4 · posted ${when(m.item.decided_at)} · X link missing`;
@@ -831,6 +1345,13 @@ function subtitle(m) {
     return 'Step 2 of 4 · ready to post';
   }
   return '';
+}
+
+function quoraSubtitle(q) {
+  return ({ answer: 'Step 2 of 7 · your answer', sharpening: 'Step 3 of 7 · Cas is sharpening it', keep: 'Step 3 of 7 · pick a version',
+    checking: 'Step 4 of 7 · the check is running', fix: 'Step 4 of 7 · needs a change', post: 'Step 5 of 7 · ready to post',
+    link: 'Step 6 of 7 · paste its link once', numbers: 'Waiting · Claude reads it at 4 AM or 4 PM · not on you',
+    done: q.numbers ? `Done · ${q.numbers.views} views · ${q.numbers.upvotes} upvotes` : 'Done' })[q.status] || '';
 }
 
 function pick(mission) {
