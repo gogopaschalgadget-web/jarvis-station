@@ -127,9 +127,11 @@ function xMissions() {
     out.push({ id: xId(post.review_id), kind: 'x', source: 'x', title: item.content.split('\n')[0].slice(0, 120), item, info: step === 4 });
   }
   const expired = _status && _status.x_expired;
-  if (expired && expired.count > 0) {
-    out.push({ id: 'x-expired', kind: 'x_expired', source: 'x', expired,
-      title: `${expired.count} X post${expired.count === 1 ? '' : 's'} expired: waited over ${expired.window_days} days` });
+  if (expired && (expired.count > 0 || expired.full_count > 0)) {
+    const parts = [];
+    if (expired.count) parts.push(`${expired.count} expired`);
+    if (expired.full_count) parts.push(`${expired.full_count} waiting for room`);
+    out.push({ id: 'x-expired', kind: 'x_expired', source: 'x', expired, title: `X posts not offered: ${parts.join(', ')}` });
   }
   return out;
 }
@@ -1110,15 +1112,25 @@ function drawSheet() {
 function cardXExpired(mission) {
   const data = mission.expired;
   const card = el('div', 'mx-card');
-  card.append(head('X POSTS · EXPIRED', `${data.count} PAST ${data.window_days} DAYS`));
-  card.append(el('p', '', `These waited more than ${data.window_days} days, so the Station stopped offering them. ` +
+  card.append(head('X POSTS · NOT OFFERED', `${data.count + (data.full_count || 0)} IN ALL`));
+  card.append(el('p', '', `Expired posts waited more than ${data.window_days} days, so the Station stopped offering them. ` +
     'Nothing is posted or offered again unless you tap.'));
-  if (data.count > data.posts.length) card.append(el('div', 'mx-note', `Showing the newest ${data.posts.length} of ${data.count}.`));
+  if (data.full_count) {
+    card.append(el('div', 'mx-note', `${data.full_count} more ${data.full_count === 1 ? 'is' : 'are'} still fresh but ${data.full_count === 1 ? 'waits' : 'wait'} ` +
+      `for room: the Station offers at most ${data.max_offered} at a time. Post or decline some on the X posts list to make room.`));
+  }
+  const total = data.count + (data.full_count || 0);
+  if (total > data.posts.length) card.append(el('div', 'mx-note', `Showing ${data.posts.length} of ${total}.`));
   data.posts.forEach(post => {
-    const state = local('x-exp-' + post.review_id);
+    // one state per post and per round, so a post that was offered again and expired again gets fresh buttons
+    const state = local(`x-exp-${post.review_id}-${post.offered_again ? 'again' : 'first'}`);
+    // the PC's answer arrives in the main chat; until this list changes the row says it was sent, then the buttons return
+    if (state.sentAt && Date.now() - state.sentAt > 60_000) { state.sent = ''; state.sentAt = 0; state.retry = true; }
     const row = el('div', 'mx-xexp');
     row.append(el('div', 'mx-text', post.content));
-    row.append(el('small', '', `Made ${post.age_days} days ago${post.product ? ' · ' + post.product : ''}${post.offered_again ? ' · offered again before' : ''}`));
+    const why = post.reason === 'full' ? 'Fresh, waiting for room' : `Made ${post.age_days} days ago`;
+    row.append(el('small', '', `${why}${post.product ? ' · ' + post.product : ''}${post.offered_again ? ' · offered again before' : ''}`));
+    if (state.retry) row.append(el('div', 'mx-note', 'Not changed yet. The reply is in the main Cas chat; you can tap again.'));
     if (state.sent) {
       row.append(el('div', 'mx-done', state.sent));
     } else {
@@ -1127,16 +1139,21 @@ function cardXExpired(mission) {
         state.busy = true; render();
         try {
           await keepDraft(() => _o.send(`x expired ${action} ${post.review_id}`));
-          state.sent = done;
+          state.sent = done; state.sentAt = Date.now(); state.retry = false;
+          setTimeout(render, 61_000);
           [3000, 9000].forEach(ms => setTimeout(refresh, ms));
           if (action === 'offer') setTimeout(loadX, 9000);
         } catch { toast('Not sent. Check the connection and try again.'); }
         state.busy = false; render();
       };
-      const again = btn('mx-btn red', 'Offer again', () => choose('offer', `Offered again for ${data.window_days} days. It shows in the list above in a few minutes.`));
-      const no = btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) choose('decline', 'Declined.'); });
-      again.disabled = no.disabled = !!state.busy;
-      b.append(again, no, btn('mx-btn brass', 'Copy', () => copy(post.content, 'Text copied')));
+      const no = btn('mx-btn brass', 'Decline', () => { if (confirm('Decline this post? It will not be offered again.')) choose('decline', 'Sent: decline. Cas confirms in a moment.'); });
+      no.disabled = !!state.busy;
+      if (post.reason !== 'full') {
+        const again = btn('mx-btn red', 'Offer again', () => choose('offer', `Sent: offer again for ${data.window_days} days. Cas confirms in a moment.`));
+        again.disabled = !!state.busy;
+        b.append(again);
+      }
+      b.append(no, btn('mx-btn brass', 'Copy', () => copy(post.content, 'Text copied')));
       row.append(b);
     }
     card.append(row);
@@ -1399,7 +1416,7 @@ function subtitle(m) {
     return `${(q.candidates || []).length} found · ${t.picked || 0} of ${t.limit || 0} picked today`;
   }
   if (m.kind === 'quora') return quoraSubtitle(m.q);
-  if (m.kind === 'x_expired') return 'Not offered any more · offer again or decline · your call';
+  if (m.kind === 'x_expired') return 'Not offered right now · offer again or decline · your call';
   if (m.kind === 'x') {
     const step = xStep(m.item);
     if (step === 3) return `Step 3 of 4 · posted ${when(m.item.decided_at)} · X link missing`;
