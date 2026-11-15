@@ -14,10 +14,10 @@ function showCaption(){
  // While Cas works she is shown at the console; otherwise the rotating scenes show.
  document.getElementById('cas-visual')?.classList.toggle('working',isWorking());
 }
-/** Status of one message. Without an id it only sets the finished word (Ready or needs attention). */
-export function setCasActivity(value,id){
- if(id&&(value==='running'||value==='queued'))jobs.set(id,value);
- else{if(id)jobs.delete(id);if(value==='completed'||value==='failed')last=value;}
+/** Status of one message, by id. A call without an id (an app.js cached from before ids) uses one shared slot. */
+export function setCasActivity(value,id='_'){
+ if(value==='running'||value==='queued')jobs.set(id,value);
+ else{jobs.delete(id);if(value==='completed'||value==='failed')last=value;}
  showCaption();
 }
 /** A chat reply and a project are separate work: the picture shows Cas working during either. */

@@ -679,7 +679,7 @@ async function showCasThread(key) {
     if (shown !== casShowing) return true; // another thread was opened meanwhile
     renderCasHistory(items, key === 'main' ? 'Your conversation with Cas will appear here.'
       : 'Nothing here yet. Cas remembers this thread on its own, even days later.');
-    resumePendingPolling(items);
+    resumePendingPolling(items.filter(unfinished));
     if (key === 'main') noteMainSeen(items);
   } catch (e) {
     if (e.status === 401 || e.status === 403) { clearAuth(); return false; }
@@ -697,13 +697,20 @@ function noteMainSeen(items) {
   try { localStorage.setItem(MAIN_SEEN_KEY, String(newest)); } catch {}
 }
 
+// Messages the phone stopped following at the 40-minute poll limit. With the PC off, the server
+// keeps such a job marked running; following it again each minute would show Cas working for good.
+// A reload starts fresh, so a job that does finish later is picked up then.
+const gaveUp = new Set();
+const unfinished = item => ['queued', 'running'].includes(item.status) && !gaveUp.has(item.id);
+
 // Cas may be working in a thread that is not open, or since before the app was opened.
-// The newest messages across every thread say so; each unfinished one is then followed to the end.
+// The newest messages across every thread say so; each unfinished one is then followed to the end,
+// and its poll clears it from the picture's list when it finishes.
 async function sweepCasJobs() {
   try {
-    const items = await loadHistory(20);
-    items.forEach(item => setCasActivity(['queued', 'running'].includes(item.status) ? item.status : 'seen', item.id));
-    resumePendingPolling(items);
+    const live = (await loadHistory(20)).filter(unfinished);
+    live.forEach(item => setCasActivity(item.status, item.id));
+    resumePendingPolling(live);
   } catch { /* the next refresh tries again */ }
 }
 
@@ -748,7 +755,7 @@ function renderCasHistory(items, emptyText = 'Your conversation with Cas will ap
     el.id = 'cas-msg-' + item.id;
     container.append(el);
   });
-  items.forEach(item => setCasActivity(item.status, item.id));
+  items.filter(unfinished).forEach(item => setCasActivity(item.status, item.id));
   setCasActivity('completed');
   scrollCasMessages();
 }
@@ -769,6 +776,7 @@ function addOrUpdateCasExchange(item) {
 }
 
 function onCasMessageUpdate(item) {
+  if (item.status === 'failed' && /^Timed out waiting/.test(item.error || '')) gaveUp.add(item.id);
   setCasActivity(item.status, item.id);
   const finished = item.status === 'completed' || item.status === 'failed';
   if (item.thread_id && finished) touch(item.thread_id, item.reply || item.error || '', { reply: true });
