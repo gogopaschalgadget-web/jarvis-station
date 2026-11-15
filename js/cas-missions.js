@@ -1229,7 +1229,9 @@ function talkBlock(mission) {
 
 // ---- building the screen --------------------------------------------------------------
 function build() {
+  const scenes = _panel.querySelector('#st-scenes'); // the background layer (cas-scenes.js) stays
   _panel.textContent = '';
+  if (scenes) _panel.append(scenes);
   const root = el('div', 'mx');
   root.style.cssText = 'display:flex;flex-direction:column;height:100%;min-height:0';
 

@@ -263,3 +263,22 @@
 /* expired X posts */
 .mx-xexp { padding: 8px 0; border-top: 1px dashed #b89a62; } .mx-xexp > small { display: block; font-size: 11px; color: #7a6040; }
 .mx-btns.quiet { justify-content: flex-start; } .mx-btns.quiet .mx-mini { color: var(--mx-brass-hi); }
+
+/* background scenes (off until Chris turns them on; where and how they show waits on his answers) */
+#panel-missions .st-scenes { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+#panel-missions .st-scenes::after { content: ""; position: absolute; inset: 0; background: linear-gradient(#070504b0, #07050466 30%, #070504aa); }
+#panel-missions .st-scene { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 2.4s ease; filter: brightness(.7); }
+#panel-missions .st-scene.on { opacity: 1; }
+#panel-missions .st-scenes ~ .mx { position: relative; z-index: 1; }
+.st-scenes-note { font-size: 13px; line-height: 1.4; margin: 6px 0; }
+.st-scenes-row { display: flex; gap: 10px; align-items: center; margin: 8px 0; }
+.st-scenes-btn { min-height: 44px; padding: 8px 14px; border-radius: 8px; border: 2px ridge #c89943; background: linear-gradient(#3d2e13, #15100a); color: #ffe4a1; font-weight: 800; }
+.st-scenes-btn.on { background: linear-gradient(#93302a, #350a09); color: #ffe4b7; }
+.st-scenes-per select { min-height: 40px; margin-left: 4px; }
+.st-scenes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.st-scenes-cell { border: 1px solid #5a4220; border-radius: 8px; overflow: hidden; background: #0d0a06; }
+.st-scenes-cell.pinned { border-color: #e5b955; }
+.st-scenes-cell img { display: block; width: 100%; aspect-ratio: 1316 / 900; object-fit: cover; background: #1a130a; }
+.st-scenes-cell small { display: block; padding: 4px 6px; font-size: 11px; color: #d8c7a8; }
+.st-scenes-acts { display: flex; gap: 4px; padding: 0 6px 6px; }
+.st-scenes-acts button { flex: 1; min-height: 34px; border-radius: 6px; border: 1px solid #a98349; background: #282018; color: #edd2a3; }

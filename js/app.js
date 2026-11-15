@@ -2,13 +2,14 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas60';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas62';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
+import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas62';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
   showThread, inBrainstorm,
-} from './cas-threads.js?v=cas60'; // versioned with app.js, so a phone never mixes an old file with a new one
+} from './cas-threads.js?v=cas62'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -473,6 +474,8 @@ async function initCasScene() {
     openReview: () => openReviewFromMap('posts'),
     getHealth: () => apiData?.health || null,
   });
+  // Background scenes: off until Chris turns them on in Settings; nothing on screen changes before that.
+  initScenes({ apiBase: API_BASE, getToken: getDeviceToken });
 
   // Load history
   const draft = loadDraft();
@@ -1941,6 +1944,7 @@ function renderSettings() {
       <div class="panel-card-title" style="color:var(--accent-red,#ef4444);text-align:center">Unpair Device</div>
     </div>`;
   if (preferences) { preferences.hidden = false; panel.prepend(preferences); }
+  renderScenesSettings(panel);
   document.getElementById('reload-card')?.addEventListener('click', () => location.reload());
   document.getElementById('reset-view-btn')?.addEventListener('click', () => { resetView(); switchTab('station'); });
   document.getElementById('unpair-btn')?.addEventListener('click', () => {
