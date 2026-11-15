@@ -35,7 +35,7 @@
 .tab-panel { top: 0; padding-top: calc(var(--mark-top) + 10px); }
 #panel-settings { top: 0; }
 #panel-missions.tab-panel { top: 0; padding-top: 0; }
-body.cas-home #panel-cas.tab-panel { top: env(safe-area-inset-top, 0px); padding-top: 0; }
+@media (max-width: 959px) { body.cas-home #panel-cas.tab-panel { top: env(safe-area-inset-top, 0px); padding-top: 0; } }
 .metrics-bar { top: var(--mark-top); left: 8px; right: 8px; border: 1px solid #000; border-radius: 7px;
   background: linear-gradient(#00000030, #00000060), url('../assets/theme/nav.jpg') center / 100% 100%, #241917; box-shadow: 0 6px 16px #000c; }
 .metrics-bar .metric-lbl { color: #d8c7a8; text-shadow: 0 1px 2px #000; }
@@ -70,4 +70,5 @@ html, body { background: #100c07; }
   /* the nav is a side rail on wide screens: it starts at the top, under the title */
   .station-nav { top: var(--mark-top); }
   .station-nav::before { display: none; }
+  .metrics-bar { left: 108px; }  /* clear of the side rail */
 }

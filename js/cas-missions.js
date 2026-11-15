@@ -245,8 +245,8 @@ function summaryText(mission) {
 }
 
 async function copy(text, label) {
-  try { await navigator.clipboard.writeText(text); toast(label || 'Copied'); }
-  catch { toast('Copy did not work on this phone.'); }
+  try { await navigator.clipboard.writeText(text); toast(label || 'Copied'); return true; }
+  catch { toast('Copy did not work on this phone.'); return false; }
 }
 
 // ---- asking Cas about a mission: one thread per mission, in a folder per source ----------
@@ -600,7 +600,7 @@ function cardX(mission) {
 const Q_STEPS = [['Pick a question', 'YOU'], ['Answer it', 'YOU'], ['Sharpen', 'CAS → YOU'], ['Compliance check', 'CAS'],
   ['Post it on Quora', 'YOU'], ['Answer link', 'AUTO'], ['First numbers', 'CLAUDE']];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const Q_WAIT_MS = 3 * 60_000;
+const Q_WAIT_MS = 45_000;
 let _qSubject = '';   // the subject chip chosen on the Pick card ('' means all)
 let _sheet = null;    // the + Subject form while it is open
 
@@ -633,6 +633,7 @@ function subjectName(id) {
 /** A Quora tap: signed like every command. The card waits for the PC to move the mission on. */
 async function qsend(mission, text, said) {
   const state = mission ? local(mission.id) : {};
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   state.busy = true; render();
   try {
     await keepDraft(() => _o.send(text));
@@ -658,7 +659,8 @@ function waitingOnPc(mission) {
 
 function link(cls, text, href) {
   const a = el('a', cls, text);
-  a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
+  a.href = /^https:\/\/[^\s]+$/.test(String(href || '')) ? href : '#';
+  a.target = '_blank'; a.rel = 'noopener noreferrer';
   return a;
 }
 
@@ -813,8 +815,15 @@ function cardQuora(mission) {
   if (m.note) card.append(el('div', 'mx-note warn', m.note));
 
   if (m.status === 'done') { card.append(el('div', 'mx-done', 'Mission done: link and first numbers are in.')); return card; }
-  if (waitingOnPc(mission)) { card.append(el('div', 'mx-note', 'Sent. Cas moves this card on in a moment.')); return card; }
+  if (waitingOnPc(mission)) {
+    card.append(el('div', 'mx-note', 'Sent. Cas moves this card on in a moment. If nothing changes, the reply is in the main Cas chat.'));
+    return card;
+  }
   const b = el('div', 'mx-btns');
+  if (m.text_later && ['keep', 'fix', 'post'].includes(m.status) && !state.rewrite) {
+    card.append(el('div', 'mx-note', 'This card is waiting for its text: the status was full. It arrives with the next update.'));
+    return card;
+  }
 
   if (m.status === 'answer' || state.rewrite) {
     card.append(answerBox(mission, state.rewrite ? m.answer : ''));
@@ -850,6 +859,9 @@ function cardQuora(mission) {
   } else if (m.status === 'fix') {
     card.append(el('div', 'mx-text', m.final));
     card.append(gateBox(m.compliance, false));
+    if (m.compliance && ['error', 'not_connected'].includes(m.compliance.result)) {
+      b.append(btn('mx-btn red', 'Check again', () => qsend(mission, `quora recheck ${m.id}`, 'Checking it again.')));
+    }
     b.append(btn('mx-btn red', 'Change my answer', () => { state.rewrite = true; render(); }));
     b.append(btn('mx-btn brass', 'Drop it', () => { if (confirm('Drop this question?')) qsend(mission, `quora drop ${m.id}`, 'Dropped.'); }));
   } else if (m.status === 'post') {
@@ -861,7 +873,7 @@ function cardQuora(mission) {
         b.append(btn('mx-btn red', 'Allow it (your call)', () => { if (confirm('The check left this answer to you. Allow it?')) qsend(mission, `quora allow ${m.id}`, 'Allowed.'); }));
       }
       b.append(btn('mx-btn brass', 'Change my answer', () => { state.rewrite = true; render(); }));
-    } else if (state.opened) {
+    } else if (state.opened && state.openedFp === m.fp) {
       card.append(el('div', 'mx-note', 'Did it go out on Quora?'));
       b.append(btn('mx-btn red', "Yes, it's posted", async () => {
         const fp = await textFingerprint(m.final);
@@ -871,7 +883,10 @@ function cardQuora(mission) {
       b.append(btn('mx-btn brass', 'Not yet', () => { state.opened = false; render(); }));
     } else {
       const a = link('mx-btn red', 'Copy and open Quora', m.question.url);
-      a.addEventListener('click', () => { copy(m.final, 'Answer copied. Paste it on Quora.'); setTimeout(() => { state.opened = true; render(); }, 300); });
+      a.addEventListener('click', async () => {
+        if (await copy(m.final, 'Answer copied. Paste it on Quora.')) { state.opened = true; state.openedFp = m.fp; render(); }
+        else toast('The answer was not copied. Tap Copy and open Quora again before you paste.');
+      });
       b.append(a, btn('mx-btn brass', 'Change my answer', () => { state.rewrite = true; render(); }));
     }
   } else if (m.status === 'link') {
