@@ -37,87 +37,77 @@ function probe() {
   }
 }
 
-/** iOS installed-app fault (seen on Chris's iPhone, 2026-11-16): with the translucent status bar the page is laid out as tall as
- *  the screen minus the top inset (812 on an 874 screen), so everything pinned to the bottom sits that far too high and a
- *  strip shows under the nav. When that exact pattern is seen (installed app, narrow screen, screen minus inner height equals
- *  the top inset), the strip height is put in --short, and the CSS moves the nav down by it and shortens the panels to match.
- *  Anywhere else --short stays 0 and nothing moves. Worked out once at load, on show and on rotation: never on resize, so the
- *  keyboard cannot trigger it. */
-let _shortLatched = null;
-let _guardTripped = 0;   // 1 when the self-check found the moved bar could not be tapped and put it back
-const OFF_KEY = 'station-short-off';
-let _off = null;         // this load's own answer, so the switch still works if the phone will not store it
-function switchedOff() { if (_off !== null) return _off; try { return localStorage.getItem(OFF_KEY) === '1'; } catch { return false; } }
-function measureShort() {
-  if (_guardTripped || switchedOff()) return 0;
+/** iOS installed-app fault (WebKit bug 301994, seen on Chris's iPhone 2026-11-16): with the translucent status bar the page is
+ *  laid out as tall as the screen minus the top inset (812 on an 874 screen). The bottom 62pt belong to the system: web content
+ *  cannot be drawn there, and a frosted system layer covers the top 62 plus a little. When that exact pattern is seen (installed
+ *  app, narrow screen, screen minus inner height equals the top inset), html gets the class ios-short and the CSS drops the
+ *  bottom inset from the bar (the home indicator lives in the system strip). Class only: nothing here changes any size, so
+ *  re-measuring cannot feed back into the measurement. */
+let _fault = null;
+function detectFault() {
   const standalone = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
-  if (!standalone || window.innerWidth >= 960 || !window.CSS || !CSS.supports('top', 'env(safe-area-inset-top)')) return 0;
+  if (!standalone || window.innerWidth >= 960 || !window.CSS || !CSS.supports('top', 'env(safe-area-inset-top)')) return false;
   const { insets } = probe();
   const gap = Math.round(screen.height - window.innerHeight);
   const top = Math.round(insets.top);
-  // never more than the bar is tall minus 20px, so a wrong reading cannot push the bar off the screen
-  return top >= 20 && Math.abs(gap - top) <= 2 && gap <= 70 ? gap : 0;
+  return top >= 20 && Math.abs(gap - top) <= 2 && gap <= 70;
 }
-function setShort(px) {
-  _shortLatched = px;
-  document.documentElement.style.setProperty('--short', px + 'px');
-  document.documentElement.classList.toggle('ios-short', px > 0);
-}
-/** Self-check, the part a phone can answer: elementFromPoint returns nothing for any point outside the layout viewport, so the
- *  strip below it cannot be tested this way (that is what the hold-title switch and the screen report are for). What can be
- *  tested: at a point inside the viewport on the bar, the bar must be what is hit. If something else covers it twice in a
- *  row, the move is undone and stays undone for this load. A point outside the viewport counts as "cannot tell", not failure. */
-let _guardFails = 0;
-function guardShift() {
-  if (!_shortLatched) return;
+function applyFault() {
   try {
-    const nav = document.getElementById('station-nav');
-    if (!nav) return;
-    const b = nav.getBoundingClientRect();
-    const y = Math.min(Math.round(b.top + 10), window.innerHeight - 2);   // inside the layout viewport only
-    if (y < b.top || y >= b.bottom) return;                                // the bar has no part inside it: cannot tell
-    const hit = document.elementFromPoint(Math.round(b.left + b.width / 2), y);
-    if (hit && nav.contains(hit)) { _guardFails = 0; return; }
-    if (++_guardFails >= 2) { _guardTripped = 1; setShort(0); } else setTimeout(guardShift, 1200);
-  } catch { /* cannot tell: leave it */ }
-}
-function applyShort() {
-  try {
-    setShort(measureShort());
-    if (_shortLatched) setTimeout(guardShift, 250);
+    _fault = detectFault();
+    document.documentElement.classList.toggle('ios-short', _fault);
   } catch { /* leave the layout as it is */ }
 }
-/** Press and hold the title for a second: turns the shift off (or back on), remembered on this phone. The way out if the
- *  moved bar ever cannot be used, since it does not need the bar. */
-function initShortSwitch() {
+
+/** Temporary ruler (Chris holds the title for a second; tap anywhere to close). Four columns of sharp labelled lines every
+ *  10pt from 40 to 140, so one screenshot shows where text stays sharp under the frosted system layer:
+ *  A fixed elements, B in-flow content of a scrolling box, C inside a fixed bar that touches the top, D inside a fixed bar
+ *  that starts at 62. Read-only: it changes nothing and sends nothing. */
+function showRuler() {
+  if (document.getElementById('st-ruler')) return;
+  const root = document.createElement('div');
+  root.id = 'st-ruler';
+  const mkLines = (parent, offset) => {
+    for (let y = 40; y <= 140; y += 10) {
+      const line = document.createElement('div');
+      line.className = 'st-ruler-line';
+      line.textContent = String(y);
+      line.style.top = (y - offset) + 'px';
+      parent.append(line);
+    }
+  };
+  const col = (name, title) => {
+    const c = document.createElement('div'); c.className = 'st-ruler-col st-ruler-' + name; root.append(c);
+    const t = document.createElement('div'); t.className = 'st-ruler-title'; t.textContent = title; c.append(t);
+    return c;
+  };
+  mkLines(col('a', 'A fixed'), 0);
+  const b = col('b', 'B scroll'); const inner = document.createElement('div'); inner.className = 'st-ruler-scroll'; b.append(inner); mkLines(inner, 0);
+  const c = col('c', 'C bar top 0'); const cb = document.createElement('div'); cb.className = 'st-ruler-bar st-ruler-bar0'; c.append(cb); mkLines(cb, 0);
+  const d = col('d', 'D bar from 62'); const db = document.createElement('div'); db.className = 'st-ruler-bar st-ruler-bar62'; d.append(db); mkLines(db, 62);
+  const note = document.createElement('div'); note.className = 'st-ruler-note';
+  note.textContent = 'Lines are labelled in points from the top of the screen. Tap to close.';
+  root.append(note);
+  root.addEventListener('click', () => root.remove());
+  document.body.append(root);
+}
+/** Press and hold the title for a second: the ruler. A tap or a drag does nothing. */
+function initRulerHold() {
   const title = document.querySelector('.station-title');
   if (!title) return;
-  let timer = 0;
+  let timer = 0, x0 = 0, y0 = 0;
   const cancel = () => { clearTimeout(timer); timer = 0; };
-  title.addEventListener('pointerdown', e => {
-    x0 = e.clientX; y0 = e.clientY;
-    cancel();
-    timer = setTimeout(() => {
-      timer = 0;
-      _off = !switchedOff();
-      try { if (_off) localStorage.setItem(OFF_KEY, '1'); else localStorage.removeItem(OFF_KEY); } catch { /* no memory: still switches for this load */ }
-      if (!switchedOff()) { _guardTripped = 0; _guardFails = 0; }
-      applyShort();
-      title.style.opacity = '.55'; setTimeout(() => { title.style.opacity = ''; }, 350);
-    }, 1000);
-  });
-  let x0 = 0, y0 = 0;
+  title.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; cancel(); timer = setTimeout(() => { timer = 0; showRuler(); }, 1000); });
   title.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancel(); });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => title.addEventListener(ev, cancel));
 }
 export function initShortFix() {
-  applyShort();
-  initShortSwitch();
-  window.addEventListener('pageshow', applyShort);
-  // iOS can report a transient height at cold launch: measure again shortly after, and when the app comes back to the front
-  setTimeout(applyShort, 300); setTimeout(applyShort, 1500);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(applyShort, 200); });
-  window.addEventListener('orientationchange', () => setTimeout(applyShort, 350));
+  applyFault();
+  initRulerHold();
+  window.addEventListener('pageshow', applyFault);
+  setTimeout(applyFault, 300); setTimeout(applyFault, 1500);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(applyFault, 200); });
+  window.addEventListener('orientationchange', () => setTimeout(applyFault, 350));
 }
 
 async function swVersion() {
@@ -140,11 +130,8 @@ async function build() {
   add('main', document.getElementById('station-main'));
   add('body', document.body);
   add('html', document.documentElement);
-  // fix probe: t = strip height the fix applied, l = 1 if the very bottom row of the real screen is hit-testable (0 may only mean unknown: nothing outside the layout viewport can be tested), w = 1 if Chris switched the shift off, h = 1 if the self-check put the bar back
-  try {
-    const low = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.max(0, Math.round(screen.height) - 6));
-    rects.fix = { t: _shortLatched == null ? -1 : _shortLatched, l: low ? 1 : 0, w: switchedOff() ? 1 : 0, h: _guardTripped };
-  } catch { /* no probe */ }
+  // fix probe: t = 1 if the short-layout fault is seen and the bar is sized for it, 0 if not, -1 if never run; l, w, h unused (0)
+  rects.fix = { t: _fault == null ? -1 : (_fault ? 1 : 0), l: 0, w: 0, h: 0 };
   document.querySelectorAll('.tab-panel.visible').forEach(p => { if (p.id && Object.keys(rects).length < 14) add(p.id, p); });
   return {
     inner: [window.innerWidth, window.innerHeight], screen: [screen.width, screen.height], avail: [screen.availWidth, screen.availHeight],

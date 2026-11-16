@@ -91,14 +91,30 @@ html, body { background: #100c07; }
    screen) shows bar wood instead of black, until the real cause is read from the phone's screen report. */
 html { background: #241917; }
 
-/* ---- phones whose page is laid out short of the screen (--short is set by js/cas-screen.js only when it sees that fault):
-   the bar is moved down by the missing strip, and the panels end where the bar now starts. Elsewhere --short is 0: no change. ---- */
-:root { --short: 0px; }
+/* ---- phones whose page is laid out short of the screen (WebKit bug 301994; js/cas-screen.js adds html.ios-short only when it sees
+   that exact fault). The bottom 62pt are the system's: the home indicator lives there, so the bar needs no bottom inset. It is 48pt
+   tall and sits at the bottom of the page (764 to 812 on an 874 phone), panels end where it starts, and its lower edge fades into
+   the strip colour so the strip reads as part of the bar. Elsewhere nothing changes. ---- */
 @media (max-width: 959px) {
-  :root { --nav-bar: calc(48px + env(safe-area-inset-bottom, 0px)); --nav-height: calc(var(--nav-bar) - var(--short)); }
-  .station-nav { height: var(--nav-bar); bottom: calc(-1 * var(--short)); }
+  html.ios-short { --nav-height: 48px; }
+  html.ios-short .station-nav { height: 48px; border-bottom: 0 !important;
+    background: linear-gradient(transparent 60%, #241917 100%), linear-gradient(#00000018, #00000050), url('../assets/theme/nav.jpg') center / 100% 100%, #241917 !important; }
+  html.ios-short .station-nav .nav-item { height: 48px; padding: 4px 0 3px; }
 }
 
 /* iOS fills any strip the page does not reach with the body colour (seen on Chris's phone: #100C07 under the bar even though html
    was wood). Make that colour bar wood too, so if the strip ever shows it matches the bar. Panels have their own backgrounds. */
 body { background: #241917; }
+
+/* ---- the temporary ruler (hold the title 1 s). Sharp 1px lines and 9px labels, so blur anywhere is the system's, not ours. ---- */
+#st-ruler { position: fixed; inset: 0; z-index: 9999; background: #100c07; color: #f6e2b4; font: 600 9px/10px -apple-system, system-ui, sans-serif; }
+.st-ruler-col { position: absolute; top: 0; bottom: 0; width: 25%; overflow: hidden; }
+.st-ruler-a { left: 0; } .st-ruler-b { left: 25%; } .st-ruler-c { left: 50%; } .st-ruler-d { left: 75%; }
+.st-ruler-title { position: absolute; top: 160px; left: 4px; font-size: 10px; color: #ffe08a; }
+.st-ruler-line { position: absolute; left: 0; right: 0; height: 10px; border-top: 1px solid #ffe08a; padding-left: 4px; box-sizing: border-box; }
+.st-ruler-a .st-ruler-line { position: fixed; left: 0; right: auto; width: 25%; }
+.st-ruler-scroll { position: absolute; inset: 0; overflow-y: auto; }
+.st-ruler-bar { position: fixed; background: #3a281a; }
+.st-ruler-bar0 { top: 0; height: 150px; width: 25%; left: 50%; }
+.st-ruler-bar62 { top: 62px; height: 88px; width: 25%; left: 75%; }
+.st-ruler-note { position: absolute; left: 6px; right: 6px; top: 200px; font-size: 11px; line-height: 14px; color: #e2d3b6; }
