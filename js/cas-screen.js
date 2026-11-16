@@ -46,7 +46,8 @@ function probe() {
 let _shortLatched = null;
 let _guardTripped = 0;   // 1 when the self-check found the moved bar could not be tapped and put it back
 const OFF_KEY = 'station-short-off';
-function switchedOff() { try { return localStorage.getItem(OFF_KEY) === '1'; } catch { return false; } }
+let _off = null;         // this load's own answer, so the switch still works if the phone will not store it
+function switchedOff() { if (_off !== null) return _off; try { return localStorage.getItem(OFF_KEY) === '1'; } catch { return false; } }
 function measureShort() {
   if (_guardTripped || switchedOff()) return 0;
   const standalone = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
@@ -62,20 +63,23 @@ function setShort(px) {
   document.documentElement.style.setProperty('--short', px + 'px');
   document.documentElement.classList.toggle('ios-short', px > 0);
 }
-/** Self-check: when the bar has been moved, the middle of it must be reachable by touch. If the phone cannot hit-test there
- *  (the bar is outside what iOS counts as the page), the move is undone at once and stays undone until the next load. */
+/** Self-check, the part a phone can answer: elementFromPoint returns nothing for any point outside the layout viewport, so the
+ *  strip below it cannot be tested this way (that is what the hold-title switch and the screen report are for). What can be
+ *  tested: at a point inside the viewport on the bar, the bar must be what is hit. If something else covers it twice in a
+ *  row, the move is undone and stays undone for this load. A point outside the viewport counts as "cannot tell", not failure. */
+let _guardFails = 0;
 function guardShift() {
   if (!_shortLatched) return;
   try {
     const nav = document.getElementById('station-nav');
     if (!nav) return;
     const b = nav.getBoundingClientRect();
-    const x = Math.round(b.left + b.width / 2);
-    // two points: the middle of the bar, and the bottom row of the real screen (6 above its edge)
-    const ys = [Math.round(b.top + Math.min(24, b.height / 2)), Math.max(0, Math.round(screen.height) - 6)];
-    const ok = ys.every(y => { const hit = document.elementFromPoint(x, y); return !!hit && nav.contains(hit); });
-    if (!ok) { _guardTripped = 1; setShort(0); }
-  } catch { _guardTripped = 1; setShort(0); }
+    const y = Math.min(Math.round(b.top + 10), window.innerHeight - 2);   // inside the layout viewport only
+    if (y < b.top || y >= b.bottom) return;                                // the bar has no part inside it: cannot tell
+    const hit = document.elementFromPoint(Math.round(b.left + b.width / 2), y);
+    if (hit && nav.contains(hit)) { _guardFails = 0; return; }
+    if (++_guardFails >= 2) { _guardTripped = 1; setShort(0); } else setTimeout(guardShift, 1200);
+  } catch { /* cannot tell: leave it */ }
 }
 function applyShort() {
   try {
@@ -90,17 +94,21 @@ function initShortSwitch() {
   if (!title) return;
   let timer = 0;
   const cancel = () => { clearTimeout(timer); timer = 0; };
-  title.addEventListener('pointerdown', () => {
+  title.addEventListener('pointerdown', e => {
+    x0 = e.clientX; y0 = e.clientY;
     cancel();
     timer = setTimeout(() => {
       timer = 0;
-      try { if (switchedOff()) localStorage.removeItem(OFF_KEY); else localStorage.setItem(OFF_KEY, '1'); } catch { /* no memory: still switches for this load */ }
-      _guardTripped = switchedOff() ? 0 : _guardTripped;
+      _off = !switchedOff();
+      try { if (_off) localStorage.setItem(OFF_KEY, '1'); else localStorage.removeItem(OFF_KEY); } catch { /* no memory: still switches for this load */ }
+      if (!switchedOff()) { _guardTripped = 0; _guardFails = 0; }
       applyShort();
       title.style.opacity = '.55'; setTimeout(() => { title.style.opacity = ''; }, 350);
     }, 1000);
   });
-  ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(ev => title.addEventListener(ev, cancel));
+  let x0 = 0, y0 = 0;
+  title.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancel(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => title.addEventListener(ev, cancel));
 }
 export function initShortFix() {
   applyShort();
@@ -132,7 +140,7 @@ async function build() {
   add('main', document.getElementById('station-main'));
   add('body', document.body);
   add('html', document.documentElement);
-  // fix probe: t = strip height the fix applied, l = 1 if the very bottom row of the real screen is hit-testable, w = 1 if Chris switched the shift off, h = 1 if the self-check put the bar back
+  // fix probe: t = strip height the fix applied, l = 1 if the very bottom row of the real screen is hit-testable (0 may only mean unknown: nothing outside the layout viewport can be tested), w = 1 if Chris switched the shift off, h = 1 if the self-check put the bar back
   try {
     const low = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.max(0, Math.round(screen.height) - 6));
     rects.fix = { t: _shortLatched == null ? -1 : _shortLatched, l: low ? 1 : 0, w: switchedOff() ? 1 : 0, h: _guardTripped };
