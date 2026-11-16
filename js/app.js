@@ -2,14 +2,15 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas62';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas63';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
-import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas62';
+import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas63';
+import { initDesk, showDesk } from './cas-desk.js?v=cas63';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
   showThread, inBrainstorm,
-} from './cas-threads.js?v=cas62'; // versioned with app.js, so a phone never mixes an old file with a new one
+} from './cas-threads.js?v=cas63'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -29,6 +30,7 @@ const REFRESH_INTERVAL_MS = 60_000;
 const CAS_NAV = [
   { id: 'cas', label: 'Cas', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Z"/><path d="M8 8h8M8 12h5"/></svg>' },
   { id: 'station', label: 'Station', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V8l4-3 4 3v13M13 21V8l4-3 4 3v13M3 12h18M7 21v-4h10v4"/></svg>' },
+  { id: 'desk', label: 'Desk', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h18v3H3zM5 12v8M19 12v8M8 5h8v4H8z"/><path d="M10 15h4"/></svg>' },
   { id: 'missions', label: 'Missions', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10l2 2 4-4M9 17h6"/></svg>' },
   { id: 'more', label: 'More', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/></svg>' },
   { id: 'settings', label: 'Settings', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></svg>' },
@@ -342,12 +344,15 @@ function switchTab(tabId) {
   } else {
     leaveMap3d();
     if (stationMain) stationMain.style.display = 'none';
-    if (metricsBar) metricsBar.hidden = (tabId === 'cas' || tabId === 'settings');
+    if (metricsBar) metricsBar.hidden = (tabId === 'cas' || tabId === 'settings' || tabId === 'desk');
 
     if (tabId === 'cas') {
       const panel = document.getElementById('panel-cas');
       if (panel) panel.classList.add('visible');
       if (!casSceneReady) initCasScene();
+    } else if (tabId === 'desk') {
+      const panel = document.getElementById('panel-desk');
+      if (panel) { panel.classList.add('visible'); showDesk(); }
     } else if (tabId === 'more') {
       const panel = document.getElementById('panel-more');
       if (panel) { panel.classList.add('visible'); renderMore(); }
@@ -476,6 +481,8 @@ async function initCasScene() {
   });
   // Background scenes: off until Chris turns them on in Settings; nothing on screen changes before that.
   initScenes({ apiBase: API_BASE, getToken: getDeviceToken });
+  // The Desk tab: the ranked list the PC uploads. Read-only; it asks the server only when the tab opens.
+  initDesk(document.getElementById('panel-desk'), { apiBase: API_BASE, getToken: getDeviceToken });
 
   // Load history
   const draft = loadDraft();
