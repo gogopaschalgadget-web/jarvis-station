@@ -98,3 +98,7 @@ html { background: #241917; }
   :root { --nav-bar: calc(48px + env(safe-area-inset-bottom, 0px)); --nav-height: calc(var(--nav-bar) - var(--short)); }
   .station-nav { height: var(--nav-bar); bottom: calc(-1 * var(--short)); }
 }
+
+/* iOS fills any strip the page does not reach with the body colour (seen on Chris's phone: #100C07 under the bar even though html
+   was wood). Make that colour bar wood too, so if the strip ever shows it matches the bar. Panels have their own backgrounds. */
+body { background: #241917; }

@@ -70,8 +70,11 @@ function guardShift() {
     const nav = document.getElementById('station-nav');
     if (!nav) return;
     const b = nav.getBoundingClientRect();
-    const hit = document.elementFromPoint(Math.round(b.left + b.width / 2), Math.round(b.top + Math.min(24, b.height / 2)));
-    if (!hit || !nav.contains(hit)) { _guardTripped = 1; setShort(0); }
+    const x = Math.round(b.left + b.width / 2);
+    // two points: the middle of the bar, and the bottom row of the real screen (6 above its edge)
+    const ys = [Math.round(b.top + Math.min(24, b.height / 2)), Math.max(0, Math.round(screen.height) - 6)];
+    const ok = ys.every(y => { const hit = document.elementFromPoint(x, y); return !!hit && nav.contains(hit); });
+    if (!ok) { _guardTripped = 1; setShort(0); }
   } catch { _guardTripped = 1; setShort(0); }
 }
 function applyShort() {
