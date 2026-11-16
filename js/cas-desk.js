@@ -14,6 +14,8 @@ let _state = 'idle';              // idle | loading | ready | empty | failed
 let _data = null;                 // { feed, uploaded, now } from the server
 let _loadedAt = 0;
 let _inflight = false;
+let _doneOpen = false;            // the done log stays open across a redraw
+let _lookBase = 0;                // when Chris last looked, fixed at load so opening the log does not wipe the new count
 let _refreshFailed = false;       // a refresh failed while an older list is still on screen
 const TIMEOUT_MS = 15_000;        // a hung connection ends in "Not available right now", never in a stuck screen
 
@@ -35,15 +37,21 @@ export function rankItems(feed) {
     .map(x => x.item);
 }
 
-/** Things finished since Chris last looked: the feed's list, then answered or done items. */
-export function doneList(feed) {
-  const out = ((feed && feed.done_since_last_look) || []).map(d => ({ title: d.title, project: d.project, note: '' }));
+/** The done log. The server keeps it (append-only); the feed's own done entries and answered items only fill in when the
+ *  server sent no log (an older server). Newest first. */
+export function doneList(data) {
+  const log = data && data.done_log;
+  if (Array.isArray(log)) return log.map(d => ({ title: d.title, project: d.project, note: [d.date, d.answer ? shorten(d.answer, 110) : ''].filter(Boolean).join(' · '), seen: d.first_seen || 0 }));
+  const feed = data && data.feed;
+  const out = ((feed && feed.done_since_last_look) || []).map(d => ({ title: d.title, project: d.project, note: '', seen: 0 }));
   ((feed && feed.items) || []).filter(i => i.status !== 'open').forEach(i => {
-    out.push({ title: i.title, project: i.project, note: i.status === 'done' ? 'Done' : 'Answered' + (i.answer ? ': ' + shorten(i.answer, 110) : '') });
+    out.push({ title: i.title, project: i.project, note: i.status === 'done' ? 'Done' : 'Answered' + (i.answer ? ': ' + shorten(i.answer, 110) : ''), seen: 0 });
   });
   return out;
 }
 
+function lastLook() { try { return Number(localStorage.getItem('desk-last-look')) || 0; } catch { return 0; } }
+function setLastLook(t) { try { localStorage.setItem('desk-last-look', String(t)); } catch { /* private window: no memory, fine */ } }
 function shorten(text, max) { return text.length > max ? text.slice(0, max - 1).trimEnd() + '...' : text; }
 function words(id) { return String(id || '').replace(/-/g, ' '); }
 
@@ -121,10 +129,14 @@ function draw() {
     wrap.append(more);
   }
   wrap.append(el('p', 'dk-later', 'Answering from the Desk comes in a later step. For now, answer in the thread each card names.'));
-  const done = doneList(feed);
+  const done = doneList(_data);
   if (done.length) {
     const box = el('details', 'dk-fold dk-done');
-    box.append(el('summary', '', `Done since you last looked (${done.length})`));
+    const fresh = _lookBase ? done.filter(d => d.seen > _lookBase).length : 0;
+    const total = Math.max(done.length, Number(_data.done_total) || 0);
+    box.open = _doneOpen;
+    box.append(el('summary', '', fresh ? `Done since you last looked (${fresh} new, ${total} logged)` : `Done log (${total})`));
+    box.addEventListener('toggle', () => { _doneOpen = box.open; if (box.open && _data && _data.now) setLastLook(_data.now); });
     done.forEach(d => {
       const row = el('div', 'dk-donerow');
       row.append(el('span', '', d.title));
@@ -148,6 +160,7 @@ async function load(force) {
     const data = await res.json();
     if (!data || typeof data !== 'object') throw new Error('shape');
     _data = data;
+    if (!_doneOpen) _lookBase = lastLook();
     _state = data.feed && Array.isArray(data.feed.items) ? 'ready' : 'empty';
     _loadedAt = Date.now();
     _refreshFailed = false;
