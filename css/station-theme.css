@@ -100,6 +100,10 @@ html { background: #241917; }
   html.ios-short .station-nav { height: 48px; border-bottom: 0 !important;
     background: linear-gradient(transparent 60%, #241917 100%), linear-gradient(#00000018, #00000050), url('../assets/theme/nav.jpg') center / 100% 100%, #241917 !important; }
   html.ios-short .station-nav .nav-item { height: 48px; padding: 4px 0 3px; }
+  /* the inset is not under the page here, so the extra bottom padding would be dead space */
+  html.ios-short .cas-composer-area { padding-bottom: 10px; }
+  html.ios-short #station-cas-toggle { bottom: 66px; }
+  html.ios-short .mx-sheet-in { padding-bottom: 18px; }
 }
 
 /* iOS fills any strip the page does not reach with the body colour (seen on Chris's phone: #100C07 under the bar even though html
