@@ -8,22 +8,21 @@
   --mark-top: calc(var(--mark-height) + env(safe-area-inset-top, 0px));
 }
 
-/* ---- the title: a watermark with depth, no bar behind it ---- */
+/* ---- the header: one slim wood and brass bar on every tab, with a crisp gold title (Chris, 2026-11-16: crisp, not faded
+   into the background, no dead space). It is the height of the phone's top inset plus one 30px row. ---- */
 .station-header {
   position: fixed; top: 0; left: 0; right: 0; z-index: 96;
   height: var(--mark-top); padding: env(safe-area-inset-top, 0px) 0 0;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(#07050499, #07050433 70%, transparent) !important;
-  border: 0 !important; border-image: none !important; box-shadow: none !important;
-  pointer-events: none;
+  background: linear-gradient(#00000010, #00000040), url('../assets/theme/bar.jpg') center / 100% 100%, #2a1f10 !important;
+  border: 0 !important; border-image: none !important; border-bottom: 2px ridge #6b4a1b !important; box-shadow: 0 4px 10px #000a !important;
+  box-sizing: border-box; pointer-events: none;
 }
 .station-title {
-  display: inline-flex; align-items: center; gap: 7px;
-  font: 900 13px Georgia, 'Times New Roman', serif; letter-spacing: 5px; text-transform: uppercase;
-  background: linear-gradient(#fff4cf 0%, #f2c86a 40%, #a8741f 62%, #5a3a0e 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
-  filter: drop-shadow(0 1px 0 #3a2208) drop-shadow(0 2px 0 #1e1204) drop-shadow(0 3px 3px #000);
-  opacity: .78;
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 900 14px Georgia, 'Times New Roman', serif; letter-spacing: 5px; text-transform: uppercase;
+  color: #f6e2b4; text-shadow: 0 1px 0 #000, 0 0 5px #000;
+  background: none; -webkit-background-clip: border-box; background-clip: border-box; filter: none; opacity: 1;
 }
 .station-title::before {
   content: ""; flex: none; width: 20px; height: 20px;
@@ -35,7 +34,15 @@
 .tab-panel { top: 0; padding-top: calc(var(--mark-top) + 10px); }
 #panel-settings { top: 0; }
 #panel-missions.tab-panel { top: 0; padding-top: 0; }
-@media (max-width: 959px) { body.cas-home #panel-cas.tab-panel { top: env(safe-area-inset-top, 0px); padding-top: 0; } }
+/* Cas starts under the header on every width (the header is no longer hidden on this tab) */
+body.cas-home #panel-cas.tab-panel { top: var(--mark-top); }
+@media (max-width: 959px) {
+  /* Cas: the same background picture as every tab but the map, and no second inset */
+  body.cas-home #panel-cas.tab-panel { padding-top: 0;
+    background: linear-gradient(#100c08d9, #100c08f2), url('../assets/cas/map-scene.png') center / cover !important; }
+  #cas-scene .cas-visual { margin-top: 0; }
+  .cas-scene, #cas-scene .cas-scene-body { background: transparent !important; }
+}
 .metrics-bar { top: var(--mark-top); left: 8px; right: 8px; border: 1px solid #000; border-radius: 7px;
   background: linear-gradient(#00000030, #00000060), url('../assets/theme/nav.jpg') center / 100% 100%, #241917; box-shadow: 0 6px 16px #000c; }
 .metrics-bar .metric-lbl { color: #d8c7a8; text-shadow: 0 1px 2px #000; }
@@ -72,3 +79,7 @@ html, body { background: #100c07; }
   .station-nav::before { display: none; }
   .metrics-bar { left: 108px; }  /* clear of the side rail */
 }
+
+/* Anything the page does not cover (for example a strip under the bar on a phone whose layout height falls short of the
+   screen) shows bar wood instead of black, until the real cause is read from the phone's screen report. */
+html { background: #241917; }

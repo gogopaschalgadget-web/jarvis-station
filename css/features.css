@@ -67,7 +67,7 @@
 
 /* Cas has a persistent visual stage above the conversation. */
 body.cas-home{--header-height:0px;}
-body.cas-home .station-header{display:none;}
+ /* the Cas page now keeps the slim header too (Chris, 2026-11-16) */
 body.cas-home .station-install-help{display:none;}
 #panel-cas.tab-panel{padding:0;}
 #cas-scene{display:flex;flex-direction:column;padding:0;border:0;border-image:none;background:#100e09;}
