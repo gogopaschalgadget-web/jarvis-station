@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bar test default</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bar default">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+  html, body { margin: 0; height: 100%; background: #3a281a; color: #f6e2b4; font-family: -apple-system, system-ui, sans-serif; }
+  .top { position: fixed; top: 0; left: 0; right: 0; height: 30px; background: #4a3320; border-bottom: 2px ridge #6b4a1b; text-align: center;
+    font: 900 14px/30px Georgia, serif; letter-spacing: 4px; color: #f6e2b4; }
+  .bar { box-sizing: border-box; position: fixed; bottom: 0; left: 0; right: 0; height: 48px; background: #6a4a14; border-top: 2px solid #ffe08a; text-align: center;
+    font: 800 15px/46px -apple-system, system-ui, sans-serif; color: #fff1c8; }
+  .tick { position: fixed; left: 0; width: 46px; height: 10px; border-top: 1px solid #ffe08a; font: 600 9px/10px -apple-system, system-ui, sans-serif;
+    padding-left: 3px; box-sizing: border-box; color: #ffe08a; }
+  .mid { position: fixed; left: 54px; right: 8px; top: 150px; font: 700 20px/1.35 -apple-system, system-ui, sans-serif; word-break: break-word; }
+  .mid b { color: #ffe08a; }
+  .mid small { display: block; margin-top: 14px; font: 600 14px/1.3 -apple-system, system-ui, sans-serif; color: #e2d3b6; }
+</style>
+</head>
+<body>
+<div class="top">BAR TEST default</div>
+<div class="bar">48pt bar at the bottom edge</div>
+<div class="mid" id="out">loading...</div>
+<script>
+(function () {
+  for (var y = 0; y <= 140; y += 10) { var t = document.createElement('div'); t.className = 'tick'; t.style.top = y + 'px'; t.textContent = String(y); document.body.appendChild(t); }
+  var probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;top:0;width:1px;visibility:hidden;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+  document.body.appendChild(probe);
+  function vu(v) { var d = document.createElement('div'); d.style.cssText = 'position:fixed;left:0;top:0;width:1px;visibility:hidden;height:' + v; document.body.appendChild(d); var h = Math.round(d.getBoundingClientRect().height); d.remove(); return h; }
+  function draw() {
+    var cs = getComputedStyle(probe);
+    var ins = [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map(function (v) { return Math.round(parseFloat(v) || 0); });
+    var file = location.pathname.split('/').pop() || '(none)';
+    document.getElementById('out').innerHTML =
+      'screen.height <b>' + Math.round(screen.height) + '</b><br>innerHeight <b>' + Math.round(innerHeight) + '</b><br>' +
+      '100vh <b>' + vu('100vh') + '</b><br>100dvh <b>' + vu('100dvh') + '</b><br>' +
+      'insets T/R/B/L <b>' + ins.join(' / ') + '</b><br>standalone <b>' + String(navigator.standalone) + '</b>' +
+      '<small>' + file + ' (status bar: default)<br>screen.width ' + Math.round(screen.width) + ', innerWidth ' + Math.round(innerWidth) + '</small>';
+  }
+  draw();
+  addEventListener('resize', draw); addEventListener('pageshow', draw); setTimeout(draw, 400);
+})();
+</script>
+</body>
+</html>

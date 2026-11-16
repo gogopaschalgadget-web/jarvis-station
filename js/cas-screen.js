@@ -41,7 +41,7 @@ function probe() {
  *  laid out as tall as the screen minus the top inset (812 on an 874 screen). The bottom 62pt belong to the system: web content
  *  cannot be drawn there, and a frosted system layer covers the top 62 plus a little. When that exact pattern is seen (installed
  *  app, narrow screen, screen minus inner height equals the top inset), html gets the class ios-short and the CSS drops the
- *  bottom inset from the bar (the home indicator lives in the system strip). Class only: nothing here changes any size, so
+ *  bottom inset from the bar (the home indicator lives in the system strip) and moves the title below the frost (read from the phone's ruler, v77: sharp from about 100pt). Class only: nothing here changes any size, so
  *  re-measuring cannot feed back into the measurement. */
 let _fault = null;
 function detectFault() {
@@ -59,51 +59,8 @@ function applyFault() {
   } catch { /* leave the layout as it is */ }
 }
 
-/** Temporary ruler (Chris holds the title for a second; tap anywhere to close). Four columns of sharp labelled lines every
- *  10pt from 40 to 140, so one screenshot shows where text stays sharp under the frosted system layer:
- *  A fixed elements, B in-flow content of a scrolling box, C inside a fixed bar that touches the top, D inside a fixed bar
- *  that starts at 62. Read-only: it changes nothing and sends nothing. */
-function showRuler() {
-  if (document.getElementById('st-ruler')) return;
-  const root = document.createElement('div');
-  root.id = 'st-ruler';
-  const mkLines = (parent, offset) => {
-    for (let y = 40; y <= 140; y += 10) {
-      const line = document.createElement('div');
-      line.className = 'st-ruler-line';
-      line.textContent = String(y);
-      line.style.top = (y - offset) + 'px';
-      parent.append(line);
-    }
-  };
-  const col = (name, title) => {
-    const c = document.createElement('div'); c.className = 'st-ruler-col st-ruler-' + name; root.append(c);
-    const t = document.createElement('div'); t.className = 'st-ruler-title'; t.textContent = title; c.append(t);
-    return c;
-  };
-  mkLines(col('a', 'A fixed'), 0);
-  const b = col('b', 'B scroll'); const inner = document.createElement('div'); inner.className = 'st-ruler-scroll'; b.append(inner); mkLines(inner, 0);
-  const c = col('c', 'C bar top 0'); const cb = document.createElement('div'); cb.className = 'st-ruler-bar st-ruler-bar0'; c.append(cb); mkLines(cb, 0);
-  const d = col('d', 'D bar from 62'); const db = document.createElement('div'); db.className = 'st-ruler-bar st-ruler-bar62'; d.append(db); mkLines(db, 62);
-  const note = document.createElement('div'); note.className = 'st-ruler-note';
-  note.textContent = 'Lines are labelled in points from the top of the screen. Tap to close.';
-  root.append(note);
-  root.addEventListener('click', () => root.remove());
-  document.body.append(root);
-}
-/** Press and hold the title for a second: the ruler. A tap or a drag does nothing. */
-function initRulerHold() {
-  const title = document.querySelector('.station-title');
-  if (!title) return;
-  let timer = 0, x0 = 0, y0 = 0;
-  const cancel = () => { clearTimeout(timer); timer = 0; };
-  title.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; cancel(); timer = setTimeout(() => { timer = 0; showRuler(); }, 1000); });
-  title.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancel(); });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => title.addEventListener(ev, cancel));
-}
 export function initShortFix() {
   applyFault();
-  initRulerHold();
   window.addEventListener('pageshow', applyFault);
   setTimeout(applyFault, 300); setTimeout(applyFault, 1500);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(applyFault, 200); });

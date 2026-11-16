@@ -104,21 +104,15 @@ html { background: #241917; }
   html.ios-short .cas-composer-area { padding-bottom: 10px; }
   html.ios-short #station-cas-toggle { bottom: 66px; }
   html.ios-short .mx-sheet-in { padding-bottom: 18px; }
+  /* the system frosts the top ~98pt of the screen (ruler on the phone, v77: text is unreadable above 70, soft to 90, sharp from 100),
+     so the wood band is plain down to 98 and the title sits in a slim row below it. Everything starts where the header ends because
+     it all follows --mark-top; the numbers are the row top (98), the row (22) and their sum (120). */
+  html.ios-short { --mark-top: 120px; }
+  html.ios-short .station-header { padding-top: 98px; }
+  html.ios-short .station-title { font-size: 13px; letter-spacing: 4px; gap: 6px; }
+  html.ios-short .station-title::before { width: 16px; height: 16px; }
 }
 
 /* iOS fills any strip the page does not reach with the body colour (seen on Chris's phone: #100C07 under the bar even though html
    was wood). Make that colour bar wood too, so if the strip ever shows it matches the bar. Panels have their own backgrounds. */
 body { background: #241917; }
-
-/* ---- the temporary ruler (hold the title 1 s). Sharp 1px lines and 9px labels, so blur anywhere is the system's, not ours. ---- */
-#st-ruler { position: fixed; inset: 0; z-index: 9999; background: #100c07; color: #f6e2b4; font: 600 9px/10px -apple-system, system-ui, sans-serif; }
-.st-ruler-col { position: absolute; top: 0; bottom: 0; width: 25%; overflow: hidden; }
-.st-ruler-a { left: 0; } .st-ruler-b { left: 25%; } .st-ruler-c { left: 50%; } .st-ruler-d { left: 75%; }
-.st-ruler-title { position: absolute; top: 160px; left: 4px; font-size: 10px; color: #ffe08a; }
-.st-ruler-line { position: absolute; left: 0; right: 0; height: 10px; border-top: 1px solid #ffe08a; padding-left: 4px; box-sizing: border-box; }
-.st-ruler-a .st-ruler-line { position: fixed; left: 0; right: auto; width: 25%; }
-.st-ruler-scroll { position: absolute; inset: 0; overflow-y: auto; }
-.st-ruler-bar { position: fixed; background: #3a281a; }
-.st-ruler-bar0 { top: 0; height: 150px; width: 25%; left: 50%; }
-.st-ruler-bar62 { top: 62px; height: 88px; width: 25%; left: 75%; }
-.st-ruler-note { position: absolute; left: 6px; right: 6px; top: 200px; font-size: 11px; line-height: 14px; color: #e2d3b6; }
