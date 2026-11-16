@@ -2,16 +2,16 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas65';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas67';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
-import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas65';
-import { initDesk, showDesk } from './cas-desk.js?v=cas65';
-import { initScreenReport, sendScreenReport } from './cas-screen.js?v=cas65';
+import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas67';
+import { initDesk, showDesk } from './cas-desk.js?v=cas67';
+import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas67';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
   showThread, inBrainstorm,
-} from './cas-threads.js?v=cas65'; // versioned with app.js, so a phone never mixes an old file with a new one
+} from './cas-threads.js?v=cas67'; // versioned with app.js, so a phone never mixes an old file with a new one
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
@@ -485,6 +485,7 @@ async function initCasScene() {
   initScenes({ apiBase: API_BASE, getToken: getDeviceToken });
   // The Desk tab: the ranked list the PC uploads. Read-only; it asks the server only when the tab opens.
   initDesk(document.getElementById('panel-desk'), { apiBase: API_BASE, getToken: getDeviceToken });
+  initShortFix(); // phones whose page is laid out short of the screen get the bottom bar moved down
   // Layout facts of this phone for the builders: once at load, then at most once per tab change.
   initScreenReport({ apiBase: API_BASE, getToken: getDeviceToken, getTab: () => currentTab });
 

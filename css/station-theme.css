@@ -14,14 +14,21 @@
   position: fixed; top: 0; left: 0; right: 0; z-index: 96;
   height: var(--mark-top); padding: env(safe-area-inset-top, 0px) 0 0;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(#00000010, #00000040), url('../assets/theme/bar.jpg') center / 100% 100%, #2a1f10 !important;
+  /* drawn in CSS so it is sharp at any size: the old photo strip was 84px tall stretched to 276 device pixels, which is what
+     looked blurry. Same dark wood and brass family, with fine horizontal grain. */
+  background:
+    linear-gradient(#ffffff14, transparent 2px),
+    repeating-linear-gradient(0deg, #00000026 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(0deg, #ffffff0a 0 1px, transparent 1px 11px),
+    linear-gradient(#4a3320, #3a281a 55%, #2a1c14) !important;
   border: 0 !important; border-image: none !important; border-bottom: 2px ridge #6b4a1b !important; box-shadow: 0 4px 10px #000a !important;
   box-sizing: border-box; pointer-events: none;
 }
 .station-title {
+  pointer-events: auto; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
   display: inline-flex; align-items: center; gap: 8px;
   font: 900 14px Georgia, 'Times New Roman', serif; letter-spacing: 5px; text-transform: uppercase;
-  color: #f6e2b4; text-shadow: 0 1px 0 #000, 0 0 5px #000;
+  color: #f6e2b4; text-shadow: none; -webkit-font-smoothing: antialiased;
   background: none; -webkit-background-clip: border-box; background-clip: border-box; filter: none; opacity: 1;
 }
 .station-title::before {
@@ -83,3 +90,11 @@ html, body { background: #100c07; }
 /* Anything the page does not cover (for example a strip under the bar on a phone whose layout height falls short of the
    screen) shows bar wood instead of black, until the real cause is read from the phone's screen report. */
 html { background: #241917; }
+
+/* ---- phones whose page is laid out short of the screen (--short is set by js/cas-screen.js only when it sees that fault):
+   the bar is moved down by the missing strip, and the panels end where the bar now starts. Elsewhere --short is 0: no change. ---- */
+:root { --short: 0px; }
+@media (max-width: 959px) {
+  :root { --nav-bar: calc(48px + env(safe-area-inset-bottom, 0px)); --nav-height: calc(var(--nav-bar) - var(--short)); }
+  .station-nav { height: var(--nav-bar); bottom: calc(-1 * var(--short)); }
+}

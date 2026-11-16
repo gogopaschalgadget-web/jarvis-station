@@ -37,6 +37,78 @@ function probe() {
   }
 }
 
+/** iOS installed-app fault (seen on Chris's iPhone, 2026-11-16): with the translucent status bar the page is laid out as tall as
+ *  the screen minus the top inset (812 on an 874 screen), so everything pinned to the bottom sits that far too high and a
+ *  strip shows under the nav. When that exact pattern is seen (installed app, narrow screen, screen minus inner height equals
+ *  the top inset), the strip height is put in --short, and the CSS moves the nav down by it and shortens the panels to match.
+ *  Anywhere else --short stays 0 and nothing moves. Worked out once at load, on show and on rotation: never on resize, so the
+ *  keyboard cannot trigger it. */
+let _shortLatched = null;
+let _guardTripped = 0;   // 1 when the self-check found the moved bar could not be tapped and put it back
+const OFF_KEY = 'station-short-off';
+function switchedOff() { try { return localStorage.getItem(OFF_KEY) === '1'; } catch { return false; } }
+function measureShort() {
+  if (_guardTripped || switchedOff()) return 0;
+  const standalone = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+  if (!standalone || window.innerWidth >= 960 || !window.CSS || !CSS.supports('top', 'env(safe-area-inset-top)')) return 0;
+  const { insets } = probe();
+  const gap = Math.round(screen.height - window.innerHeight);
+  const top = Math.round(insets.top);
+  // never more than the bar is tall minus 20px, so a wrong reading cannot push the bar off the screen
+  return top >= 20 && Math.abs(gap - top) <= 2 && gap <= 70 ? gap : 0;
+}
+function setShort(px) {
+  _shortLatched = px;
+  document.documentElement.style.setProperty('--short', px + 'px');
+  document.documentElement.classList.toggle('ios-short', px > 0);
+}
+/** Self-check: when the bar has been moved, the middle of it must be reachable by touch. If the phone cannot hit-test there
+ *  (the bar is outside what iOS counts as the page), the move is undone at once and stays undone until the next load. */
+function guardShift() {
+  if (!_shortLatched) return;
+  try {
+    const nav = document.getElementById('station-nav');
+    if (!nav) return;
+    const b = nav.getBoundingClientRect();
+    const hit = document.elementFromPoint(Math.round(b.left + b.width / 2), Math.round(b.top + Math.min(24, b.height / 2)));
+    if (!hit || !nav.contains(hit)) { _guardTripped = 1; setShort(0); }
+  } catch { _guardTripped = 1; setShort(0); }
+}
+function applyShort() {
+  try {
+    setShort(measureShort());
+    if (_shortLatched) setTimeout(guardShift, 250);
+  } catch { /* leave the layout as it is */ }
+}
+/** Press and hold the title for a second: turns the shift off (or back on), remembered on this phone. The way out if the
+ *  moved bar ever cannot be used, since it does not need the bar. */
+function initShortSwitch() {
+  const title = document.querySelector('.station-title');
+  if (!title) return;
+  let timer = 0;
+  const cancel = () => { clearTimeout(timer); timer = 0; };
+  title.addEventListener('pointerdown', () => {
+    cancel();
+    timer = setTimeout(() => {
+      timer = 0;
+      try { if (switchedOff()) localStorage.removeItem(OFF_KEY); else localStorage.setItem(OFF_KEY, '1'); } catch { /* no memory: still switches for this load */ }
+      _guardTripped = switchedOff() ? 0 : _guardTripped;
+      applyShort();
+      title.style.opacity = '.55'; setTimeout(() => { title.style.opacity = ''; }, 350);
+    }, 1000);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(ev => title.addEventListener(ev, cancel));
+}
+export function initShortFix() {
+  applyShort();
+  initShortSwitch();
+  window.addEventListener('pageshow', applyShort);
+  // iOS can report a transient height at cold launch: measure again shortly after, and when the app comes back to the front
+  setTimeout(applyShort, 300); setTimeout(applyShort, 1500);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(applyShort, 200); });
+  window.addEventListener('orientationchange', () => setTimeout(applyShort, 350));
+}
+
 async function swVersion() {
   try {
     const keys = await caches.keys();
@@ -57,6 +129,11 @@ async function build() {
   add('main', document.getElementById('station-main'));
   add('body', document.body);
   add('html', document.documentElement);
+  // fix probe: t = strip height the fix applied, l = 1 if the very bottom row of the real screen is hit-testable, w = 1 if Chris switched the shift off, h = 1 if the self-check put the bar back
+  try {
+    const low = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.max(0, Math.round(screen.height) - 6));
+    rects.fix = { t: _shortLatched == null ? -1 : _shortLatched, l: low ? 1 : 0, w: switchedOff() ? 1 : 0, h: _guardTripped };
+  } catch { /* no probe */ }
   document.querySelectorAll('.tab-panel.visible').forEach(p => { if (p.id && Object.keys(rects).length < 14) add(p.id, p); });
   return {
     inner: [window.innerWidth, window.innerHeight], screen: [screen.width, screen.height], avail: [screen.availWidth, screen.availHeight],
