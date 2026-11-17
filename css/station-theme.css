@@ -97,9 +97,14 @@ html { background: #241917; }
    the strip colour so the strip reads as part of the bar. Elsewhere nothing changes. ---- */
 @media (max-width: 959px) {
   html.ios-short { --nav-height: 48px; }
+  /* one flat wood tone (#3a2812, the bar's own mid tone) top to bottom: no dark overlay, and the grain of nav.jpg fades to zero over
+     the lower third, so the bar and the strip below it read as one 110pt wood bar with the tabs in its top part */
   html.ios-short .station-nav { height: 48px; border-bottom: 0 !important;
-    background: linear-gradient(transparent 60%, #241917 100%), linear-gradient(#00000018, #00000050), url('../assets/theme/nav.jpg') center / 100% 100%, #241917 !important; }
+    background: linear-gradient(#3a281200 52%, #3a2812d0 74%, #3a2812 94%), url('../assets/theme/nav.jpg') center / 100% 100%, #3a2812 !important; }
   html.ios-short .station-nav .nav-item { height: 48px; padding: 4px 0 3px; }
+  /* the active tab is a chip inside the bar: rounded, and its lower end fades out, so nothing ends in a hard edge at the bottom */
+  html.ios-short .station-nav .nav-item.active { height: 42px; align-self: flex-start; margin: 3px 3px 0; padding: 3px 0 2px; border-radius: 9px;
+    background: linear-gradient(#fff1c430, #c9a22740 40%, #c9a22700); box-shadow: inset 0 3px #ffe08a; }
   /* the inset is not under the page here, so the extra bottom padding would be dead space */
   html.ios-short .cas-composer-area { padding-bottom: 10px; }
   html.ios-short #station-cas-toggle { bottom: 66px; }
@@ -116,3 +121,14 @@ html { background: #241917; }
 /* iOS fills any strip the page does not reach with the body colour (seen on Chris's phone: #100C07 under the bar even though html
    was wood). Make that colour bar wood too, so if the strip ever shows it matches the bar. Panels have their own backgrounds. */
 body { background: #241917; }
+
+/* ---- the system strip under the bar (Chris, 2026-11-16: bar and strip read as one piece). iOS paints the page's own background colour
+   flat in the 62pt it owns, and keeps the colour it saw at first paint, so this is plain CSS on html and body, not a class set by script.
+   #3a2812 is the bar wood's mid tone as it renders on the phone (about 58,40,18). Phones only. ---- */
+@media (max-width: 959px) {
+  html, body { background: #3a2812; }
+  /* the places that used to show the dark body colour by accident get their own dark: the login (pairing) page, and the 8px
+     gaps at the sides of the metrics bar on the Station tab */
+  html.station-pairing, body.station-pairing { background: #100c07; }
+  body:has(.metrics-bar:not([hidden]))::before { content: ""; position: fixed; left: 0; right: 0; top: var(--mark-top); height: var(--metrics-height); background: #100c07; pointer-events: none; }
+}
