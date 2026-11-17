@@ -5,6 +5,8 @@
 
 const FRESH_MS = 60_000;          // opening the tab again within a minute reuses what is on screen
 const OLD_FEED_S = 6 * 3600;      // a feed older than this says so
+const DAY_S = 24 * 3600;          // older than a day gets the stronger warning
+const TICK_MS = 30_000;           // the age line is recomputed this often while the Desk is on screen
 const SHOWN = 5;                  // "Top 5 shown", the rest fold (front-desk-design.md, guards)
 const KIND = { decide: 'Decide', confirm: 'Confirm', review: 'Review', 'do-by-hand': 'Do by hand', update: 'Update' };
 
@@ -55,20 +57,39 @@ function setLastLook(t) { try { localStorage.setItem('desk-last-look', String(t)
 function shorten(text, max) { return text.length > max ? text.slice(0, max - 1).trimEnd() + '...' : text; }
 function words(id) { return String(id || '').replace(/-/g, ' '); }
 
+/** How old the feed is right now, live: its age on the server when it was fetched plus the time since this phone fetched it.
+ *  (The age used to be fixed at the moment the card was drawn, so it never moved.) */
 function age(data) {
-  if (!data || data.uploaded == null || data.now == null) return { text: 'age unknown', old: false };
-  const s = Math.max(0, Math.round(data.now - data.uploaded));
-  const text = s < 90 ? 'just now' : s < 5400 ? Math.round(s / 60) + ' min old' : s < 172800 ? Math.round(s / 3600) + ' h old' : Math.round(s / 86400) + ' days old';
-  return { text, old: s > OLD_FEED_S };
+  if (!data || data.uploaded == null || data.now == null) return { text: 'age unknown', old: false, day: false };
+  const s = Math.max(0, Math.round(data.now - data.uploaded + (Date.now() - _loadedAt) / 1000));
+  const text = s < 90 ? 'just now' : s < 5400 ? Math.round(s / 60) + ' min ago' : s < 172800 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago';
+  return { text, old: s > OLD_FEED_S, day: s > DAY_S };
+}
+function srcText() { return 'Source: orchestrator feed, sent ' + age(_data).text; }
+function oldText(a) { return a.day ? 'This list is over a day old. The PC has not sent a newer one, so it may be out of date.' : 'This list is old. The PC has not sent a newer one.'; }
+
+/** Update only the age words in place (a redraw would fold the cards the reader has open). */
+function tickAges() {
+  if (!_panel || _state !== 'ready' || !_data) return;
+  const a = age(_data);
+  _panel.querySelectorAll('.dk-src').forEach(n => { n.textContent = srcText(); });
+  const warn = _panel.querySelector('.dk-old');
+  if (warn) { warn.hidden = !a.old; warn.textContent = oldText(a); }
+}
+let _tick = 0;
+function startTick() {
+  if (_tick) return;
+  _tick = setInterval(() => { if (!document.hidden && _panel && _panel.classList.contains('visible')) tickAges(); }, TICK_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) tickAges(); });
 }
 
 /** One card. Only the first is open; the others show number, project, kind, minutes and title, and open on tap (local only). */
-function card(item, n, src, open) {
+function card(item, n, open) {
   const c = el('details', 'dk-card');
   c.open = !!open;
   const top = el('summary', 'dk-top');
   top.append(el('span', 'dk-num', String(n)), el('span', 'dk-proj', words(item.project)), el('span', 'dk-kind dk-kind-' + item.kind, KIND[item.kind] || item.kind));
-  if (item.minutes != null) top.append(el('span', 'dk-min', item.minutes + ' min'));
+  if (item.minutes != null) top.append(el('span', 'dk-min', 'takes ' + item.minutes + ' min'));
   top.append(el('h3', 'dk-title', item.title));
   c.append(top);
   const body = el('div', 'dk-cbody');
@@ -85,7 +106,7 @@ function card(item, n, src, open) {
     opts.append(el('b', '', 'Options: '), document.createTextNode(item.choices.map(ch => ch.label).join(' · ')));
     body.append(opts);
   }
-  body.append(el('p', 'dk-src', 'Source: ' + src));
+  body.append(el('p', 'dk-src', srcText()));
   c.append(body);
   return c;
 }
@@ -117,15 +138,16 @@ function draw() {
   const a = age(_data);
   const pill = el('span', 'dk-pill' + (open.length ? '' : ' none'), open.length ? open.length + ' need you' : 'All clear');
   head.append(pill);
-  const src = 'orchestrator feed, ' + a.text;
   if (_refreshFailed) wrap.append(el('p', 'dk-stale', 'Could not refresh just now. This is the last list received.'));
-  if (a.old) wrap.append(el('p', 'dk-stale', 'This list is old. The PC has not sent a newer one.'));
+  const oldNote = el('p', 'dk-stale dk-old', oldText(a));
+  oldNote.hidden = !a.old;
+  wrap.append(oldNote);
   if (!open.length) wrap.append(el('p', 'dk-note', 'Nothing needs you right now.'));
-  open.slice(0, SHOWN).forEach((item, i) => wrap.append(card(item, i + 1, src, i === 0)));
+  open.slice(0, SHOWN).forEach((item, i) => wrap.append(card(item, i + 1, i === 0)));
   if (open.length > SHOWN) {
     const more = el('details', 'dk-fold');
     more.append(el('summary', '', `Top ${SHOWN} shown, ${open.length - SHOWN} more folded`));
-    open.slice(SHOWN).forEach((item, i) => more.append(card(item, SHOWN + i + 1, src)));
+    open.slice(SHOWN).forEach((item, i) => more.append(card(item, SHOWN + i + 1)));
     wrap.append(more);
   }
   wrap.append(el('p', 'dk-later', 'Answering from the Desk comes in a later step. For now, answer in the thread each card names.'));
@@ -178,6 +200,7 @@ async function load(force) {
 export function showDesk() {
   if (!_panel) _panel = document.getElementById('panel-desk');
   if (_state === 'ready' || _state === 'empty') draw();
+  startTick();
   load(false);
 }
 
