@@ -9,7 +9,7 @@ const ASK_POLL_MS = 4_000;
 const ASK_WAIT_MS = 15 * 60_000;
 const GOAL = 8000;
 const FACE = 'assets/cas/face.jpg';
-const SOURCES = [['projects', 'Projects'], ['loops', 'Loops'], ['review', 'Review'], ['x', 'X posts'], ['quora', 'Quora']];
+const SOURCES = [['projects', 'Projects'], ['desk', 'Desk'], ['loops', 'Loops'], ['review', 'Review'], ['x', 'X posts'], ['quora', 'Quora']];
 const KEY_THREADS = 'mx-threads';
 const KEY_UI = 'mx-ui';
 const DONE_EVENTS = new Set(['mission_done', 'project_answered', 'loop_approved', 'loop_answered', 'loop_standing', 'loop_changed', 'loop_stopped']);
@@ -148,7 +148,12 @@ function loopRows() {
   }));
 }
 
+function deskRows() {
+  return ((_o.deskMissions && _o.deskMissions()) || []).map(d => ({ id: 'desk:' + d.id, source: 'desk', kind: 'desk', title: d.title, info: false, desk: d }));
+}
+
 function missions(source) {
+  if (source === 'desk') return deskRows();
   const server = ((_status && _status.missions) || []).filter(m => !source || m.source === source);
   if (source === 'x') return xMissions();
   if (source === 'review') return reviewMissions();
@@ -1397,10 +1402,10 @@ function renderBoard() {
   else if (_tab === 'x' && _x.error) list.append(el('div', 'mx-hint', 'Could not load X posts. Tap X posts to try again.'));
   else if (!rows.length) list.append(el('div', 'mx-hint', _tab === 'loops' ? 'No loops yet. Tap Start loop on an idea in a Brainstorm thread.' : 'Nothing waiting here.'));
   rows.forEach(m => {
-    const r = btn('mx-mrow' + (m.info ? ' rust' : ' live') + (_selected === m.id ? ' on' : ''), '', () => pick(m));
+    const r = btn('mx-mrow' + (m.info ? ' rust' : ' live') + (_selected === m.id ? ' on' : ''), '', () => (m.kind === 'desk' ? _o.openDesk && _o.openDesk() : pick(m)));
     const icon = (m.kind === 'x' || m.kind === 'quora') && m.info ? (m.q && m.q.status === 'done' ? '✓' : '⏱')
       : m.number ? String(m.number) : m.q ? String(Math.min(m.q.step, 7))
-      : ({ loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R', quora_pick: 'Q', x_expired: '▤' }[m.kind] || '•');
+      : ({ desk: 'D', loop_card: 'L', publish: 'P', push: '↑', standing: '★', loop: '↻', x: 'X', review: 'R', quora_pick: 'Q', x_expired: '▤' }[m.kind] || '•');
     const t = el('span', 'mx-mt');
     t.append(el('b', '', m.title), el('small', '', subtitle(m)));
     r.append(el('span', 'mx-mi' + (m.info ? ' info' : ''), icon), t);
@@ -1412,6 +1417,7 @@ function renderBoard() {
 }
 
 function subtitle(m) {
+  if (m.kind === 'desk') return m.desk.stuck ? 'Stuck: getting you unstuck' : [m.desk.project.replace(/-/g, ' '), m.desk.minutes != null ? 'takes ' + m.desk.minutes + ' min' : ''].filter(Boolean).join(' · ');
   if (local(m.id).sent) return 'Done on this phone';
   if (m.info && m.kind === 'loop') return m.loop.headline;
   if (m.kind === 'publish') return (GATE[(m.compliance || {}).result] || '').replace(/\.$/, '');
@@ -1497,6 +1503,7 @@ async function loadX() {
 
 /** The Missions tab was opened: draw it now and fetch fresh data. */
 export function showMissions() {
+  if (_o.loadDesk) _o.loadDesk(render);
   render();
   refresh();
   if (_x.items === null && !_x.loading) loadX();

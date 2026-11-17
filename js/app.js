@@ -2,11 +2,11 @@ import { initCasAnimation, setCasActivity } from './cas-animation.js';
 import { prepareScreenshot } from './cas-images.js';
 import { initWorkControls, workMessage, observeWork } from './station-work-view.js';
 import { initCasProjects } from './cas-projects.js';
-import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas75';
+import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPublish, gateBox } from './cas-missions.js?v=cas77';
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas75';
-import { initDesk, showDesk } from './cas-desk.js?v=cas75';
+import { initDesk, showDesk, deskMissions, preloadDesk } from './cas-desk.js?v=cas77';
 import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas75';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
@@ -478,13 +478,27 @@ async function initCasScene() {
       if (currentKey() === 'main') { addOrUpdateCasExchange(item); scrollCasMessages(); }
     },
     openThread: async id => { switchTab('cas'); await showThread(id); },
+    openDesk: () => switchTab('desk'),
+    deskMissions,
+    loadDesk: preloadDesk,
     openReview: () => openReviewFromMap('posts'),
     getHealth: () => apiData?.health || null,
   });
   // Background scenes: off until Chris turns them on in Settings; nothing on screen changes before that.
   initScenes({ apiBase: API_BASE, getToken: getDeviceToken });
-  // The Desk tab: the ranked list the PC uploads. Read-only; it asks the server only when the tab opens.
-  initDesk(document.getElementById('panel-desk'), { apiBase: API_BASE, getToken: getDeviceToken });
+  initDesk(document.getElementById('panel-desk'), {
+    apiBase: API_BASE, getToken: getDeviceToken,
+    openTab: id => switchTab(id),
+    openThread: async id => { switchTab('cas'); await showThread(id); },
+    openCas: text => {
+      switchTab('cas');
+      const box = document.getElementById('cas-textarea');
+      if (!box) return;
+      box.value = box.value.trim() ? box.value + '\n' + text : text;
+      box.dispatchEvent(new Event('input'));
+      box.focus();
+    },
+  });
   initShortFix(); // phones whose page is laid out short of the screen get the bottom bar moved down
   // Layout facts of this phone for the builders: once at load, then at most once per tab change.
   initScreenReport({ apiBase: API_BASE, getToken: getDeviceToken, getTab: () => currentTab });

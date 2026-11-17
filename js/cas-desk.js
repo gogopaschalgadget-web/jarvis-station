@@ -1,25 +1,40 @@
-// cas-desk.js - the Desk tab: one ranked list of what Chris must decide, confirm, review or do.
-// Step 1 is read-only. It reads the feed the PC uploaded to the server (device login) and draws it.
-// It sends nothing back: no answers, no edits, no re-plan. Every state is calm and nothing loops:
-// one request per open of the tab at most, and a failure waits for Chris to tap "Try again". No em dashes.
+// cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-const FRESH_MS = 60_000;          // opening the tab again within a minute reuses what is on screen
-const OLD_FEED_S = 6 * 3600;      // a feed older than this says so
-const DAY_S = 24 * 3600;          // older than a day gets the stronger warning
-const TICK_MS = 30_000;           // the age line is recomputed this often while the Desk is on screen
-const SHOWN = 5;                  // "Top 5 shown", the rest fold (front-desk-design.md, guards)
+import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, deskRows } from './cas-desk-logic.js?v=cas77';
+
+export { rankItems };
+
+const FRESH_MS = 60_000;
+const OLD_FEED_S = 6 * 3600;
+const DAY_S = 24 * 3600;
+const TICK_MS = 30_000;
+const TIMEOUT_MS = 15_000;
+const TOAST_MS = 8_000;
+const RERANK_S = 120;
 const KIND = { decide: 'Decide', confirm: 'Confirm', review: 'Review', 'do-by-hand': 'Do by hand', update: 'Update' };
+const SAY = { 429: 'Too many changes in a minute. Wait a moment.', 409: 'The list changed. It is reloaded.' };
 
-let _o = { apiBase: '', getToken: () => '' };
+let _o = { apiBase: '', getToken: () => '', openTab: () => {}, openThread: () => {}, openCas: () => {} };
 let _panel = null;
-let _state = 'idle';              // idle | loading | ready | empty | failed
-let _data = null;                 // { feed, uploaded, now } from the server
+let _state = 'idle';
+let _data = null;
 let _loadedAt = 0;
 let _inflight = false;
-let _doneOpen = false;            // the done log stays open across a redraw
-let _lookBase = 0;                // when Chris last looked, fixed at load so opening the log does not wipe the new count
-let _refreshFailed = false;       // a refresh failed while an older list is still on screen
-const TIMEOUT_MS = 15_000;        // a hung connection ends in "Not available right now", never in a stuck screen
+let _doneOpen = false;
+let _answeredOpen = false;
+let _moreOpen = false;
+let _lookBase = 0;
+let _refreshFailed = false;
+let _toast = null;
+let _toastTimer = 0;
+let _rerankTimer = 0;
+let _openInit = false;
+let _tick = 0;
+const _open = new Set();
+const _whys = new Map();
+const _need = new Set();
+const _busy = new Set();
+let _onData = () => {};
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -28,19 +43,13 @@ function el(tag, cls, text) {
   return node;
 }
 
-/** Open items in Chris's order: project_order first (unknown projects last), then the feed's own order. */
-export function rankItems(feed) {
-  const order = (feed && feed.project_order) || [];
-  const rank = p => { const i = order.indexOf(p); return i < 0 ? order.length : i; };
-  return ((feed && feed.items) || [])
-    .map((item, index) => ({ item, index }))
-    .filter(x => x.item.status === 'open')
-    .sort((a, b) => rank(a.item.project) - rank(b.item.project) || a.index - b.index)
-    .map(x => x.item);
+function button(cls, text, fn) {
+  const b = el('button', cls, text);
+  b.type = 'button';
+  b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); fn(e); });
+  return b;
 }
 
-/** The done log. The server keeps it (append-only); the feed's own done entries and answered items only fill in when the
- *  server sent no log (an older server). Newest first. */
 export function doneList(data) {
   const log = data && data.done_log;
   if (Array.isArray(log)) return log.map(d => ({ title: d.title, project: d.project, note: [d.date, d.answer ? shorten(d.answer, 110) : ''].filter(Boolean).join(' · '), seen: d.first_seen || 0 }));
@@ -53,12 +62,11 @@ export function doneList(data) {
 }
 
 function lastLook() { try { return Number(localStorage.getItem('desk-last-look')) || 0; } catch { return 0; } }
-function setLastLook(t) { try { localStorage.setItem('desk-last-look', String(t)); } catch { /* private window: no memory, fine */ } }
+function setLastLook(t) { try { localStorage.setItem('desk-last-look', String(t)); } catch { /* no storage: no memory */ } }
 function shorten(text, max) { return text.length > max ? text.slice(0, max - 1).trimEnd() + '...' : text; }
 function words(id) { return String(id || '').replace(/-/g, ' '); }
+const field = (name, fallback) => (_data && _data[name]) || fallback;
 
-/** How old the feed is right now, live: its age on the server when it was fetched plus the time since this phone fetched it.
- *  (The age used to be fixed at the moment the card was drawn, so it never moved.) */
 function age(data) {
   if (!data || data.uploaded == null || data.now == null) return { text: 'age unknown', old: false, day: false };
   const s = Math.max(0, Math.round(data.now - data.uploaded + (Date.now() - _loadedAt) / 1000));
@@ -68,7 +76,6 @@ function age(data) {
 function srcText() { return 'Source: orchestrator feed, sent ' + age(_data).text; }
 function oldText(a) { return a.day ? 'This list is over a day old. The PC has not sent a newer one, so it may be out of date.' : 'This list is old. The PC has not sent a newer one.'; }
 
-/** Update only the age words in place (a redraw would fold the cards the reader has open). */
 function tickAges() {
   if (!_panel || _state !== 'ready' || !_data) return;
   const a = age(_data);
@@ -76,44 +83,313 @@ function tickAges() {
   const warn = _panel.querySelector('.dk-old');
   if (warn) { warn.hidden = !a.old; warn.textContent = oldText(a); }
 }
-let _tick = 0;
 function startTick() {
   if (_tick) return;
   _tick = setInterval(() => { if (!document.hidden && _panel && _panel.classList.contains('visible')) tickAges(); }, TICK_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) tickAges(); });
 }
 
-/** One card. Only the first is open; the others show number, project, kind, minutes and title, and open on tap (local only). */
-function card(item, n, open) {
-  const c = el('details', 'dk-card');
-  c.open = !!open;
+
+async function post(path, body) {
+  try {
+    const res = await fetch(`${_o.apiBase}/api/station/desk${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _o.getToken() }, body: JSON.stringify(body || {}),
+    });
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, json };
+  } catch { return { ok: false, status: 0, json: {} }; }
+}
+
+function say(text, undo) {
+  clearTimeout(_toastTimer);
+  _toast = { text, undo };
+  draw();
+  _toastTimer = setTimeout(() => { _toast = null; const n = _panel && _panel.querySelector('.dk-toast'); if (n) n.remove(); }, TOAST_MS);
+}
+
+async function answer(id, kind, extra = {}) {
+  if (_busy.has(id)) return;
+  _busy.add(id);
+  const res = await post('/answer', { id, kind, ...extra });
+  _busy.delete(id);
+  if (!res.ok) {
+    say(SAY[res.status] || (typeof res.json.detail === 'string' && res.status === 422 ? res.json.detail.replace(/^./, c => c.toUpperCase()) + '.' : 'Not saved. Try again.'));
+    if (res.status === 422 || res.status === 409) load(true);
+    return;
+  }
+  _whys.delete(id);
+  _need.delete(id);
+  const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
+  say(kind === 'undo' ? 'Undone.' : res.json.line || 'Saved.', undoable ? () => answer(id, 'undo') : null);
+  await load(true);
+}
+
+async function commitOrder(next, moved) {
+  const mine = pinnedAfterMove(next, field('mine', []), moved);
+  _data = { ..._data, order: next, mine, rerank: null, rerank_in: RERANK_S };
+  draw();
+  const res = await post('/order', { order: next, moved });
+  if (!res.ok) say(SAY[res.status] || 'Not saved. Try again.');
+  await load(true);
+}
+
+async function release(id) {
+  const res = await post('/release', { id });
+  if (!res.ok) say(SAY[res.status] || 'Not saved. Try again.');
+  await load(true);
+}
+
+async function undoRerank() {
+  const res = await post('/rerank/undo');
+  if (!res.ok) say(SAY[res.status] || 'Not saved. Try again.');
+  await load(true);
+}
+
+
+function openCard(id) {
+  const ids = orderedIds(_data);
+  if (!ids.includes(id)) { say('That one is already done.'); return; }
+  _open.add(id);
+  if (ids.indexOf(id) >= SHOWN) _moreOpen = true;
+  draw();
+  const node = _panel && _panel.querySelector(`[data-id="${CSS.escape(id)}"]`);
+  if (node) node.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+function linkNode(link, text, cls) {
+  const act = linkAction(link);
+  const label = text || link.label;
+  if (act.type === 'open') {
+    const a = el('a', cls || 'dk-chip', label + (cls ? '' : ' ↗'));
+    a.href = act.href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.addEventListener('click', e => e.stopPropagation());
+    return a;
+  }
+  if (act.type === 'card') return button(cls || 'dk-chip', label, () => openCard(act.id));
+  if (act.type === 'tab') return button(cls || 'dk-chip', label, () => _o.openTab(act.id));
+  if (act.type === 'thread') return button(cls || 'dk-chip', label, () => _o.openThread(act.id));
+  if (act.type === 'pc') return el('span', 'dk-chip pc', 'On the PC: ' + link.label);
+  return null;
+}
+
+function chips(links) {
+  const nodes = (links || []).map(l => linkNode(l)).filter(Boolean);
+  if (!nodes.length) return null;
+  const row = el('div', 'dk-chips');
+  row.append(...nodes);
+  return row;
+}
+
+function titleNode(item) {
+  const h = el('h3', 'dk-title');
+  const link = item.primary_link && linkAction(item.primary_link).type !== 'pc' ? linkNode(item.primary_link, item.title, 'dk-tlink') : null;
+  if (link) h.append(link); else h.textContent = item.title;
+  return h;
+}
+
+function stepsList(steps) {
+  const ol = el('ol', 'dk-steps');
+  steps.forEach(s => {
+    const p = stepParts(s);
+    const li = el('li', '', p.text);
+    const row = chips(p.links);
+    if (row) li.append(row);
+    ol.append(li);
+  });
+  return ol;
+}
+
+function valuesBlock(values, items) {
+  const box = el('div', 'dk-vals');
+  values.forEach(v => {
+    const row = el('div', 'dk-val');
+    row.append(el('b', '', v.label + ': '));
+    if (v.value != null) {
+      row.append(el('span', 'dk-valtext', v.value));
+      const copy = button('dk-copy', 'Copy', async () => {
+        try { await navigator.clipboard.writeText(v.value); copy.textContent = 'Copied'; } catch { copy.textContent = 'Press and hold to copy'; }
+      });
+      row.append(copy);
+    } else if (v.from && items.has(v.from)) {
+      row.append(button('dk-chip', 'Made by: ' + items.get(v.from).title, () => openCard(v.from)));
+    }
+    box.append(row);
+  });
+  return box;
+}
+
+function whyInput(id, placeholder) {
+  const input = el('input', 'dk-whyin' + (_need.has(id) ? ' need' : ''));
+  input.type = 'text';
+  input.maxLength = 300;
+  input.placeholder = placeholder;
+  input.value = _whys.get(id) || '';
+  input.addEventListener('input', () => { _whys.set(id, input.value); _need.delete(id); input.classList.remove('need'); });
+  input.addEventListener('click', e => e.stopPropagation());
+  return input;
+}
+
+function actions(item, stuckNow) {
+  const box = el('div', 'dk-acts');
+  const text = () => (_whys.get(item.id) || '').trim();
+  if (stuckNow) {
+    box.append(el('p', 'dk-stuckline', 'Stuck: getting you unstuck.' + (stuckNow.why ? ' ' + stuckNow.why : '')));
+    box.append(button('dk-act', 'Unstuck', () => answer(item.id, 'unstuck')));
+    return box;
+  }
+  const hasChoices = item.choices && item.choices.length;
+  if (hasChoices) {
+    const list = el('div', 'dk-choices');
+    item.choices.forEach((c, i) => list.append(button('dk-choice', c.label, () => answer(item.id, 'choice', { choice: i, why: text() }))));
+    box.append(list);
+  }
+  box.append(whyInput(item.id, hasChoices ? 'Why, or what is in the way (one line)' : 'If stuck: what is in the way? (one line)'));
+  if (_need.has(item.id)) box.append(el('p', 'dk-needline', 'Say in a line what is in the way, then press Stuck.'));
+  const row = el('div', 'dk-row2');
+  if (!hasChoices) row.append(button('dk-act done', 'Done', () => answer(item.id, 'done', { why: text() })));
+  row.append(button('dk-act', 'Stuck', () => {
+    if (!text()) { _need.add(item.id); draw(); const n = _panel.querySelector(`[data-id="${CSS.escape(item.id)}"] .dk-whyin`); if (n) n.focus(); return; }
+    answer(item.id, 'stuck', { why: text() });
+  }));
+  box.append(row);
+  return box;
+}
+
+function kidCard(item, done, stuckNow) {
+  const k = el('div', 'dk-kid' + (done ? ' finished' : ''));
+  k.dataset.id = item.id;
+  const head = el('div', 'dk-kidhead');
+  head.append(titleNode(item));
+  if (item.minutes != null) head.append(el('span', 'dk-min', item.minutes + ' min'));
+  k.append(head);
+  if (done) { k.append(el('p', 'dk-sum', 'Done.')); return k; }
+  if (item.summary) k.append(el('p', 'dk-sum', item.summary));
+  if (item.steps && item.steps.length) k.append(stepsList(item.steps));
+  if (item.cas_prompt) k.append(button('dk-act cas', 'Tell Cas', () => _o.openCas(item.cas_prompt)));
+  const row = chips(item.links);
+  if (row) k.append(row);
+  k.append(actions(item, stuckNow));
+  return k;
+}
+
+const visibleKids = (kids, stuck) => (stuck || kids.some(k => !k.done) ? kids : []);
+
+function card(item, n, ctx) {
+  const c = el('details', 'dk-card' + (ctx.mine ? ' mine' : '') + (ctx.stuckNow ? ' stuck' : '') + (ctx.snoozed ? ' snoozed' : ''));
+  c.dataset.id = item.id;
+  c.open = _open.has(item.id);
+  c.addEventListener('toggle', () => { if (c.open) _open.add(item.id); else _open.delete(item.id); });
   const top = el('summary', 'dk-top');
   top.append(el('span', 'dk-num', String(n)), el('span', 'dk-proj', words(item.project)), el('span', 'dk-kind dk-kind-' + item.kind, KIND[item.kind] || item.kind));
   if (item.minutes != null) top.append(el('span', 'dk-min', 'takes ' + item.minutes + ' min'));
-  top.append(el('h3', 'dk-title', item.title));
+  top.append(titleNode(item));
+  const marks = el('div', 'dk-marks');
+  if (ctx.mine) { marks.append(el('span', 'dk-mark', 'Your order')); marks.append(button('dk-rel', 'Release', () => release(item.id))); }
+  if (ctx.stuckNow) marks.append(el('span', 'dk-mark warn', 'Stuck: getting you unstuck'));
+  if (ctx.snoozed) marks.append(el('span', 'dk-mark', 'Not today'), button('dk-rel', 'Bring back', () => answer(item.id, 'undo')));
+  if (marks.childNodes.length) top.append(marks);
+  top.append(grip(item, ctx));
   c.append(top);
+
   const body = el('div', 'dk-cbody');
   if (item.rank_reason) body.append(el('p', 'dk-why', item.rank_reason));
   if (item.summary) body.append(el('p', 'dk-sum', item.summary));
-  if (item.steps && item.steps.length) {
-    const ol = el('ol', 'dk-steps');
-    item.steps.forEach(s => ol.append(el('li', '', s)));
-    body.append(ol);
+  if (ctx.waiting.length) {
+    const w = el('p', 'dk-unl wait');
+    w.append(el('b', '', 'Needs first: '));
+    ctx.waiting.forEach((x, i) => { if (i) w.append(', '); w.append(button('dk-inline', x.title, () => openCard(x.id))); });
+    body.append(w);
   }
+  if (item.steps && item.steps.length) body.append(stepsList(item.steps));
+  if (item.values && item.values.length) body.append(valuesBlock(item.values, ctx.items));
+  const row = chips(item.links);
+  if (row) body.append(row);
+  if (ctx.hint) { const u = el('p', 'dk-unl'); u.append(el('b', '', 'Doing this unlocks: '), document.createTextNode(ctx.hint)); body.append(u); }
   if (item.unblocks) { const u = el('p', 'dk-unb'); u.append(el('b', '', 'Unblocks: '), document.createTextNode(item.unblocks)); body.append(u); }
-  if (item.choices && item.choices.length) {
-    const opts = el('p', 'dk-opts');
-    opts.append(el('b', '', 'Options: '), document.createTextNode(item.choices.map(ch => ch.label).join(' · ')));
-    body.append(opts);
+  if (ctx.kids.length) {
+    const kids = el('div', 'dk-kids');
+    kids.append(el('p', 'dk-kidsh', 'Missions to get you unstuck'));
+    ctx.kids.forEach(k => { if (ctx.items.has(k.id)) kids.append(kidCard(ctx.items.get(k.id), k.done, ctx.stuckMap[k.id] !== undefined ? { why: ctx.stuckMap[k.id] } : null)); });
+    body.append(kids);
   }
+  body.append(actions(item, ctx.stuckNow));
+  if (!ctx.snoozed && !ctx.stuckNow) body.append(button('dk-notoday', 'Not today', () => answer(item.id, 'notnow')));
   body.append(el('p', 'dk-src', srcText()));
   c.append(body);
   return c;
 }
 
+
+function grip(item, ctx) {
+  const box = el('div', 'dk-grip');
+  const order = orderedIds(_data);
+  const pos = order.indexOf(item.id);
+  const handle = el('div', 'dk-handle');
+  handle.setAttribute('role', 'button');
+  handle.setAttribute('aria-label', 'Drag to reorder');
+  handle.append(el('i'), el('i'), el('i'));
+  handle.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); });
+  if (ctx.drag) handle.addEventListener('pointerdown', e => startDrag(e, handle, item.id));
+  else handle.classList.add('still');
+  const ud = el('div', 'dk-ud');
+  const up = button('dk-step', '▲', () => { const n = stepBy(orderedIds(_data), item.id, -1); if (n) commitOrder(n, item.id); });
+  const down = button('dk-step', '▼', () => { const n = stepBy(orderedIds(_data), item.id, 1); if (n) commitOrder(n, item.id); });
+  up.setAttribute('aria-label', 'Move up');
+  down.setAttribute('aria-label', 'Move down');
+  up.disabled = pos <= 0;
+  down.disabled = pos < 0 || pos >= order.length - 1;
+  ud.append(up, down);
+  box.append(handle, ud);
+  return box;
+}
+
+function startDrag(e, handle, id) {
+  if (e.button !== undefined && e.button > 0) return;
+  e.preventDefault();
+  const cards = [...(_panel.querySelectorAll('.dk-main > .dk-card'))];
+  const idx = cards.findIndex(c => c.dataset.id === id);
+  if (idx < 0) return;
+  const rects = cards.map(c => c.getBoundingClientRect());
+  const mids = rects.map(r => r.top + r.height / 2);
+  const lift = cards[idx];
+  const step = rects[idx].height + 12;
+  const startY = e.clientY;
+  let target = idx;
+  lift.classList.add('lifted');
+  try { handle.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+  const move = ev => {
+    const dy = ev.clientY - startY;
+    lift.style.transform = `translateY(${dy}px) scale(1.02)`;
+    target = dropIndex(mids, idx, mids[idx] + dy);
+    cards.forEach((c, j) => {
+      if (j === idx) return;
+      c.style.transform = idx < target && j > idx && j <= target ? `translateY(${-step}px)` : idx > target && j >= target && j < idx ? `translateY(${step}px)` : '';
+    });
+  };
+  const end = ev => {
+    handle.removeEventListener('pointermove', move);
+    handle.removeEventListener('pointerup', end);
+    handle.removeEventListener('pointercancel', end);
+    cards.forEach(c => { c.style.transform = ''; c.classList.remove('lifted'); });
+    const shown = cards.map(c => c.dataset.id);
+    const order = orderedIds(_data);
+    const next = ev.type === 'pointerup' && target !== idx ? moveTo(order, id, order.indexOf(shown[target])) : null;
+    if (next) commitOrder(next, id);
+  };
+  handle.addEventListener('pointermove', move);
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
+
 function draw() {
   const panel = _panel;
   if (!panel) return;
+  const scroll = panel.scrollTop;
+  const typing = document.activeElement && document.activeElement.classList.contains('dk-whyin') ? document.activeElement.closest('[data-id]') : null;
+  const typingId = typing && typing.dataset.id;
   panel.replaceChildren();
   const head = el('div', 'dk-head');
   head.append(el('h2', 'dk-h', 'Desk'));
@@ -122,35 +398,85 @@ function draw() {
 
   if (_state === 'idle' || _state === 'loading') { wrap.append(el('p', 'dk-note', 'Loading...')); return; }
   if (_state === 'failed') {
-    wrap.append(el('p', 'dk-note', 'Not available right now.'));
-    const again = el('button', 'dk-btn', 'Try again');
-    again.type = 'button';
-    again.addEventListener('click', () => load(true));
-    wrap.append(again);
+    wrap.append(el('p', 'dk-note', 'Not available right now.'), button('dk-btn', 'Try again', () => load(true)));
     return;
   }
-  if (_state === 'empty') {
-    wrap.append(el('p', 'dk-note', 'Nothing here yet. The list appears once the PC sends it.'));
-    return;
-  }
-  const feed = _data.feed;
-  const open = rankItems(feed);
+  if (_state === 'empty') { wrap.append(el('p', 'dk-note', 'Nothing here yet. The list appears once the PC sends it.')); return; }
+
+  const items = itemsById(_data);
+  const ids = orderedIds(_data);
+  if (!_openInit && ids.length) { _open.add(ids[0]); _openInit = true; }
+  const mine = new Set(field('mine', []));
+  const snoozed = new Set(field('snoozed', []));
+  const stuckMap = field('stuck', {});
+  const kidsMap = field('children', {});
+  const waitMap = field('waiting', {});
+  const hints = field('hints', {});
   const a = age(_data);
-  const pill = el('span', 'dk-pill' + (open.length ? '' : ' none'), open.length ? open.length + ' need you' : 'All clear');
-  head.append(pill);
+  head.append(el('span', 'dk-pill' + (ids.length ? '' : ' none'), ids.length ? ids.length + ' need you' : 'All clear'));
   if (_refreshFailed) wrap.append(el('p', 'dk-stale', 'Could not refresh just now. This is the last list received.'));
   const oldNote = el('p', 'dk-stale dk-old', oldText(a));
   oldNote.hidden = !a.old;
   wrap.append(oldNote);
-  if (!open.length) wrap.append(el('p', 'dk-note', 'Nothing needs you right now.'));
-  open.slice(0, SHOWN).forEach((item, i) => wrap.append(card(item, i + 1, i === 0)));
-  if (open.length > SHOWN) {
+
+  if (_toast) {
+    const t = el('div', 'dk-toast');
+    t.append(el('span', '', _toast.text));
+    if (_toast.undo) t.append(button('dk-link', 'Undo', () => { const fn = _toast.undo; _toast = null; fn(); }));
+    wrap.append(t);
+  }
+  const rr = _data.rerank;
+  if (rr && rr.line) {
+    const n = el('div', 'dk-note2');
+    n.append(el('span', '', rr.line), button('dk-link', 'Undo', undoRerank));
+    wrap.append(n);
+  }
+  if (_data.rerank_in != null) wrap.append(el('p', 'dk-hold', `Your order holds. The rest re-ranks in about ${Math.max(1, Math.ceil(_data.rerank_in / 60))} min.`));
+  const strip = _data.strip;
+  if (strip && items.has(strip.id)) {
+    const s = el('div', 'dk-strip');
+    const t = el('div');
+    t.append(el('b', '', 'Biggest unlock right now'), el('span', '', strip.text));
+    s.append(t, button('dk-show', 'Show me', () => openCard(strip.id)));
+    wrap.append(s);
+  }
+  if (!ids.length) wrap.append(el('p', 'dk-note', 'Nothing needs you right now.'));
+
+  const make = (id, n, drag) => {
+    const item = items.get(id);
+    return card(item, n, {
+      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id] } : null,
+      hint: hints[id], waiting: waitMap[id] || [], kids: visibleKids(kidsMap[id] || [], id in stuckMap),
+    });
+  };
+  const main = el('div', 'dk-main');
+  ids.slice(0, SHOWN).forEach((id, i) => main.append(make(id, i + 1, true)));
+  wrap.append(main);
+  if (ids.length > SHOWN) {
     const more = el('details', 'dk-fold');
-    more.append(el('summary', '', `Top ${SHOWN} shown, ${open.length - SHOWN} more folded`));
-    open.slice(SHOWN).forEach((item, i) => more.append(card(item, SHOWN + i + 1)));
+    more.open = _moreOpen;
+    more.addEventListener('toggle', () => { _moreOpen = more.open; });
+    more.append(el('summary', '', `Top ${SHOWN} shown, ${ids.length - SHOWN} more folded`));
+    ids.slice(SHOWN).forEach((id, i) => more.append(make(id, SHOWN + i + 1, false)));
     wrap.append(more);
   }
-  wrap.append(el('p', 'dk-later', 'Answering from the Desk comes in a later step. For now, answer in the thread each card names.'));
+
+  const answered = field('answered', []);
+  if (answered.length) {
+    const box = el('details', 'dk-fold dk-ans');
+    box.open = _answeredOpen;
+    box.addEventListener('toggle', () => { _answeredOpen = box.open; });
+    box.append(el('summary', '', `Answered (${answered.length})`));
+    answered.forEach(x => {
+      const row = el('div', 'dk-donerow');
+      row.append(el('span', '', x.title));
+      row.append(el('small', '', [words(x.project), x.kind === 'done' ? 'Done' : x.choice, x.why].filter(Boolean).join(' · ')));
+      row.append(button('dk-link', 'Change answer', () => answer(x.id, 'undo')));
+      box.append(row);
+    });
+    wrap.append(box);
+  }
+
   const done = doneList(_data);
   if (done.length) {
     const box = el('details', 'dk-fold dk-done');
@@ -167,6 +493,11 @@ function draw() {
     });
     wrap.append(box);
   }
+  panel.scrollTop = scroll;
+  const again = typingId && panel.querySelector(`[data-id="${CSS.escape(typingId)}"] .dk-whyin`);
+  if (again) again.focus();
+  clearTimeout(_rerankTimer);
+  if (_data.rerank_in != null) _rerankTimer = setTimeout(() => load(true), (Math.min(_data.rerank_in, RERANK_S) + 3) * 1000);
 }
 
 async function load(force) {
@@ -187,16 +518,22 @@ async function load(force) {
     _loadedAt = Date.now();
     _refreshFailed = false;
   } catch {
-    if (_state !== 'ready') _state = 'failed'; // a good list already on screen stays rather than being replaced by an error
+    if (_state !== 'ready') _state = 'failed';
     else _refreshFailed = true;
   } finally {
     clearTimeout(timer);
     _inflight = false;
   }
   draw();
+  _onData();
 }
 
-/** Called each time the Desk tab opens: draws what it has now, then asks the server once. */
+/** The Desk cards as small missions, for the Missions tab. */
+export function deskMissions() { return _state === 'ready' ? deskRows(_data) : []; }
+
+/** Load the list without drawing it on screen first (the Missions tab asks). */
+export function preloadDesk(done) { _onData = done || (() => {}); load(false); }
+
 export function showDesk() {
   if (!_panel) _panel = document.getElementById('panel-desk');
   if (_state === 'ready' || _state === 'empty') draw();
