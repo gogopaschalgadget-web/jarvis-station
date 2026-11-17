@@ -35,6 +35,7 @@ const _open = new Set();
 const _whys = new Map();
 const _need = new Set();
 const _busy = new Set();
+const _sentKids = new Set();
 let _onData = () => {};
 let _sub = 'orders';
 const SUBS = [['orders', 'Orders'], ['desk', 'Desk'], ['dashboard', 'Dashboard']];
@@ -265,7 +266,10 @@ async function sendToCas(kid, parent, why) {
   if (_busy.has(kid.id)) return;
   if (!_o.send) { _o.openCas(casMessage(parent, kid, why)); return; }
   _busy.add(kid.id);
-  try { await _o.send(casMessage(parent, kid, why)); } catch { _busy.delete(kid.id); say('Not sent. Try again.'); return; }
+  if (!_sentKids.has(kid.id)) {
+    try { await _o.send(casMessage(parent, kid, why)); } catch { _busy.delete(kid.id); say('Not sent. Try again.'); return; }
+    _sentKids.add(kid.id);
+  }
   _busy.delete(kid.id);
   await answer(kid.id, 'done');
   say('Sent to Cas.');
