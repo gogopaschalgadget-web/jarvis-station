@@ -67,6 +67,16 @@ export function initShortFix() {
   window.addEventListener('orientationchange', () => setTimeout(applyFault, 350));
 }
 
+/** Which way the phone is showing the page, so reports can tell an old install from a re-added one:
+ *  translucent-fault = installed with the translucent status bar and the short-layout fault (top inset 62, bottom strip),
+ *  solid-bar = installed with a solid status bar (top inset 0, page reaches the screen bottom), standalone-other, browser. */
+function displayMode(insets) {
+  const standalone = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+  if (!standalone) return 'browser';
+  if (_fault) return 'translucent-fault';
+  return Math.round(insets.top || 0) < 20 ? 'solid-bar' : 'standalone-other';
+}
+
 async function swVersion() {
   try {
     const keys = await caches.keys();
@@ -95,7 +105,7 @@ async function build() {
     dpr: window.devicePixelRatio, standalone: !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)),
     vv: vv ? { w: r1(vv.width), h: r1(vv.height), scale: r1(vv.scale), offTop: r1(vv.offsetTop), offLeft: r1(vv.offsetLeft) } : undefined,
     insets, probes, docH: document.documentElement.scrollHeight, docW: document.documentElement.scrollWidth, scrollY: r1(window.scrollY || 0),
-    rects, tab: String(_o.getTab() || '').slice(0, 24), sw: await swVersion(), ua: navigator.userAgent.slice(0, 220),
+    mode: displayMode(insets), rects, tab: String(_o.getTab() || '').slice(0, 24), sw: await swVersion(), ua: navigator.userAgent.slice(0, 220),
   };
 }
 

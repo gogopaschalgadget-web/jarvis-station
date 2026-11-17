@@ -20,7 +20,7 @@
     linear-gradient(#ffffff14, transparent 2px),
     repeating-linear-gradient(0deg, #00000026 0 1px, transparent 1px 5px),
     repeating-linear-gradient(0deg, #ffffff0a 0 1px, transparent 1px 11px),
-    linear-gradient(#4a3320, #3a281a 55%, #2a1c14) !important;
+    linear-gradient(#4a3320, #3a281a 55%, #2a1c14) #4a3320 !important;
   border: 0 !important; border-image: none !important; border-bottom: 2px ridge #6b4a1b !important; box-shadow: 0 4px 10px #000a !important;
   box-sizing: border-box; pointer-events: none;
 }
