@@ -137,13 +137,19 @@ export async function sendSigned(kind, message, body, threadId = null) {
   return item;
 }
 
+/** "iPhone Home Screen" or "iPhone Safari", so the PC's phone list can tell the two apart. */
+export function deviceLabel() {
+  const standalone = (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  return `${navigator.platform || 'Phone'} ${standalone ? 'Home Screen' : 'Safari'}`.slice(0, 60);
+}
+
 /** Offer this phone's public key. The PC decides whether to trust it. Returns the code to compare. */
 export async function offerDeviceKey() {
   const key = await deviceKey();
   const res = await fetch(`${_apiBase}/api/station/cas/device-key`, {
     method: 'POST',
     headers: { ..._auth(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ public_key: key.publicKey, label: navigator.platform || 'Phone' }),
+    body: JSON.stringify({ public_key: key.publicKey, label: deviceLabel() }),
   });
   if (!res.ok) {
     const e = new Error(`HTTP ${res.status}`);
