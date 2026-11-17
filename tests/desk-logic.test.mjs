@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, orderedIds, deskRows, rankItems } from '../js/cas-desk-logic.js';
+import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, orderedIds, deskRows, rankItems } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -52,4 +52,12 @@ test('desk rows for the Missions tab carry the stuck flag', () => {
   const rows = deskRows({ ...data, order: ['b', 'a', 'c'], stuck: { a: 'x' } });
   assert.deepEqual(rows.map(r => [r.id, r.stuck]), [['b', false], ['a', true], ['c', false]]);
   assert.deepEqual(deskRows(null), []);
+});
+
+test('the Cas message carries the line, the card summary and its steps in one go', () => {
+  const parent = { title: 'Get the permit', summary: 'File the form.', steps: ['Open the site', { text: 'Pay the fee', links: [] }] };
+  const text = casMessage(parent, { cas_prompt: 'I am stuck on: Get the permit. no login' }, 'no login');
+  assert.equal(text, ['I am stuck on: Get the permit. no login', 'What the card says: File the form.', 'Its steps:', '1. Open the site', '2. Pay the fee'].join('\n'));
+  assert.match(casMessage({ title: 'T' }, {}, 'why'), /^I am stuck on: T\. why$/);
+  assert.ok(casMessage({ title: 'T', summary: 'x'.repeat(5000) }, {}, 'w').length <= 1800);
 });

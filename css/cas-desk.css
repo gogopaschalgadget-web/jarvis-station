@@ -100,6 +100,7 @@
 .dk-act.done { background: linear-gradient(#4f9a63, #1f5a33); color: #fff; }
 .dk-act.cas { flex: none; margin: 4px 0 6px; background: linear-gradient(#a23a30, #5a1511); color: #fff; }
 .dk-stuckline { margin: 0 0 8px; font-weight: 700; color: var(--dk-crimson); }
+.dk-heldline { margin: 0 0 8px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--dk-brass-lo); background: #fff1c8; color: #5a3d14; font-weight: 700; }
 .dk-notoday { display: block; margin: 8px 0 0; min-height: 36px; padding: 0; background: none; border: 0; font: 700 12.5px var(--dk-ui); color: #5a3d14; text-decoration: underline; }
 
 .dk-kids { margin: 10px 0 4px; padding: 8px 8px 2px 12px; border-left: 4px solid var(--dk-crimson); background: #7e231d14; border-radius: 0 10px 10px 0; }

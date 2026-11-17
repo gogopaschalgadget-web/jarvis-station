@@ -6,7 +6,7 @@ import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPubl
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas75';
-import { initDesk, showDesk, deskMissions, preloadDesk } from './cas-desk.js?v=cas78';
+import { initDesk, showDesk, deskMissions, preloadDesk } from './cas-desk.js?v=cas79';
 import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas75';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
@@ -490,6 +490,11 @@ async function initCasScene() {
     apiBase: API_BASE, getToken: getDeviceToken,
     openTab: id => switchTab(id),
     openThread: async id => { switchTab('cas'); await showThread(id); },
+    send: async text => {
+      const item = await sendMessage(text, [], { threadId: null, header: '@sonnet ask' });
+      setCasActivity(item.status, item.id);
+      if (currentKey() === 'main') { addOrUpdateCasExchange(item); scrollCasMessages(); }
+    },
     openCas: text => {
       switchTab('cas');
       const box = document.getElementById('cas-textarea');

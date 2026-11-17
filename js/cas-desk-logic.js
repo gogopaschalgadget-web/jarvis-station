@@ -54,6 +54,14 @@ export function stepParts(step) {
   return typeof step === 'string' ? { text: step, links: [] } : { text: step.text, links: step.links || [] };
 }
 
+export function casMessage(parent, kid, why) {
+  const lines = [kid.cas_prompt || `I am stuck on: ${parent.title}. ${why || ''}`.trim()];
+  if (parent.summary) lines.push('What the card says: ' + parent.summary);
+  const steps = (parent.steps || []).map(s => stepParts(s).text).filter(Boolean);
+  if (steps.length) lines.push('Its steps:', ...steps.map((t, i) => `${i + 1}. ${t}`));
+  return lines.join('\n').slice(0, 1800);
+}
+
 export function isHttps(target) {
   return typeof target === 'string' && /^https:\/\/[^\s]+$/.test(target);
 }

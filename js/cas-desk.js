@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas78';
-import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, deskRows } from './cas-desk-logic.js?v=cas77';
+import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas79';
+import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas79';
 
 export { rankItems };
 
@@ -15,7 +15,7 @@ const RERANK_S = 120;
 const KIND = { decide: 'Decide', confirm: 'Confirm', review: 'Review', 'do-by-hand': 'Do by hand', update: 'Update' };
 const SAY = { 429: 'Too many changes in a minute. Wait a moment.', 409: 'The list changed. It is reloaded.' };
 
-let _o = { apiBase: '', getToken: () => '', openTab: () => {}, openThread: () => {}, openCas: () => {} };
+let _o = { apiBase: '', getToken: () => '', openTab: () => {}, openThread: () => {}, openCas: () => {}, send: null };
 let _panel = null;
 let _state = 'idle';
 let _data = null;
@@ -238,7 +238,8 @@ function actions(item, stuckNow) {
   const box = el('div', 'dk-acts');
   const text = () => (_whys.get(item.id) || '').trim();
   if (stuckNow) {
-    box.append(el('p', 'dk-stuckline', 'Stuck: getting you unstuck.' + (stuckNow.why ? ' ' + stuckNow.why : '')));
+    box.append(el('p', 'dk-stuckline', 'Cas is working on it. Repair missions appear under this card in about a minute.' + (stuckNow.why ? ' You said: ' + stuckNow.why : '')));
+    if (stuckNow.held) box.append(el('p', 'dk-heldline', stuckNow.held));
     box.append(button('dk-act', 'Unstuck', () => answer(item.id, 'unstuck')));
     return box;
   }
@@ -260,7 +261,17 @@ function actions(item, stuckNow) {
   return box;
 }
 
-function kidCard(item, done, stuckNow) {
+async function sendToCas(kid, parent, why) {
+  if (_busy.has(kid.id)) return;
+  if (!_o.send) { _o.openCas(casMessage(parent, kid, why)); return; }
+  _busy.add(kid.id);
+  try { await _o.send(casMessage(parent, kid, why)); } catch { _busy.delete(kid.id); say('Not sent. Try again.'); return; }
+  _busy.delete(kid.id);
+  await answer(kid.id, 'done');
+  say('Sent to Cas.');
+}
+
+function kidCard(item, done, stuckNow, parent, why) {
   const k = el('div', 'dk-kid' + (done ? ' finished' : ''));
   k.dataset.id = item.id;
   const head = el('div', 'dk-kidhead');
@@ -269,8 +280,11 @@ function kidCard(item, done, stuckNow) {
   k.append(head);
   if (done) { k.append(el('p', 'dk-sum', 'Done.')); return k; }
   if (item.summary) k.append(el('p', 'dk-sum', item.summary));
+  if (item.cas_prompt) {
+    k.append(button('dk-act cas', 'Send to Cas', () => sendToCas(item, parent, why)));
+    return k;
+  }
   if (item.steps && item.steps.length) k.append(stepsList(item.steps));
-  if (item.cas_prompt) k.append(button('dk-act cas', 'Tell Cas', () => _o.openCas(item.cas_prompt)));
   const row = chips(item.links);
   if (row) k.append(row);
   k.append(actions(item, stuckNow));
@@ -290,7 +304,7 @@ function card(item, n, ctx) {
   top.append(titleNode(item));
   const marks = el('div', 'dk-marks');
   if (ctx.mine) { marks.append(el('span', 'dk-mark', 'Your order')); marks.append(button('dk-rel', 'Release', () => release(item.id))); }
-  if (ctx.stuckNow) marks.append(el('span', 'dk-mark warn', 'Stuck: getting you unstuck'));
+  if (ctx.stuckNow) marks.append(el('span', 'dk-mark warn', 'Cas is working on it'));
   if (ctx.snoozed) marks.append(el('span', 'dk-mark', 'Not today'), button('dk-rel', 'Bring back', () => answer(item.id, 'undo')));
   if (marks.childNodes.length) top.append(marks);
   top.append(grip(item, ctx));
@@ -314,7 +328,7 @@ function card(item, n, ctx) {
   if (ctx.kids.length) {
     const kids = el('div', 'dk-kids');
     kids.append(el('p', 'dk-kidsh', 'Missions to get you unstuck'));
-    ctx.kids.forEach(k => { if (ctx.items.has(k.id)) kids.append(kidCard(ctx.items.get(k.id), k.done, ctx.stuckMap[k.id] !== undefined ? { why: ctx.stuckMap[k.id] } : null)); });
+    ctx.kids.forEach(k => { if (ctx.items.has(k.id)) kids.append(kidCard(ctx.items.get(k.id), k.done, ctx.stuckMap[k.id] !== undefined ? { why: ctx.stuckMap[k.id] } : null, item, ctx.stuckNow && ctx.stuckNow.why)); });
     body.append(kids);
   }
   body.append(actions(item, ctx.stuckNow));
@@ -482,7 +496,7 @@ function draw() {
   const make = (id, n, drag) => {
     const item = items.get(id);
     return card(item, n, {
-      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id] } : null,
+      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: (field('held', {})[id] || {}).line || '' } : null,
       hint: hints[id], waiting: waitMap[id] || [], kids: visibleKids(kidsMap[id] || [], id in stuckMap),
     });
   };

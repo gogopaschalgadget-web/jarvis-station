@@ -193,7 +193,7 @@ function sittingNode(g, quick) {
 
 function questionNode(q, dropNeedsWhy) {
   const box = el('div', 'or-q');
-  box.append(el('h4', '', carryTag(q.carried)), el('div', 't', q.title), el('p', '', 'This has come back three days running. One question, so it stops coming back for no reason.'));
+  box.append(el('h4', '', carryTag(q.carried)), el('div', 't', q.title), el('p', '', 'This has come back six days running. One question, so it stops coming back for no reason.'));
   const mode = _ask && _ask.key === q.key ? _ask.mode : null;
   const opts = el('div', 'or-opts');
   const choose = m => button('or-opt' + (mode === m ? ' on' : ''), { split: 'Split it smaller', schedule: 'Schedule it', drop: 'Drop it' }[m], () => {
