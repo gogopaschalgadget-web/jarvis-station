@@ -1,5 +1,6 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
+import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas78';
 import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, deskRows } from './cas-desk-logic.js?v=cas77';
 
 export { rankItems };
@@ -35,6 +36,8 @@ const _whys = new Map();
 const _need = new Set();
 const _busy = new Set();
 let _onData = () => {};
+let _sub = 'orders';
+const SUBS = [['orders', 'Orders'], ['desk', 'Desk'], ['dashboard', 'Dashboard']];
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -384,9 +387,35 @@ function startDrag(e, handle, id) {
 }
 
 
+function subTabs() {
+  const row = el('div', 'or-tabs');
+  SUBS.forEach(([key, label]) => {
+    const b = button('or-tab' + (_sub === key ? ' on' : ''), label, () => { _sub = key; loadSub(); draw(); });
+    b.setAttribute('aria-pressed', String(_sub === key));
+    row.append(b);
+  });
+  return row;
+}
+
+function loadSub(force) {
+  if (_sub === 'orders') loadOrders(force); else if (_sub === 'dashboard') loadDashboard(force); else load(force);
+}
+
+async function jumpToCard(id) {
+  _sub = 'desk';
+  _open.add(id);
+  draw();
+  if (_state !== 'ready') await load(true);
+  if (_state !== 'ready') { say('The Desk is not available right now.'); return; }
+  if (!orderedIds(_data || {}).includes(id)) { say('That card is not on the Desk right now.'); return; }
+  draw();
+  openCard(id);
+}
+
 function draw() {
   const panel = _panel;
   if (!panel) return;
+  if (_sub !== 'desk' && typingInOrders()) return;
   const scroll = panel.scrollTop;
   const typing = document.activeElement && document.activeElement.classList.contains('dk-whyin') ? document.activeElement.closest('[data-id]') : null;
   const typingId = typing && typing.dataset.id;
@@ -394,7 +423,15 @@ function draw() {
   const head = el('div', 'dk-head');
   head.append(el('h2', 'dk-h', 'Desk'));
   const wrap = el('div', 'dk-body');
-  panel.append(head, wrap);
+  panel.append(head, subTabs(), wrap);
+
+  if (_sub !== 'desk') {
+    clearTimeout(_rerankTimer);
+    head.append(el('span', 'dk-pill', _sub === 'orders' ? ordersPill() : 'Dashboard'));
+    if (_sub === 'orders') renderOrders(wrap); else renderDashboard(wrap);
+    panel.scrollTop = scroll;
+    return;
+  }
 
   if (_state === 'idle' || _state === 'loading') { wrap.append(el('p', 'dk-note', 'Loading...')); return; }
   if (_state === 'failed') {
@@ -500,7 +537,18 @@ function draw() {
   if (_data.rerank_in != null) _rerankTimer = setTimeout(() => load(true), (Math.min(_data.rerank_in, RERANK_S) + 3) * 1000);
 }
 
-async function load(force) {
+let _inflightP = Promise.resolve();
+
+function load(force) {
+  if (_inflight) {
+    if (force) _inflightP = _inflightP.then(() => doLoad(true));
+    return _inflightP;
+  }
+  _inflightP = doLoad(force);
+  return _inflightP;
+}
+
+async function doLoad(force) {
   if (_inflight) return;
   if (!force && _state === 'ready' && Date.now() - _loadedAt < FRESH_MS) return;
   _inflight = true;
@@ -536,13 +584,14 @@ export function preloadDesk(done) { _onData = done || (() => {}); load(false); }
 
 export function showDesk() {
   if (!_panel) _panel = document.getElementById('panel-desk');
-  if (_state === 'ready' || _state === 'empty') draw();
+  if (_state === 'ready' || _state === 'empty' || _sub !== 'desk') draw();
   startTick();
-  load(false);
+  loadSub(false);
 }
 
 export function initDesk(panel, options) {
   _panel = panel;
   _o = { ..._o, ...options };
+  initOrders({ apiBase: _o.apiBase, getToken: _o.getToken, openCard: jumpToCard, showOrders: () => { _sub = 'orders'; draw(); }, redraw: draw, unavailable: () => { if (_sub === 'orders') { _sub = 'desk'; load(true); draw(); } } });
   draw();
 }
