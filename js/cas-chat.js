@@ -139,8 +139,12 @@ export async function sendSigned(kind, message, body, threadId = null) {
 
 /** "iPhone Home Screen" or "iPhone Safari", so the PC's phone list can tell the two apart. */
 export function deviceLabel() {
-  const standalone = (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
-  return `${navigator.platform || 'Phone'} ${standalone ? 'Home Screen' : 'Safari'}`.slice(0, 60);
+  try {
+    const standalone = (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    return `${navigator.platform || 'Phone'} ${standalone ? 'Home Screen' : 'Safari'}`.slice(0, 60);
+  } catch {
+    return 'Phone';
+  }
 }
 
 /** Offer this phone's public key. The PC decides whether to trust it. Returns the code to compare. */
