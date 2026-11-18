@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { quickGroup, quickTitle, rundownText, allDoneText, weekNote, normalizeOrders, normalizeDashboard, sittingGroups, sittingTitle, budgetLabel, resetText, tomorrowLocal, windowText, agoText, hoursText, weekText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView } from '../js/cas-orders-logic.js';
+import { timeWords, quickGroup, quickTitle, rundownText, allDoneText, weekNote, normalizeOrders, normalizeDashboard, sittingGroups, sittingTitle, budgetLabel, resetText, tomorrowLocal, windowText, agoText, hoursText, weekText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView } from '../js/cas-orders-logic.js';
 
 test('ages read in words and unknown stays unknown', () => {
   assert.equal(agoText(null), 'unknown');
@@ -66,6 +66,9 @@ test('reset time and labels', () => {
   assert.equal(resetText({ resets: '02:00' }), '2 am');
   assert.equal(resetText(undefined), '2 am');
   assert.equal(budgetLabel(90), '90 min');
+  assert.deepEqual([90, 180, 240].map(m => budgetLabel(m, 'weekend')), ['1.5 hrs', '3 hrs', '4 hrs']);
+  assert.equal(timeWords(10, 'weekend'), '0.5 hours');
+  assert.deepEqual([timeWords(180, 'weekend'), timeWords(60, 'weekend'), timeWords(140, 'weekend'), timeWords(30, 'weekday')], ['3 hours', '1 hour', '2.5 hours', '30 minutes']);
   assert.equal(sittingTitle({ n: 1, minutes: 25 }), 'Sitting 1 · 25 min');
 });
 
@@ -106,6 +109,7 @@ test('the day in one line, and nothing is added once it is done', () => {
   assert.equal(rundownText(d), 'Today: 2 quick tasks and 2 sittings, about 40 minutes. Your time today: 60 minutes.');
   assert.equal(rundownText(normalizeOrders({ budget: 30, rows: [{ key: 'q', minutes: 4, quick: true }] })), 'Today: 1 quick task, about 4 minutes. Your time today: 30 minutes.');
   assert.equal(rundownText(normalizeOrders({ rows: [{ key: 'q', minutes: 4, quick: true }] })), 'Today: 1 quick task, about 4 minutes.');
+  assert.equal(rundownText(normalizeOrders({ kind: 'weekend', budget: 180, rows: [{ key: 'a', minutes: 25 }, { key: 'b', minutes: 65 }], sittings: [{ n: 1, minutes: 25, keys: ['a'] }, { n: 2, minutes: 65, keys: ['b'] }] })), 'Today: 2 sittings, about 1.5 hours. Your time today: 3 hours.');
   assert.equal(rundownText(normalizeOrders({ rows: [] })), 'Today: nothing planned yet.');
   assert.equal(allDoneText(d), '');
   assert.equal(allDoneText(normalizeOrders({ rows: [{ key: 'a', minutes: 5, done: true }] })), 'That is everything for today.');

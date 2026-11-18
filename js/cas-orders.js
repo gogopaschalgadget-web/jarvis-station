@@ -2,8 +2,8 @@
 
 import {
   BLOCKS, agoText, hoursText, weekText, windowText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView,
-  tomorrowLocal, resetText, budgetLabel, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote,
-} from './cas-orders-logic.js?v=cas80';
+  tomorrowLocal, resetText, budgetLabel, timeWords, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote,
+} from './cas-orders-logic.js?v=cas81';
 
 const TIMEOUT_MS = 15_000;
 const TOAST_MS = 8_000;
@@ -141,7 +141,7 @@ function timeRow(d) {
   const row = el('div', 'or-time');
   row.append(el('span', '', 'Your time today'));
   d.budgets.forEach(m => {
-    const b = button('or-chip' + (m === d.budget ? ' on' : ''), budgetLabel(m), () => { markHintSeen(); if (m !== d.budget) change('/orders/budget', { minutes: m }, `Your time today is ${m} minutes.`); else _o.redraw(); });
+    const b = button('or-chip' + (m === d.budget ? ' on' : ''), budgetLabel(m, d.kind), () => { markHintSeen(); if (m !== d.budget) change('/orders/budget', { minutes: m }, `Your time today is ${timeWords(m, d.kind)}.`); else _o.redraw(); });
     b.setAttribute('aria-pressed', String(m === d.budget));
     row.append(b);
   });
