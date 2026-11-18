@@ -101,9 +101,10 @@ test('quick tasks are their own group and stay out of the sittings', () => {
 });
 
 test('the day in one line, and nothing is added once it is done', () => {
-  const d = normalizeOrders({ rows: [{ key: 'q1', minutes: 3, quick: true }, { key: 'q2', minutes: 2, quick: true }, { key: 'a', minutes: 25 }, { key: 'b', minutes: 10 }], sittings: [
+  const d = normalizeOrders({ budget: 60, rows: [{ key: 'q1', minutes: 3, quick: true }, { key: 'q2', minutes: 2, quick: true }, { key: 'a', minutes: 25 }, { key: 'b', minutes: 10 }], sittings: [
     { n: 1, minutes: 25, keys: ['a'] }, { n: 2, minutes: 10, keys: ['b'] }] });
-  assert.equal(rundownText(d), 'Today: 2 quick tasks and 2 sittings, about 40 minutes.');
+  assert.equal(rundownText(d), 'Today: 2 quick tasks and 2 sittings, about 40 minutes. Your time today: 60 minutes.');
+  assert.equal(rundownText(normalizeOrders({ budget: 30, rows: [{ key: 'q', minutes: 4, quick: true }] })), 'Today: 1 quick task, about 4 minutes. Your time today: 30 minutes.');
   assert.equal(rundownText(normalizeOrders({ rows: [{ key: 'q', minutes: 4, quick: true }] })), 'Today: 1 quick task, about 4 minutes.');
   assert.equal(rundownText(normalizeOrders({ rows: [] })), 'Today: nothing planned yet.');
   assert.equal(allDoneText(d), '');

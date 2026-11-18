@@ -142,7 +142,7 @@ export function rundownText(d) {
   const parts = [];
   if (q) parts.push(`${q.total} quick task${q.total === 1 ? '' : 's'}`);
   if (s) parts.push(`${s} sitting${s === 1 ? '' : 's'}`);
-  return `Today: ${parts.join(' and ')}, about ${d.rows.reduce((n, r) => n + r.minutes, 0)} minutes.`;
+  return `Today: ${parts.join(' and ')}, about ${d.rows.reduce((n, r) => n + r.minutes, 0)} minutes.${Number.isFinite(d.budget) ? ` Your time today: ${d.budget} minutes.` : ''}`;
 }
 
 export function allDoneText(d) {

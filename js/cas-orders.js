@@ -3,7 +3,7 @@
 import {
   BLOCKS, agoText, hoursText, weekText, windowText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView,
   tomorrowLocal, resetText, budgetLabel, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote,
-} from './cas-orders-logic.js?v=cas78';
+} from './cas-orders-logic.js?v=cas80';
 
 const TIMEOUT_MS = 15_000;
 const TOAST_MS = 8_000;
