@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, cleanSources, linkAction, orderedIds, deskRows, rankItems } from '../js/cas-desk-logic.js';
+import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -80,4 +80,30 @@ test('cleanSources keeps https sources once each', () => {
   const got = cleanSources([{ label: 'A', url: 'https://a.test/x' }, { label: 'A again', url: 'https://a.test/x' }, { label: 'B', url: 'http://b.test' }, { label: '', url: 'https://c.test' }, null]);
   assert.deepEqual(got.map(s => s.label), ['A']);
   assert.deepEqual(cleanSources(undefined), []);
+});
+
+test('a long valid key matches; upper-case, spaced and undefined markers read as plain words', () => {
+  const long = 'a' + 'b'.repeat(39);
+  const terms = termMap({ terms: [{ key: long, name: 'Long term' }] });
+  assert.equal(terms.size, 1);
+  assert.deepEqual(textParts(`x {{${long}}}`, terms).map(p => p.term ? p.term.name : p.text), ['x ', 'Long term']);
+  assert.deepEqual(textParts('{{NAICS}} and {{two words}} and {{nope_key}}', terms).map(p => p.text).join(''), 'NAICS and two words and nope key');
+  assert.ok(!JSON.stringify(textParts('{{Bad Key}}', terms)).includes('{{'));
+});
+
+test('bad shapes never throw: non-array terms, a step with no text', () => {
+  assert.equal(termMap({ terms: 'oops' }).size, 0);
+  assert.equal(termMap({ terms: { a: 1 } }).size, 0);
+  assert.deepEqual(textParts(undefined, new Map()), [{ text: '' }]);
+  assert.doesNotThrow(() => plainItem({ id: 'a', summary: 'See {{naics}}', steps: [{ links: [] }, 'Do {{x}}', { text: 'Y {{z}}', links: [{ label: 'L' }] }], terms: 5 }));
+});
+
+test('plainItem gives back the old plain form with no markers', () => {
+  const p = plainItem({ id: 'a', title: 'T', summary: 'Get your {{naics}}', steps: ['Open {{esys}} now', { text: 'Then {{naics}}', links: [{ label: 'L' }], detail: ['d'] }], terms: [{ key: 'naics', name: 'N' }], sources: [{ label: 's', url: 'https://x.test' }] });
+  assert.equal(p.summary, 'Get your naics');
+  assert.equal(p.steps[0], 'Open esys now');
+  assert.deepEqual(p.steps[1], { text: 'Then naics', links: [{ label: 'L' }] });
+  assert.deepEqual(p.terms, []);
+  assert.deepEqual(p.sources, []);
+  assert.equal(p.title, 'T');
 });

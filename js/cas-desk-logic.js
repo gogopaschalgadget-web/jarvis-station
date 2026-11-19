@@ -86,7 +86,8 @@ export function deskRows(data) {
   }));
 }
 
-const MARK = /\{\{([a-z][a-z0-9_]{0,30})\}\}/g;
+const MARK = /\{\{([^{}]{1,60})\}\}/g;
+const KEY = /^[a-z][a-z0-9_]{0,39}$/;
 
 /** The extra lines a step opens to; [] for plain-text steps and steps without any. */
 export function stepDetail(step) {
@@ -95,23 +96,37 @@ export function stepDetail(step) {
 
 export function termMap(item) {
   const map = new Map();
-  ((item && item.terms) || []).forEach(t => { if (t && t.key && t.name) map.set(t.key, t); });
+  const list = item && Array.isArray(item.terms) ? item.terms : [];
+  list.forEach(t => { if (t && typeof t.key === 'string' && KEY.test(t.key) && t.name) map.set(t.key, t); });
   return map;
 }
 
-/** Splits text at {{key}} markers: [{text}] and [{term}] parts. A marker with no matching term reads as its key in words. */
+/** Splits text at {{key}} markers: [{text}] and [{term}] parts. Any marker that is not a defined term reads as plain words, never braces. */
 export function textParts(text, terms) {
+  const s = String(text == null ? '' : text);
   const out = [];
   let last = 0;
-  String(text).replace(MARK, (m, key, at) => {
-    if (at > last) out.push({ text: text.slice(last, at) });
-    const t = terms && terms.get(key);
+  s.replace(MARK, (m, raw, at) => {
+    if (at > last) out.push({ text: s.slice(last, at) });
+    const key = raw.trim();
+    const t = terms && KEY.test(key) ? terms.get(key) : null;
     out.push(t ? { term: t } : { text: key.replace(/_/g, ' ') });
     last = at + m.length;
     return m;
   });
-  if (last < text.length || !out.length) out.push({ text: String(text).slice(last) });
+  if (last < s.length || !out.length) out.push({ text: s.slice(last) });
   return out;
+}
+
+export const plainText = text => textParts(text, null).map(p => p.text).join('');
+
+/** The card as it was before terms, details and sources: used when the rich form of a card cannot be drawn. */
+export function plainItem(item) {
+  const steps = Array.isArray(item.steps) ? item.steps.map(s => {
+    const p = s && typeof s === 'object' ? { text: plainText(s.text), links: Array.isArray(s.links) ? s.links : [] } : plainText(s);
+    return p;
+  }) : [];
+  return { ...item, summary: item.summary == null ? item.summary : plainText(item.summary), steps, terms: [], sources: [] };
 }
 
 /** Sources the phone will show: https addresses only, each source once. */

@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas81';
-import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, cleanSources, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas82';
+import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas82';
 
 export { rankItems };
 
@@ -212,7 +212,7 @@ function toggleTerm(host, term) {
   [['What it is', term.what], ['Why the form wants it', term.why], ['How to find yours', term.find]].forEach(([h, v]) => {
     if (v) { box.append(el('span', 'dk-termh', h)); box.append(el('span', '', v)); }
   });
-  if (term.source && isHttps(term.source.url)) box.append(linkNode({ kind: 'url', label: term.source.label, target: term.source.url }, 'Source: ' + term.source.label + ' ↗'));
+  if (term.source && isHttps(term.source.url)) box.append(linkNode({ kind: 'url', label: 'Source: ' + term.source.label, target: term.source.url }));
   box.append(button('dk-link', 'Close', () => box.remove()));
   host.after(box);
 }
@@ -551,10 +551,13 @@ function draw() {
 
   const make = (id, n, drag) => {
     const item = items.get(id);
-    return card(item, n, {
+    const ctx = {
       drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: (field('held', {})[id] || {}).line || '' } : null,
       hint: hints[id], waiting: waitMap[id] || [], kids: visibleKids(kidsMap[id] || [], id in stuckMap),
-    });
+    };
+    try { return card(item, n, ctx); } catch {
+      try { return card(plainItem(item), n, ctx); } catch { return el('p', 'dk-note', 'This card could not be shown.'); }
+    }
   };
   const main = el('div', 'dk-main');
   ids.slice(0, SHOWN).forEach((id, i) => main.append(make(id, i + 1, true)));
