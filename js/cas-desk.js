@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas81';
-import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas79';
+import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, cleanSources, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas82';
 
 export { rankItems };
 
@@ -193,16 +193,65 @@ function titleNode(item) {
   return h;
 }
 
-function stepsList(steps) {
+function richText(tag, cls, text, terms) {
+  const node = el(tag, cls);
+  textParts(text, terms).forEach(p => {
+    if (p.term) node.append(button('dk-term', p.term.name, () => toggleTerm(node, p.term)));
+    else node.append(document.createTextNode(p.text));
+  });
+  return node;
+}
+
+function toggleTerm(host, term) {
+  const next = host.nextElementSibling;
+  if (next && next.classList.contains('dk-termbox') && next.dataset.key === term.key) { next.remove(); return; }
+  if (next && next.classList.contains('dk-termbox')) next.remove();
+  const box = el('div', 'dk-termbox');
+  box.dataset.key = term.key;
+  box.append(el('b', '', term.name));
+  [['What it is', term.what], ['Why the form wants it', term.why], ['How to find yours', term.find]].forEach(([h, v]) => {
+    if (v) { box.append(el('span', 'dk-termh', h)); box.append(el('span', '', v)); }
+  });
+  if (term.source && isHttps(term.source.url)) box.append(linkNode({ kind: 'url', label: term.source.label, target: term.source.url }, 'Source: ' + term.source.label + ' ↗'));
+  box.append(button('dk-link', 'Close', () => box.remove()));
+  host.after(box);
+}
+
+function stepsList(steps, terms) {
   const ol = el('ol', 'dk-steps');
   steps.forEach(s => {
     const p = stepParts(s);
-    const li = el('li', '', p.text);
+    const detail = stepDetail(s);
+    const li = terms && terms.size ? richText('li', '', p.text, terms) : el('li', '', p.text);
+    if (detail.length) {
+      const d = el('details', 'dk-sd');
+      d.append(el('summary', '', 'Details'));
+      const list = el('ol', '');
+      detail.forEach(x => list.append(terms && terms.size ? richText('li', '', x, terms) : el('li', '', x)));
+      d.append(list);
+      li.append(d);
+    }
     const row = chips(p.links);
     if (row) li.append(row);
     ol.append(li);
   });
   return ol;
+}
+
+function sourcesBlock(item) {
+  const list = cleanSources(item.sources);
+  if (!list.length) return null;
+  const d = el('details', 'dk-sources');
+  d.append(el('summary', '', `Sources (${list.length})`));
+  const ul = el('ul', '');
+  list.forEach(s => {
+    const li = el('li', '');
+    li.append(linkNode({ kind: 'url', label: s.label, target: s.url }, s.label + ' ↗', 'dk-inline'));
+    if (s.used_for) li.append(el('span', '', 'Used for: ' + s.used_for));
+    ul.append(li);
+  });
+  d.append(ul);
+  return d;
 }
 
 function valuesBlock(values, items) {
@@ -316,14 +365,15 @@ function card(item, n, ctx) {
 
   const body = el('div', 'dk-cbody');
   if (item.rank_reason) body.append(el('p', 'dk-why', item.rank_reason));
-  if (item.summary) body.append(el('p', 'dk-sum', item.summary));
+  const terms = termMap(item);
+  if (item.summary) body.append(terms.size ? richText('p', 'dk-sum', item.summary, terms) : el('p', 'dk-sum', item.summary));
   if (ctx.waiting.length) {
     const w = el('p', 'dk-unl wait');
     w.append(el('b', '', 'Needs first: '));
     ctx.waiting.forEach((x, i) => { if (i) w.append(', '); w.append(button('dk-inline', x.title, () => openCard(x.id))); });
     body.append(w);
   }
-  if (item.steps && item.steps.length) body.append(stepsList(item.steps));
+  if (item.steps && item.steps.length) body.append(stepsList(item.steps, terms));
   if (item.values && item.values.length) body.append(valuesBlock(item.values, ctx.items));
   const row = chips(item.links);
   if (row) body.append(row);
@@ -337,6 +387,8 @@ function card(item, n, ctx) {
   }
   body.append(actions(item, ctx.stuckNow));
   if (!ctx.snoozed && !ctx.stuckNow) body.append(button('dk-notoday', 'Not today', () => answer(item.id, 'notnow')));
+  const sources = sourcesBlock(item);
+  if (sources) body.append(sources);
   body.append(el('p', 'dk-src', srcText()));
   c.append(body);
   return c;

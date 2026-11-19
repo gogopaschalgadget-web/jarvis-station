@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, linkAction, orderedIds, deskRows, rankItems } from '../js/cas-desk-logic.js';
+import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, cleanSources, linkAction, orderedIds, deskRows, rankItems } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -60,4 +60,24 @@ test('the Cas message carries the line, the card summary and its steps in one go
   assert.equal(text, ['I am stuck on: Get the permit. no login', 'What the card says: File the form.', 'Its steps:', '1. Open the site', '2. Pay the fee'].join('\n'));
   assert.match(casMessage({ title: 'T' }, {}, 'why'), /^I am stuck on: T\. why$/);
   assert.ok(casMessage({ title: 'T', summary: 'x'.repeat(5000) }, {}, 'w').length <= 1800);
+});
+
+test('stepDetail returns the extra lines and nothing for plain steps', () => {
+  assert.deepEqual(stepDetail('x'), []);
+  assert.deepEqual(stepDetail({ text: 'y', links: [] }), []);
+  assert.deepEqual(stepDetail({ text: 'y', detail: ['a', '', 7, 'b'] }), ['a', 'b']);
+});
+
+test('textParts splits at term markers and reads an unknown marker as words', () => {
+  const terms = termMap({ terms: [{ key: 'naics', name: 'NAICS code' }] });
+  assert.deepEqual(textParts('Find your {{naics}} now', terms).map(p => p.term ? p.term.name : p.text), ['Find your ', 'NAICS code', ' now']);
+  assert.deepEqual(textParts('A {{some_thing}} here', terms).map(p => p.text), ['A ', 'some thing', ' here']);
+  assert.deepEqual(textParts('plain text', new Map()), [{ text: 'plain text' }]);
+  assert.deepEqual(textParts('{{naics}}', terms).length, 1);
+});
+
+test('cleanSources keeps https sources once each', () => {
+  const got = cleanSources([{ label: 'A', url: 'https://a.test/x' }, { label: 'A again', url: 'https://a.test/x' }, { label: 'B', url: 'http://b.test' }, { label: '', url: 'https://c.test' }, null]);
+  assert.deepEqual(got.map(s => s.label), ['A']);
+  assert.deepEqual(cleanSources(undefined), []);
 });

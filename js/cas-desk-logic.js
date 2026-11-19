@@ -85,3 +85,37 @@ export function deskRows(data) {
     id: i.id, title: i.title, project: i.project, minutes: i.minutes, stuck: Object.prototype.hasOwnProperty.call(stuck, i.id),
   }));
 }
+
+const MARK = /\{\{([a-z][a-z0-9_]{0,30})\}\}/g;
+
+/** The extra lines a step opens to; [] for plain-text steps and steps without any. */
+export function stepDetail(step) {
+  return step && typeof step === 'object' && Array.isArray(step.detail) ? step.detail.filter(x => typeof x === 'string' && x) : [];
+}
+
+export function termMap(item) {
+  const map = new Map();
+  ((item && item.terms) || []).forEach(t => { if (t && t.key && t.name) map.set(t.key, t); });
+  return map;
+}
+
+/** Splits text at {{key}} markers: [{text}] and [{term}] parts. A marker with no matching term reads as its key in words. */
+export function textParts(text, terms) {
+  const out = [];
+  let last = 0;
+  String(text).replace(MARK, (m, key, at) => {
+    if (at > last) out.push({ text: text.slice(last, at) });
+    const t = terms && terms.get(key);
+    out.push(t ? { term: t } : { text: key.replace(/_/g, ' ') });
+    last = at + m.length;
+    return m;
+  });
+  if (last < text.length || !out.length) out.push({ text: String(text).slice(last) });
+  return out;
+}
+
+/** Sources the phone will show: https addresses only, each source once. */
+export function cleanSources(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : []).filter(s => s && s.label && isHttps(s.url) && !seen.has(s.url) && seen.add(s.url));
+}

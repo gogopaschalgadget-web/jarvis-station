@@ -121,3 +121,14 @@
 .dk-toast .dk-link, .dk-note2 .dk-link { color: var(--dk-brass-hi); min-height: 36px; }
 .dk-hold { margin: 0 4px 10px; font-size: 12px; color: var(--dk-muted); }
 .dk-ans .dk-donerow .dk-link { display: block; margin-top: 4px; min-height: 32px; color: var(--dk-brass-hi); }
+.dk-term { display: inline; min-height: 0; padding: 0; border: 0; border-bottom: 2px dotted var(--dk-crimson); background: none; font: inherit; color: inherit; }
+.dk-termbox { display: flex; flex-direction: column; gap: 3px; margin: 4px 0 8px; padding: 10px; border-radius: 8px; background: #fff8e3; border: 1px solid #8a6a2a; font-size: 13px; line-height: 1.4; }
+.dk-termh { margin-top: 4px; font: 900 11px var(--dk-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--dk-crimson); }
+.dk-sd { margin: 4px 0 2px; }
+.dk-sd summary { min-height: 36px; display: flex; align-items: center; font: 800 12.5px var(--dk-ui); color: var(--dk-crimson); cursor: pointer; }
+.dk-sd ol { margin: 2px 0 4px; padding: 8px 10px 8px 26px; border-radius: 8px; background: #fff8e3; border: 1px solid #8a6a2a; font-size: 13px; }
+.dk-sources { margin: 12px 0 0; padding-top: 4px; border-top: 2px solid #8a6a2a88; }
+.dk-sources summary { min-height: 44px; display: flex; align-items: center; font: 800 13px var(--dk-ui); color: #5a3d14; cursor: pointer; }
+.dk-sources ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+.dk-sources li { margin: 6px 0; }
+.dk-sources li span { display: block; }
