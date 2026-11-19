@@ -158,20 +158,27 @@ export function deskDay(now = new Date()) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
 }
 
-/** Dates a hold may use: today (returns at the next flip), the coming Saturday, the 90-day limit. */
-export function holdDates(now = new Date()) {
-  const today = deskDay(now);
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The server's day key from the desk response; the phone's own 2 am day only when the server sent none. */
+export function serverDay(data, now = new Date()) {
+  const d = data && [data.day, data.today, data.day_key].find(v => typeof v === 'string' && ISO_DAY.test(v));
+  return d || dayKey(deskDay(now));
+}
+
+/** Dates a hold may use: the server day (returns at the next flip), the coming Saturday, the 90-day limit. */
+export function holdDates(day) {
+  const today = new Date(day + 'T12:00:00');
   const toSat = (6 - today.getDay() + 7) % 7;
-  const sat = new Date(today.getTime() + toSat * DAY_MS);
-  return { today: dayKey(today), weekend: dayKey(sat), max: dayKey(new Date(today.getTime() + HOLD_MAX_DAYS * DAY_MS)) };
+  return { today: day, weekend: dayKey(new Date(today.getTime() + toSat * DAY_MS)), max: dayKey(new Date(today.getTime() + HOLD_MAX_DAYS * DAY_MS)) };
 }
 
 /** until = the day the card comes back. On Sunday the coming Saturday is 6 days off, so Sunday means back tomorrow too. */
-export function holdUntil(kind, now = new Date(), picked = '') {
-  const d = holdDates(now);
+export function holdUntil(kind, day, picked = '') {
+  const d = holdDates(day);
   if (kind === 'tomorrow') return d.today;
   if (kind === 'weekend') return new Date(d.today + 'T12:00:00').getDay() === 0 ? d.today : d.weekend;
-  if (kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(picked) && picked >= d.today && picked <= d.max) return picked;
+  if (kind === 'date' && ISO_DAY.test(picked) && picked >= d.today && picked <= d.max) return picked;
   return null;
 }
 
@@ -185,7 +192,7 @@ export function heldCards(data) {
   const list = data && Array.isArray(data.held_cards) ? data.held_cards : [];
   return list.filter(h => h && typeof h.id === 'string').map(h => {
     const hold = h.hold && typeof h.hold === 'object' ? h.hold : h;
-    return { id: h.id, title: String(h.title || ''), until: String(hold.until || ''), reason: String(hold.reason || '') };
+    return { id: h.id, title: String(h.title || ''), until: String(hold.until || ''), back: String(h.return_day || hold.until || ''), reason: String(hold.reason || '') };
   });
 }
 

@@ -148,3 +148,4 @@
 .dk-holdpick { display: flex; gap: 6px; margin-top: 8px; }
 .dk-holdpick .dk-whyin { flex: 1; }
 .dk-backhold { margin: 0 0 8px; padding: 6px 8px; border-radius: 8px; background: #e9f2dd; border: 1px solid #5b8a4a; font: 700 12.5px var(--dk-ui); color: #1f4a2a; }
+.dk-heldstrip .dk-donerow small { text-transform: none; }

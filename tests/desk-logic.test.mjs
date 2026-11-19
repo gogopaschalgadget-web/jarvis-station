@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LANDING_SUB, DESK_SUBS, unseenLinks, casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, holdUntil, holdDates, heldCards, dayWords, deskDay } from '../js/cas-desk-logic.js';
+import { DESK_SUBS, LANDING_SUB, unseenLinks, casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, holdUntil, holdDates, serverDay, heldCards, dayWords, deskDay } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -129,24 +129,30 @@ test('hold dates: Wednesday', () => {
   assert.equal(holdUntil('tomorrow', now), '2026-11-18');
   assert.equal(holdUntil('weekend', now), '2026-11-21');
   assert.equal(holdUntil('date', now, '2026-12-01'), '2026-12-01');
+test('hold dates: Wednesday server day', () => {
+  assert.equal(holdUntil('tomorrow', '2026-11-18'), '2026-11-18');
+  assert.equal(holdUntil('weekend', '2026-11-18'), '2026-11-21');
+  assert.equal(holdUntil('date', '2026-11-18', '2026-12-01'), '2026-12-01');
 });
 test('hold dates: Saturday and Sunday mean back tomorrow', () => {
-  assert.equal(holdUntil('weekend', at(2026, 11, 21)), '2026-11-21');
-  assert.equal(holdUntil('weekend', at(2026, 11, 22)), '2026-11-22');
+  assert.equal(holdUntil('weekend', '2026-11-21'), '2026-11-21');
+  assert.equal(holdUntil('weekend', '2026-11-22'), '2026-11-22');
 });
-test('hold dates: before 2 am is still yesterday', () => {
-  assert.equal(holdUntil('tomorrow', at(2026, 11, 19, 1)), '2026-11-18');
+test('server day wins over the phone clock; phone 2 am day is the fallback', () => {
+  const now = new Date(2026, 10, 19, 1);
+  assert.equal(serverDay({ day: '2026-11-17' }, now), '2026-11-17');
+  assert.equal(serverDay({ day: 'bad' }, now), '2026-11-18');
+  assert.equal(serverDay(null, now), '2026-11-18');
 });
-test('hold dates: picked day must be today to 90 days ahead', () => {
-  const now = at(2026, 11, 18);
-  assert.equal(holdUntil('date', now, '2026-11-17'), null);
-  assert.equal(holdUntil('date', now, '2027-02-16'), '2027-02-16');
-  assert.equal(holdUntil('date', now, '2027-02-17'), null);
-  assert.equal(holdUntil('date', now, 'soon'), null);
+test('hold dates: picked day must be the server day to 90 days ahead', () => {
+  assert.equal(holdUntil('date', '2026-11-18', '2026-11-17'), null);
+  assert.equal(holdUntil('date', '2026-11-18', '2027-02-16'), '2027-02-16');
+  assert.equal(holdUntil('date', '2026-11-18', '2027-02-17'), null);
+  assert.equal(holdUntil('date', '2026-11-18', 'soon'), null);
 });
 test('heldCards ignores malformed rows and reads both shapes', () => {
-  const got = heldCards({ held_cards: [null, { id: 3 }, { id: 'a', title: 'A', hold: { until: '2026-11-20', reason: 'r' } }, { id: 'b', until: '2026-11-21', reason: 'q' }] });
-  assert.deepEqual(got.map(h => [h.id, h.until, h.reason]), [['a', '2026-11-20', 'r'], ['b', '2026-11-21', 'q']]);
+  const got = heldCards({ held_cards: [null, { id: 3 }, { id: 'a', title: 'A', hold: { until: '2026-11-20', reason: 'r' } }, { id: 'b', until: '2026-11-21', return_day: '2026-11-22', reason: 'q' }] });
+  assert.deepEqual(got.map(h => [h.id, h.back, h.reason]), [['a', '2026-11-20', 'r'], ['b', '2026-11-22', 'q']]);
   assert.deepEqual(heldCards({ held_cards: 'x' }), []);
   assert.equal(dayWords('nope'), '');
 });

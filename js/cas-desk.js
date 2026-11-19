@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas86';
-import { LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas86';
+import { DESK_SUBS, LANDING_SUB, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas86';
 
 export { rankItems };
 
@@ -400,18 +400,19 @@ function holdSheet(item) {
   input.addEventListener('click', e => e.stopPropagation());
   box.append(input);
   if (_need.has('hold:' + id)) box.append(el('p', 'dk-needline', 'Pick a reason or write one, then choose when.'));
-  const dates = holdDates();
+  const day = serverDay(_data);
+  const dates = holdDates(day);
   const row = el('div', 'dk-row2');
-  row.append(button('dk-act', 'Back tomorrow', () => holdCard(id, holdUntil('tomorrow'))));
-  row.append(button('dk-act', 'This weekend', () => holdCard(id, holdUntil('weekend'))));
+  row.append(button('dk-act', 'Back tomorrow', () => holdCard(id, holdUntil('tomorrow', day))));
+  row.append(button('dk-act', 'This weekend', () => holdCard(id, holdUntil('weekend', day))));
   row.append(button('dk-act', 'Pick a date', () => { _holdPick = !_holdPick; draw(); }));
   box.append(row);
-  if (holdUntil('weekend') === dates.today) box.append(el('p', 'dk-hold', 'It is the weekend, so This weekend means back tomorrow.'));
+  if (holdUntil('weekend', day) === dates.today) box.append(el('p', 'dk-hold', 'It is the weekend, so This weekend means back tomorrow.'));
   if (_holdPick) {
     const pick = el('div', 'dk-holdpick');
     const d = el('input', 'dk-whyin'); d.type = 'date'; d.min = dates.today; d.max = dates.max; d.value = dates.today;
     d.addEventListener('click', e => e.stopPropagation());
-    pick.append(d, button('dk-act', 'Hold until this day', () => { const u = holdUntil('date', new Date(), d.value); if (u) holdCard(id, u); else say('Pick a day from today to 90 days ahead.'); }));
+    pick.append(d, button('dk-act', 'Hold until this day', () => { const u = holdUntil('date', day, d.value); if (u) holdCard(id, u); else say('Pick a day from today to 90 days ahead.'); }));
     box.append(pick);
   }
   box.append(button('dk-notoday', 'Cancel', () => { _holdFor = null; _holdPick = false; draw(); }));
@@ -426,7 +427,7 @@ function heldStrip(list) {
   list.forEach(h => {
     const row = el('div', 'dk-donerow');
     row.append(el('span', '', h.title || words(h.id)));
-    row.append(el('small', '', [h.until ? 'Back ' + dayWords(h.until) : '', h.reason].filter(Boolean).join(' · ')));
+    row.append(el('small', '', [h.back ? 'Back ' + dayWords(h.back) : '', h.reason].filter(Boolean).join(' · ')));
     row.append(button('dk-link', 'Unhold', () => unhold(h.id)));
     box.append(row);
   });
