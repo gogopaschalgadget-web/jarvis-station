@@ -146,6 +146,49 @@ export function unseenLinks(links, seen) {
   });
 }
 
+const DAY_MS = 86400000;
+const pad = n => String(n).padStart(2, '0');
+const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const HOLD_MAX_DAYS = 90;
+export const HOLD_REASONS = ['Not at a PC', 'Waiting on someone', 'Not today'];
+
+/** The Desk day starts at 2 am: before that it is still yesterday. */
+export function deskDay(now = new Date()) {
+  const d = new Date(now.getTime() - 2 * 3600000);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+}
+
+/** Dates a hold may use: today (returns at the next flip), the coming Saturday, the 90-day limit. */
+export function holdDates(now = new Date()) {
+  const today = deskDay(now);
+  const toSat = (6 - today.getDay() + 7) % 7;
+  const sat = new Date(today.getTime() + toSat * DAY_MS);
+  return { today: dayKey(today), weekend: dayKey(sat), max: dayKey(new Date(today.getTime() + HOLD_MAX_DAYS * DAY_MS)) };
+}
+
+/** until = the day the card comes back. On Sunday the coming Saturday is 6 days off, so Sunday means back tomorrow too. */
+export function holdUntil(kind, now = new Date(), picked = '') {
+  const d = holdDates(now);
+  if (kind === 'tomorrow') return d.today;
+  if (kind === 'weekend') return new Date(d.today + 'T12:00:00').getDay() === 0 ? d.today : d.weekend;
+  if (kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(picked) && picked >= d.today && picked <= d.max) return picked;
+  return null;
+}
+
+export function dayWords(iso) {
+  const d = new Date(String(iso) + 'T12:00:00');
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** Cards on hold, from the server's held_cards list; anything malformed is ignored. */
+export function heldCards(data) {
+  const list = data && Array.isArray(data.held_cards) ? data.held_cards : [];
+  return list.filter(h => h && typeof h.id === 'string').map(h => {
+    const hold = h.hold && typeof h.hold === 'object' ? h.hold : h;
+    return { id: h.id, title: String(h.title || ''), until: String(hold.until || ''), reason: String(hold.reason || '') };
+  });
+}
+
 /** Desk sub tabs in order; the first one is also the tab that opens with the Desk. */
 export const DESK_SUBS = [['bulletin', 'Bulletin Board'], ['desk', 'Work Desk'], ['orders', 'Orders'], ['dashboard', 'Dashboard']];
 export const LANDING_SUB = DESK_SUBS[0][0];

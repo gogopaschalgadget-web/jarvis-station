@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, renderBulletin, ordersPill, typingInOrders } from './cas-orders.js?v=cas86';
-import { DESK_SUBS, LANDING_SUB, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, unseenLinks, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas86';
+import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas86';
+import { LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas86';
 
 export { rankItems };
 
@@ -125,6 +125,34 @@ async function answer(id, kind, extra = {}) {
   _need.delete(id);
   const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
   say(kind === 'undo' ? 'Undone.' : res.json.line || 'Saved.', undoable ? () => answer(id, 'undo') : null);
+  await load(true);
+}
+
+const _holdWhy = new Map();
+let _holdFor = null;
+let _holdPick = false;
+let _heldOpen = false;
+
+async function holdCard(id, until) {
+  const reason = (_holdWhy.get(id) || '').trim();
+  if (!reason) { _need.add('hold:' + id); draw(); return; }
+  if (_busy.has(id)) return;
+  _busy.add(id);
+  const res = await post('/hold', { item_id: id, until, reason });
+  _busy.delete(id);
+  if (!res.ok) {
+    say(SAY[res.status] || (typeof res.json.detail === 'string' && res.status === 422 ? res.json.detail.replace(/^./, c => c.toUpperCase()) + '.' : 'Not saved. Try again.'));
+    if (res.status === 422 || res.status === 409) load(true);
+    return;
+  }
+  _holdWhy.delete(id); _need.delete('hold:' + id); _holdFor = null; _holdPick = false;
+  say(res.json.line || 'Held. It comes back ' + (dayWords(until) || 'on the day you chose') + '.', () => unhold(id));
+  await load(true);
+}
+
+async function unhold(id) {
+  const res = await post('/unhold', { item_id: id });
+  say(res.ok ? 'Back on your list.' : (SAY[res.status] || 'Not saved. Try again.'));
   await load(true);
 }
 
@@ -358,6 +386,53 @@ function kidCard(item, done, stuckNow, parent, why) {
 
 const visibleKids = (kids, stuck) => (stuck || kids.some(k => !k.done) ? kids : []);
 
+function holdSheet(item) {
+  const id = item.id;
+  const box = el('div', 'dk-holdbox');
+  box.append(el('p', 'dk-holdh', 'Hold this card. Why?'));
+  const chipRow = el('div', 'dk-holdchips');
+  HOLD_REASONS.forEach(r => chipRow.append(button('dk-chip' + ((_holdWhy.get(id) || '') === r ? ' on' : ''), r, () => { _holdWhy.set(id, r); _need.delete('hold:' + id); draw(); })));
+  box.append(chipRow);
+  const input = el('input', 'dk-whyin dk-holdin' + (_need.has('hold:' + id) ? ' need' : ''));
+  input.type = 'text'; input.maxLength = 200; input.placeholder = 'Or say why in a line';
+  input.value = _holdWhy.get(id) || '';
+  input.addEventListener('input', () => { _holdWhy.set(id, input.value); _need.delete('hold:' + id); input.classList.remove('need'); });
+  input.addEventListener('click', e => e.stopPropagation());
+  box.append(input);
+  if (_need.has('hold:' + id)) box.append(el('p', 'dk-needline', 'Pick a reason or write one, then choose when.'));
+  const dates = holdDates();
+  const row = el('div', 'dk-row2');
+  row.append(button('dk-act', 'Back tomorrow', () => holdCard(id, holdUntil('tomorrow'))));
+  row.append(button('dk-act', 'This weekend', () => holdCard(id, holdUntil('weekend'))));
+  row.append(button('dk-act', 'Pick a date', () => { _holdPick = !_holdPick; draw(); }));
+  box.append(row);
+  if (holdUntil('weekend') === dates.today) box.append(el('p', 'dk-hold', 'It is the weekend, so This weekend means back tomorrow.'));
+  if (_holdPick) {
+    const pick = el('div', 'dk-holdpick');
+    const d = el('input', 'dk-whyin'); d.type = 'date'; d.min = dates.today; d.max = dates.max; d.value = dates.today;
+    d.addEventListener('click', e => e.stopPropagation());
+    pick.append(d, button('dk-act', 'Hold until this day', () => { const u = holdUntil('date', new Date(), d.value); if (u) holdCard(id, u); else say('Pick a day from today to 90 days ahead.'); }));
+    box.append(pick);
+  }
+  box.append(button('dk-notoday', 'Cancel', () => { _holdFor = null; _holdPick = false; draw(); }));
+  return box;
+}
+
+function heldStrip(list) {
+  const box = el('details', 'dk-fold dk-heldstrip');
+  box.open = _heldOpen;
+  box.addEventListener('toggle', () => { _heldOpen = box.open; });
+  box.append(el('summary', '', `Held (${list.length})`));
+  list.forEach(h => {
+    const row = el('div', 'dk-donerow');
+    row.append(el('span', '', h.title || words(h.id)));
+    row.append(el('small', '', [h.until ? 'Back ' + dayWords(h.until) : '', h.reason].filter(Boolean).join(' · ')));
+    row.append(button('dk-link', 'Unhold', () => unhold(h.id)));
+    box.append(row);
+  });
+  return box;
+}
+
 function card(item, n, ctx) {
   const c = el('details', 'dk-card' + (ctx.mine ? ' mine' : '') + (ctx.stuckNow ? ' stuck' : '') + (ctx.snoozed ? ' snoozed' : ''));
   c.dataset.id = item.id;
@@ -376,6 +451,8 @@ function card(item, n, ctx) {
   c.append(top);
 
   const body = el('div', 'dk-cbody');
+  const back = item.returned_from_hold;
+  if (back && typeof back === 'object' && back.reason) body.append(el('p', 'dk-backhold', `Back from hold: ${back.reason}, held on ${dayWords(back.held_on) || 'an earlier day'}.`));
   if (item.rank_reason) body.append(el('p', 'dk-why', item.rank_reason));
   const terms = termMap(item);
   if (item.summary) body.append(terms.size ? richText('p', 'dk-sum', item.summary, terms) : el('p', 'dk-sum', item.summary));
@@ -400,6 +477,7 @@ function card(item, n, ctx) {
   }
   body.append(actions(item, ctx.stuckNow && { ...ctx.stuckNow, hasKids: ctx.kids.length > 0 }));
   if (!ctx.snoozed && !ctx.stuckNow) body.append(button('dk-notoday', 'Not today', () => answer(item.id, 'notnow')));
+  if (!ctx.snoozed) body.append(_holdFor === item.id ? holdSheet(item) : button('dk-notoday', 'Hold this card', () => { _holdFor = item.id; _holdPick = false; draw(); }));
   const sources = sourcesBlock(item);
   if (sources) body.append(sources);
   body.append(el('p', 'dk-src', srcText()));
@@ -533,7 +611,9 @@ function draw() {
   }
 
   const items = itemsById(_data);
-  const ids = orderedIds(_data);
+  const heldList = heldCards(_data);
+  const heldIds = new Set(heldList.map(h => h.id));
+  const ids = orderedIds(_data).filter(id => !heldIds.has(id));
   if (!_openInit && ids.length) { _open.add(ids[0]); _openInit = true; }
   const mine = new Set(field('mine', []));
   const snoozed = new Set(field('snoozed', []));
@@ -577,7 +657,8 @@ function draw() {
       drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: (field('held', {})[id] || {}).line || '' } : null,
       hint: hints[id], waiting: waitMap[id] || [], kids: visibleKids(kidsMap[id] || [], id in stuckMap),
     };
-    try { return card(item, n, ctx); } catch {
+    try { return card(item, n, ctx); } catch (e) {
+      console.warn('Desk card fell back to plain form:', id, e && e.message);
       try { return card(plainItem(item), n, ctx); } catch { return el('p', 'dk-note', 'This card could not be shown.'); }
     }
   };
@@ -592,6 +673,8 @@ function draw() {
     ids.slice(SHOWN).forEach((id, i) => more.append(make(id, SHOWN + i + 1, false)));
     wrap.append(more);
   }
+
+  if (heldList.length) wrap.append(heldStrip(heldList));
 
   const answered = field('answered', []);
   if (answered.length) {
