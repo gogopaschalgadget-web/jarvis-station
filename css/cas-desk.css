@@ -132,3 +132,9 @@
 .dk-sources ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
 .dk-sources li { margin: 6px 0; }
 .dk-sources li span { display: block; }
+
+.dk-kid > summary { list-style: none; cursor: pointer; min-height: 44px; align-items: center; }
+.dk-kid > summary::-webkit-details-marker { display: none; }
+.dk-kid > summary::after { content: '+'; font: 900 16px var(--dk-ui); color: var(--dk-crimson); margin-left: 6px; }
+.dk-kid[open] > summary::after { content: '\2212'; }
+.dk-kid.finished > summary::after { content: none; }

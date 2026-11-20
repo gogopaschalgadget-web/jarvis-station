@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas81';
-import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas82';
+import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, unseenLinks, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas83';
 
 export { rankItems };
 
@@ -178,8 +178,8 @@ function linkNode(link, text, cls) {
   return null;
 }
 
-function chips(links) {
-  const nodes = (links || []).map(l => linkNode(l)).filter(Boolean);
+function chips(links, seen) {
+  const nodes = (seen ? unseenLinks(links, seen) : links || []).map(l => linkNode(l)).filter(Boolean);
   if (!nodes.length) return null;
   const row = el('div', 'dk-chips');
   row.append(...nodes);
@@ -217,7 +217,7 @@ function toggleTerm(host, term) {
   host.after(box);
 }
 
-function stepsList(steps, terms) {
+function stepsList(steps, terms, seen) {
   const ol = el('ol', 'dk-steps');
   steps.forEach(s => {
     const p = stepParts(s);
@@ -231,7 +231,7 @@ function stepsList(steps, terms) {
       d.append(list);
       li.append(d);
     }
-    const row = chips(p.links);
+    const row = chips(p.links, seen);
     if (row) li.append(row);
     ol.append(li);
   });
@@ -288,7 +288,9 @@ function actions(item, stuckNow) {
   const box = el('div', 'dk-acts');
   const text = () => (_whys.get(item.id) || '').trim();
   if (stuckNow) {
-    box.append(el('p', 'dk-stuckline', 'Cas is working on it. Repair missions appear under this card in about a minute.' + (stuckNow.why ? ' You said: ' + stuckNow.why : '')));
+    box.append(el('p', 'dk-stuckline', stuckNow.hasKids
+      ? (stuckNow.why ? 'You said: ' + stuckNow.why : 'Repair missions are listed above.')
+      : 'Cas is working on it. Repair missions appear under this card when they are ready.' + (stuckNow.why ? ' You said: ' + stuckNow.why : '')));
     if (stuckNow.held) box.append(el('p', 'dk-heldline', stuckNow.held));
     box.append(button('dk-act', 'Unstuck', () => answer(item.id, 'unstuck')));
     return box;
@@ -324,21 +326,31 @@ async function sendToCas(kid, parent, why) {
   say('Sent to Cas.');
 }
 
+let _kidOpen = null;
+
 function kidCard(item, done, stuckNow, parent, why) {
-  const k = el('div', 'dk-kid' + (done ? ' finished' : ''));
+  const k = el('details', 'dk-kid' + (done ? ' finished' : ''));
   k.dataset.id = item.id;
-  const head = el('div', 'dk-kidhead');
+  const head = el('summary', 'dk-kidhead');
   head.append(titleNode(item));
   if (item.minutes != null) head.append(el('span', 'dk-min', item.minutes + ' min'));
   k.append(head);
   if (done) { k.append(el('p', 'dk-sum', 'Done.')); return k; }
+  k.open = _kidOpen === item.id;
+  k.addEventListener('toggle', () => {
+    if (k.open) {
+      _kidOpen = item.id;
+      k.parentElement.querySelectorAll('details.dk-kid').forEach(o => { if (o !== k) o.open = false; });
+    } else if (_kidOpen === item.id) _kidOpen = null;
+  });
   if (item.summary) k.append(el('p', 'dk-sum', item.summary));
   if (item.cas_prompt) {
     k.append(button('dk-act cas', 'Send to Cas', () => sendToCas(item, parent, why)));
     return k;
   }
-  if (item.steps && item.steps.length) k.append(stepsList(item.steps));
-  const row = chips(item.links);
+  const seen = new Set();
+  if (item.steps && item.steps.length) k.append(stepsList(item.steps, null, seen));
+  const row = chips(item.links, seen);
   if (row) k.append(row);
   k.append(actions(item, stuckNow));
   return k;
@@ -357,7 +369,7 @@ function card(item, n, ctx) {
   top.append(titleNode(item));
   const marks = el('div', 'dk-marks');
   if (ctx.mine) { marks.append(el('span', 'dk-mark', 'Your order')); marks.append(button('dk-rel', 'Release', () => release(item.id))); }
-  if (ctx.stuckNow) marks.append(el('span', 'dk-mark warn', 'Cas is working on it'));
+  if (ctx.stuckNow && !ctx.kids.length) marks.append(el('span', 'dk-mark warn', 'Cas is working on it'));
   if (ctx.snoozed) marks.append(el('span', 'dk-mark', 'Not today'), button('dk-rel', 'Bring back', () => answer(item.id, 'undo')));
   if (marks.childNodes.length) top.append(marks);
   top.append(grip(item, ctx));
@@ -373,9 +385,10 @@ function card(item, n, ctx) {
     ctx.waiting.forEach((x, i) => { if (i) w.append(', '); w.append(button('dk-inline', x.title, () => openCard(x.id))); });
     body.append(w);
   }
-  if (item.steps && item.steps.length) body.append(stepsList(item.steps, terms));
+  const seen = new Set();
+  if (item.steps && item.steps.length) body.append(stepsList(item.steps, terms, seen));
   if (item.values && item.values.length) body.append(valuesBlock(item.values, ctx.items));
-  const row = chips(item.links);
+  const row = chips(item.links, seen);
   if (row) body.append(row);
   if (ctx.hint) { const u = el('p', 'dk-unl'); u.append(el('b', '', 'Doing this unlocks: '), document.createTextNode(ctx.hint)); body.append(u); }
   if (item.unblocks) { const u = el('p', 'dk-unb'); u.append(el('b', '', 'Unblocks: '), document.createTextNode(item.unblocks)); body.append(u); }
@@ -385,7 +398,7 @@ function card(item, n, ctx) {
     ctx.kids.forEach(k => { if (ctx.items.has(k.id)) kids.append(kidCard(ctx.items.get(k.id), k.done, ctx.stuckMap[k.id] !== undefined ? { why: ctx.stuckMap[k.id] } : null, item, ctx.stuckNow && ctx.stuckNow.why)); });
     body.append(kids);
   }
-  body.append(actions(item, ctx.stuckNow));
+  body.append(actions(item, ctx.stuckNow && { ...ctx.stuckNow, hasKids: ctx.kids.length > 0 }));
   if (!ctx.snoozed && !ctx.stuckNow) body.append(button('dk-notoday', 'Not today', () => answer(item.id, 'notnow')));
   const sources = sourcesBlock(item);
   if (sources) body.append(sources);

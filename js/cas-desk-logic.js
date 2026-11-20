@@ -134,3 +134,14 @@ export function cleanSources(list) {
   const seen = new Set();
   return (Array.isArray(list) ? list : []).filter(s => s && s.label && isHttps(s.url) && !seen.has(s.url) && seen.add(s.url));
 }
+
+/** The links not yet shown on this card or mission; each is remembered in `seen` so it appears once. */
+export function unseenLinks(links, seen) {
+  return (Array.isArray(links) ? links : []).filter(l => {
+    if (!l || typeof l !== 'object') return false;
+    const key = String(l.kind) + '|' + String(l.target);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}

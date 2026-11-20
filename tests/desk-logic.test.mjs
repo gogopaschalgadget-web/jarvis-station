@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems } from '../js/cas-desk-logic.js';
+import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, unseenLinks } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -106,4 +106,15 @@ test('plainItem gives back the old plain form with no markers', () => {
   assert.deepEqual(p.terms, []);
   assert.deepEqual(p.sources, []);
   assert.equal(p.title, 'T');
+});
+
+test('unseenLinks shows each link once per card or mission', () => {
+  const a = { kind: 'url', target: 'https://x.test/a', label: 'A' };
+  const b = { kind: 'url', target: 'https://x.test/b', label: 'B' };
+  const seen = new Set();
+  assert.deepEqual(unseenLinks([a, a, b], seen), [a, b]);
+  assert.deepEqual(unseenLinks([a], seen), []);
+  assert.deepEqual(unseenLinks([{ kind: 'card', target: 'https://x.test/a' }], seen).length, 1);
+  assert.deepEqual(unseenLinks(null, seen), []);
+  assert.deepEqual(unseenLinks([null, 5], new Set()), []);
 });
