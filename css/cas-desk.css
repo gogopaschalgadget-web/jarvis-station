@@ -138,3 +138,4 @@
 .dk-kid > summary::after { content: '+'; font: 900 16px var(--dk-ui); color: var(--dk-crimson); margin-left: 6px; }
 .dk-kid[open] > summary::after { content: '\2212'; }
 .dk-kid.finished > summary::after { content: none; }
+.dk-chip:not(.pc) { background: #1a130a; color: #d8c59a; border: 2px ridge #c89943; border-radius: 8px; }
