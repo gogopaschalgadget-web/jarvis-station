@@ -142,8 +142,8 @@
 .dk-holdbox { margin: 10px 0 0; padding: 10px; border-radius: 10px; border: 1px solid #8a6a2a; background: #f3e7c4; }
 .dk-holdh { margin: 0 0 8px; font: 800 13px var(--dk-ui); color: #2a1a05; }
 .dk-holdchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-.dk-chip { min-height: 40px; padding: 0 12px; border-radius: 8px; border: 2px ridge #c89943; background: #1a130a; color: #d8c59a; font: 800 12.5px var(--dk-ui); }
-.dk-chip.on { background: linear-gradient(#f3dd9e, #d9b25a); color: #2a1a05; }
+.dk-hchip { min-height: 40px; padding: 0 12px; border-radius: 8px; border: 2px ridge #c89943; background: #1a130a; color: #d8c59a; font: 800 12.5px var(--dk-ui); }
+.dk-hchip.on { background: linear-gradient(#f3dd9e, #d9b25a); color: #2a1a05; }
 .dk-holdbox .dk-row2 { margin-top: 8px; flex-wrap: wrap; }
 .dk-holdpick { display: flex; gap: 6px; margin-top: 8px; }
 .dk-holdpick .dk-whyin { flex: 1; }

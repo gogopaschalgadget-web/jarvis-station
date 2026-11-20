@@ -391,7 +391,7 @@ function holdSheet(item) {
   const box = el('div', 'dk-holdbox');
   box.append(el('p', 'dk-holdh', 'Hold this card. Why?'));
   const chipRow = el('div', 'dk-holdchips');
-  HOLD_REASONS.forEach(r => chipRow.append(button('dk-chip' + ((_holdWhy.get(id) || '') === r ? ' on' : ''), r, () => { _holdWhy.set(id, r); _need.delete('hold:' + id); draw(); })));
+  HOLD_REASONS.forEach(r => chipRow.append(button('dk-hchip' + ((_holdWhy.get(id) || '') === r ? ' on' : ''), r, () => { _holdWhy.set(id, r); _need.delete('hold:' + id); draw(); })));
   box.append(chipRow);
   const input = el('input', 'dk-whyin dk-holdin' + (_need.has('hold:' + id) ? ' need' : ''));
   input.type = 'text'; input.maxLength = 200; input.placeholder = 'Or say why in a line';
