@@ -1008,6 +1008,9 @@ export function deskMissions() { return _state === 'ready' ? deskRows(_data) : [
 /** Load the list without drawing it on screen first (the Missions tab asks). */
 export function preloadDesk(done) { _onData = done || (() => {}); load(false); }
 
+/** The checked progress block of the last Desk read, or null. */
+export function deskProgress() { return normalizeProgress(_data && _data.progress); }
+
 export function showDesk() {
   if (!_panel) _panel = document.getElementById('panel-desk');
   if (_state === 'ready' || _state === 'empty' || _sub === 'orders' || _sub === 'dashboard') draw();

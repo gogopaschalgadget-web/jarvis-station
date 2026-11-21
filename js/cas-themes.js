@@ -1,0 +1,86 @@
+const STORE = 'station-look';
+export const TECHNICIAN_INDEX = 4;
+
+/** The themes the Station knows about. `ready` is true only when its art is in the Station; nothing else can be chosen. */
+export const THEMES = [
+  { id: 'forge-and-brass', name: 'Forge and Brass', mode: 'game', ready: true, tagline: 'Blackened iron, brass and furnace light.' },
+  { id: 'counting-house', name: 'Counting House', mode: 'professional', ready: false, tagline: 'Oak, green lamps and ledgers. The art has not arrived yet.' },
+];
+export const DEFAULT_LOOK = { mode: 'game', theme: 'forge-and-brass' };
+
+const readyFor = mode => THEMES.find(t => t.ready && t.mode === mode) || null;
+
+/** A saved look, checked: a mode and a theme that exist, are ready, and belong together; otherwise the default. */
+export function normalizeLook(stored) {
+  const s = stored && typeof stored === 'object' ? stored : {};
+  const theme = THEMES.find(t => t.id === s.theme && t.ready);
+  if (!theme || (s.mode !== undefined && s.mode !== theme.mode)) return { ...DEFAULT_LOOK };
+  return { mode: theme.mode, theme: theme.id };
+}
+
+/** Changing the look is a reward: it opens at Technician. Without a reported rank it stays closed and says why. */
+export function lookLock(progress) {
+  if (!progress || !progress.rank) return { open: false, why: 'Locked: your rank is not reported yet.' };
+  if (progress.rank.index >= TECHNICIAN_INDEX) return { open: true, why: '' };
+  return { open: false, why: 'Locked, not earned: reach Technician to change the look.' };
+}
+
+/** The mode switch: Game and Professional, each available only when a theme with its art is in the Station. */
+export function modeOptions() {
+  return [['game', 'Game'], ['professional', 'Professional']].map(([mode, label]) => ({ mode, label, available: !!readyFor(mode) }));
+}
+
+export function loadLook() {
+  try { return normalizeLook(JSON.parse(localStorage.getItem(STORE) || 'null')); } catch { return { ...DEFAULT_LOOK }; }
+}
+
+export function saveLook(look) {
+  try { localStorage.setItem(STORE, JSON.stringify(normalizeLook(look))); } catch { /* no storage: the look is not remembered */ }
+}
+
+/** Marks the page with the chosen look so styles and art can follow it. */
+export function applyLook(look) {
+  const l = normalizeLook(look);
+  try { document.documentElement.dataset.theme = l.theme; document.documentElement.dataset.mode = l.mode; } catch { /* no document */ }
+  return l;
+}
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+/** The Look card for Settings: mode, theme, and why a choice is closed. Built with text nodes only. */
+export function renderThemeSettings(panel, getProgress) {
+  const old = panel.querySelector('#look-card');
+  if (old) old.remove();
+  const look = loadLook();
+  const lock = lookLock(getProgress ? getProgress() : null);
+  const card = el('div', 'panel-card');
+  card.id = 'look-card';
+  card.append(el('div', 'panel-card-title', 'Look'));
+
+  const modes = el('div', 'look-modes');
+  modeOptions().forEach(m => {
+    const b = el('button', 'look-mode' + (look.mode === m.mode ? ' on' : ''), m.label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(look.mode === m.mode));
+    b.disabled = !m.available || !lock.open || look.mode === m.mode;
+    b.addEventListener('click', () => { const t = readyFor(m.mode); if (t) { saveLook({ mode: t.mode, theme: t.id }); applyLook(loadLook()); renderThemeSettings(panel, getProgress); } });
+    modes.append(b);
+  });
+  card.append(modes);
+
+  THEMES.forEach(t => {
+    const row = el('div', 'look-theme' + (look.theme === t.id ? ' on' : ''));
+    const head = el('div', 'look-name');
+    head.append(el('b', '', t.name), el('span', '', look.theme === t.id ? 'Active' : t.ready ? (lock.open ? 'Available' : 'Locked') : 'Art not here yet'));
+    row.append(head, el('small', '', t.tagline));
+    card.append(row);
+  });
+  if (!lock.open) card.append(el('p', 'look-note', lock.why));
+  card.append(el('p', 'look-note', 'A theme changes names and pictures only, never the rules, XP or what is locked.'));
+  panel.append(card);
+}

@@ -250,3 +250,13 @@
 .bp-tile.parked { opacity: 1; }
 .bp-tile.parked b { color: #a9bdd0; }
 .bp-chips small { font-size: 12px; width: 44px; }
+
+#look-card .look-modes { display: flex; gap: 8px; margin: 8px 0; }
+#look-card .look-mode { flex: 1; min-height: 44px; border-radius: 10px; border: 2px ridge var(--dk-brass, #c89943); background: #1a130a; color: #d8c59a; font: 800 14px var(--dk-ui, sans-serif); }
+#look-card .look-mode.on { background: linear-gradient(#f3dd9e, #d9b25a); color: #2a1a05; }
+#look-card .look-mode:disabled:not(.on) { opacity: .45; }
+#look-card .look-theme { padding: 8px 0; border-top: 1px dashed #8a6a2a; color: #2a1a05; }
+#look-card .look-theme.on b { color: #7e231d; }
+#look-card .look-name { display: flex; justify-content: space-between; gap: 8px; font: 700 13px var(--dk-ui, sans-serif); color: #2a1a05; }
+#look-card small { display: block; margin-top: 2px; font: 600 12px var(--dk-ui, sans-serif); color: #5a3d14; }
+#look-card .look-note { margin: 8px 0 0; font: 600 12px/1.4 var(--dk-ui, sans-serif); color: #5a3d14; }
