@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 60" fill="#000">
+  <!-- original silhouette: two reindeer, a sleigh with a rounded runner, a sack and a figure in a pointed cap -->
+  <path d="M6 30 q4-10 12-8 l6-6 3 2-3 5 8 1 6 9-2 6-6-2-2 8h-3l-1-7-6 0-2 7h-3l1-8-6-3z"/>
+  <path d="M52 28 q4-9 11-7 l5-5 3 2-3 5 7 1 5 8-2 5-5-2-2 7h-3l-1-6-5 0-2 6h-3l1-7-5-3z"/>
+  <path d="M30 22 l5-8 M35 22 l4-8" stroke="#000" stroke-width="1.6" fill="none"/>
+  <path d="M75 30 h55" stroke="#000" stroke-width="1.2" fill="none"/>
+  <path d="M120 22 q12 0 22 4 l30 0 q8 0 12 6 l-4 12 q-4 6-12 6 l-44 0 q-8-1-10-9 z"/>
+  <path d="M112 50 q18 8 70 6 q22 0 24-12" stroke="#000" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M150 24 q-2-12 8-14 q8 0 10 8 l-3 6z"/>
+  <path d="M156 8 l6 6 -9 0z"/>
+  <ellipse cx="176" cy="22" rx="12" ry="8"/>
+</svg>

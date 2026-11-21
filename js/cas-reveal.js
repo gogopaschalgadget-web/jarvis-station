@@ -1,7 +1,7 @@
 import {
   normalizeReveal, normalizePictures, isNew, choiceBody, replacementLine, addWaiting, dropWaiting, rarityLabel, REASON_MAX,
   isSafeId, failureAction, addScheduled, cancelScheduled, dueScheduled, addPending, UNDO_WINDOW_MS,
-} from './cas-reveal-logic.js?v=cas92';
+} from './cas-reveal-logic.js?v=cas93';
 
 const STORE = 'reveal-waiting';
 const SCHEDULE_STORE = 'reveal-scheduled';
