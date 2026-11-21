@@ -1,6 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas91';
+import { initReveal, requestReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas91';
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas90';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas91';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas91';
@@ -129,6 +130,7 @@ async function answer(id, kind, extra = {}) {
   const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
   const xp = kind === 'done' || kind === 'choice' ? xpLine(res.json) : '';
   const up = rankUpOf(res.json);
+  if (kind === 'done' || kind === 'choice') requestReveal(id);
   say(kind === 'undo' ? 'Undone.' : [res.json.line || 'Saved.', xp, up ? 'Rank up: ' + up.name + '.' : ''].filter(Boolean).join(' '), undoable ? () => answer(id, 'undo') : null);
   await load(true);
 }
@@ -792,6 +794,14 @@ async function jumpToCard(id) {
   openCard(id);
 }
 
+function toastNode() {
+  if (!_toast) return null;
+  const t = el('div', 'dk-toast');
+  t.append(el('span', '', _toast.text));
+  if (_toast.undo) t.append(button('dk-link', 'Undo', () => { const fn = _toast.undo; _toast = null; fn(); }));
+  return t;
+}
+
 function draw() {
   const panel = _panel;
   if (!panel) return;
@@ -824,8 +834,11 @@ function draw() {
     const need = openIds(_data).length;
     const logged = Math.max(doneList(_data).length, Number(_data.done_total) || 0);
     head.append(el('span', 'dk-pill' + (need ? '' : ' none'), need ? need + ' need you' : 'All clear'));
+    const bbToast = toastNode();
+    if (bbToast) wrap.append(bbToast);
     const prog = normalizeProgress(_data && _data.progress);
     if (prog) wrap.append(progressBlock(prog));
+    if (revealWaiting()) wrap.append(el('p', 'dk-note', revealWaiting() === 1 ? 'A picture is on its way.' : revealWaiting() + ' pictures are on their way.'));
     renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
     panel.scrollTop = scroll;
     return;
@@ -848,12 +861,8 @@ function draw() {
   oldNote.hidden = !a.old;
   wrap.append(oldNote);
 
-  if (_toast) {
-    const t = el('div', 'dk-toast');
-    t.append(el('span', '', _toast.text));
-    if (_toast.undo) t.append(button('dk-link', 'Undo', () => { const fn = _toast.undo; _toast = null; fn(); }));
-    wrap.append(t);
-  }
+  const toast = toastNode();
+  if (toast) wrap.append(toast);
   const rr = _data.rerank;
   if (rr && rr.line) {
     const n = el('div', 'dk-note2');
@@ -1002,11 +1011,13 @@ export function showDesk() {
   if (_state === 'ready' || _state === 'empty' || _sub === 'orders' || _sub === 'dashboard') draw();
   startTick();
   loadSub(false);
+  pollReveals();
 }
 
 export function initDesk(panel, options) {
   _panel = panel;
   _o = { ..._o, ...options };
+  initReveal({ apiBase: _o.apiBase, getToken: _o.getToken, say: t => say(t) });
   initOrders({ apiBase: _o.apiBase, getToken: _o.getToken, openCard: jumpToCard, showOrders: () => { _sub = 'orders'; draw(); }, redraw: draw, unavailable: () => { if (_sub === 'orders') { _sub = 'desk'; load(true); draw(); } } });
   draw();
 }
