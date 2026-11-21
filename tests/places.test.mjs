@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openIds } from '../js/cas-desk-logic.js';
-import { PLACES, BENCH, tileFor, tileBuckets, loopsFor, lampFor, tileAfterJump } from '../js/cas-places.js';
+import { PLACES, BENCH, tileFor, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from '../js/cas-places.js';
 
 const ids = PLACES.map(p => p.id);
 
@@ -68,4 +68,15 @@ test('tile counts: stuck cards count, held cards do not', () => {
   };
   const items = new Map(data.feed.items.map(i => [i.id, i]));
   assert.deepEqual(tileBuckets(openIds(data), items).get('mint'), ['a', 'b']);
+});
+
+test('the drawn view is the tile list, so a fold over the target is judged by position in that view', () => {
+  const items = new Map();
+  const ids = [];
+  for (let i = 0; i < 8; i++) { const id = 'm' + i; items.set(id, { id, project: i === 7 ? 'x-posts' : 'veteran-prints' }); ids.push(id); }
+  assert.deepEqual(viewFor(ids, items, null), ids);
+  assert.deepEqual(viewFor(ids, items, 'x'), ['m7']);
+  assert.equal(viewFor(ids, items, 'x').indexOf('m7'), 0);
+  assert.equal(ids.indexOf('m7'), 7);
+  assert.deepEqual(viewFor(ids, items, 'quora'), []);
 });

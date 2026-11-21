@@ -49,3 +49,8 @@ export function lampFor(place, loops) {
 export function tileAfterJump(tile, item) {
   return tile && tileFor(item) === tile ? tile : null;
 }
+
+/** The card ids actually drawn: all of them, or only those on the open tile. */
+export function viewFor(ids, items, tile) {
+  return tile ? (tileBuckets(ids, items).get(tile) || []) : ids;
+}

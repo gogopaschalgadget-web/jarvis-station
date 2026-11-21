@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas89';
-import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump } from './cas-places.js?v=cas89';
+import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas89';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas89';
 
 export { rankItems };
@@ -182,11 +182,21 @@ async function undoRerank() {
 
 
 function openCard(id) {
-  const ids = orderedIds(_data);
+  const held = heldCards(_data).find(h => h.id === id);
+  if (held) {
+    _sub = 'desk';
+    _heldOpen = true;
+    say('That card is on hold until ' + (dayWords(held.back) || 'its return day') + '.');
+    const row = _panel && _panel.querySelector(`[data-held="${CSS.escape(id)}"]`);
+    if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  const ids = openIds(_data);
   if (!ids.includes(id)) { say('That one is already done.'); return; }
   _open.add(id);
-  _tile = tileAfterJump(_tile, itemsById(_data).get(id));
-  if (ids.indexOf(id) >= SHOWN) _moreOpen = true;
+  const items = itemsById(_data);
+  _tile = tileAfterJump(_tile, items.get(id));
+  if (viewFor(ids, items, _tile).indexOf(id) >= SHOWN) _moreOpen = true;
   draw();
   const node = _panel && _panel.querySelector(`[data-id="${CSS.escape(id)}"]`);
   if (node) node.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -431,6 +441,7 @@ function heldStrip(list) {
   box.append(el('summary', '', `Held (${list.length})`));
   list.forEach(h => {
     const row = el('div', 'dk-donerow');
+    row.dataset.held = h.id;
     row.append(el('span', '', h.title || words(h.id)));
     row.append(el('small', '', [h.back ? 'Back ' + dayWords(h.back) : '', h.reason].filter(Boolean).join(' · ')));
     row.append(button('dk-link', 'Unhold', () => unhold(h.id)));
@@ -717,7 +728,7 @@ function draw() {
   const buckets = tileBuckets(ids, items);
   wrap.append(placesMap(buckets, loops));
   if (_tile) wrap.append(tileHeader(_tile, loops));
-  const view = _tile ? (buckets.get(_tile) || []) : ids;
+  const view = viewFor(ids, items, _tile);
   const main = el('div', 'dk-main');
   view.slice(0, SHOWN).forEach(id => main.append(make(id, ids.indexOf(id) + 1, !_tile)));
   if (_tile && !view.length) main.append(el('p', 'dk-note', 'No cards on this tile right now.'));
