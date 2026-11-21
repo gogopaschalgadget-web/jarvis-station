@@ -48,7 +48,8 @@ test('the answer to a want tap is worded from the status and the tap count only'
   assert.equal(wantLine(200, null), 'Sent to the orchestrator.');
   assert.match(wantLine(429), /Too many taps/);
   assert.match(wantLine(422), /no longer on the list/);
-  assert.equal(wantLine(0), 'Not sent. Try again.');
+  assert.equal(wantLine(0), 'No connection. Try again.');
+  assert.equal(wantLine(500), 'Not sent. Try again.');
 });
 
 test('every idea has a drawing file in the repo: its own, else its area, else the generic one', async () => {
@@ -112,6 +113,32 @@ test('the want tap failures: 401, 403, 422, 429 and a thrown request leave the b
   const said = [];
   const w = makeWanter(async () => { throw new Error('boom'); }, t => said.push(t));
   assert.equal(await w.tap({ id: 'y' }), false);
-  assert.equal(said[0], 'Not sent. Try again.');
+  assert.equal(said[0], 'No connection. Try again.');
   assert.equal(w.isBusy(), false);
+});
+
+test('the want tap tells the page when it starts, so the button can be greyed while sending', async () => {
+  const { makeWanter } = await import('../js/cas-blueprints.js');
+  const seen = [];
+  let release;
+  let w;
+  w = makeWanter(() => new Promise(r => { release = r; }), () => {}, () => seen.push(w.isBusy()));
+  const p = w.tap({ id: 'a' });
+  assert.deepEqual(seen, [true]);
+  release({ ok: true, status: 200, json: {} });
+  await p;
+  assert.equal(w.isBusy(), false);
+});
+
+test('the drawer builds tiles only for open groups and an open group stays open across redraws', async () => {
+  const { drawerPlan } = await import('../js/cas-blueprints.js');
+  const list = normalizeBlueprints([rec('a', { area: 'station' }), rec('b', { area: 'station' }), rec('c', { area: 'cas' })]);
+  const view = blueprintView(list, {});
+  const open = new Set();
+  let plan = drawerPlan(view, open);
+  assert.deepEqual(plan.map(g => [g.key, g.count, g.open, g.items.length]), [['station', 2, false, 0], ['cas', 1, false, 0]]);
+  open.add('station');
+  plan = drawerPlan(view, open);
+  assert.deepEqual(plan.map(g => [g.key, g.open, g.items.length]), [['station', true, 2], ['cas', false, 0]]);
+  assert.deepEqual(drawerPlan(blueprintView(list, { size: 'medium' }), open).map(g => g.open), [true, false]);
 });

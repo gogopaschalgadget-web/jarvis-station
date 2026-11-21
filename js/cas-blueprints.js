@@ -84,6 +84,7 @@ export function wantLine(status, json) {
     const n = json && Number.isFinite(json.wants) ? json.wants : 0;
     return n > 1 ? 'Sent to the orchestrator. You have asked for this on ' + n + ' days.' : 'Sent to the orchestrator.';
   }
+  if (status === 0) return 'No connection. Try again.';
   if (status === 401) return 'The sign-in has expired. Sign in again.';
   if (status === 403) return 'This device is not allowed to send that.';
   if (status === 429) return 'Too many taps in a minute. Wait a moment.';
@@ -103,7 +104,7 @@ export function ideaArt(idea) {
 }
 
 /** The "I want to work on this" tap: one request at a time, remembers what was sent this session, words the button and the toast. */
-export function makeWanter(postFn, sayFn) {
+export function makeWanter(postFn, sayFn, onChange) {
   const sent = new Set();
   let busy = false;
   return {
@@ -112,6 +113,7 @@ export function makeWanter(postFn, sayFn) {
     async tap(idea) {
       if (busy) return false;
       busy = true;
+      if (onChange) onChange();
       let res;
       try { res = await postFn(idea.id); } catch { res = { ok: false, status: 0, json: {} }; }
       busy = false;
@@ -120,4 +122,12 @@ export function makeWanter(postFn, sayFn) {
       return !!res.ok;
     },
   };
+}
+
+/** What the drawer draws for each group: its tiles only when the group is open (so a closed group costs nothing), and an open group stays open across redraws. */
+export function drawerPlan(view, openGroups) {
+  return view.groups.map(g => {
+    const open = openGroups.has(g.key);
+    return { key: g.key, label: g.label, count: g.items.length, open, items: open ? g.items : [] };
+  });
 }

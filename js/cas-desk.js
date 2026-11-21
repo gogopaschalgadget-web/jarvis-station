@@ -1,12 +1,13 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas92';
+import { syncLook } from './cas-themes.js?v=cas92';
 import { barAnimates } from './cas-reveal-logic.js?v=cas92';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas92';
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas92';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas92';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas92';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas92';
 
 export { rankItems };
 
@@ -542,7 +543,7 @@ function placesMap(buckets, loops) {
   return map;
 }
 
-const _wanter = makeWanter(id => post('/blueprint', { id }), t => say(t));
+const _wanter = makeWanter(id => post('/blueprint', { id }), t => say(t), () => draw());
 
 function artImg(src, cls) {
   if (!src) return null;
@@ -564,7 +565,7 @@ function ideaDetail(idea, list) {
   if (idea.needs) { const p = el('p', ''); p.append(el('b', '', 'Needs from Chris: '), document.createTextNode(idea.needs)); box.append(p); }
   const deps = dependsTitles(idea, list);
   if (deps.length) { const p = el('p', ''); p.append(el('b', '', 'Depends on: '), document.createTextNode(deps.join(', '))); box.append(p); }
-  if (OPEN_STATES.includes(idea.state)) box.append(button('dk-act bp-want', _wanter.label(idea), () => _wanter.tap(idea)));
+  if (OPEN_STATES.includes(idea.state)) box.append(button('dk-act bp-want', _wanter.isBusy() ? 'Sending...' : _wanter.label(idea), () => _wanter.tap(idea)));
   return box;
 }
 
@@ -613,13 +614,13 @@ function blueprintDrawer(list) {
   };
   box.append(chips('Kind', 'fun', [['all', 'All'], ['fun', 'Fun'], ['work', 'Work']]), chips('Size', 'size', [['all', 'All'], ['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']]));
   if (!view.groups.length) box.append(el('p', 'dk-note', 'No ideas match these filters.'));
-  view.groups.forEach(g => {
+  drawerPlan(view, _bpOpenGroups).forEach(g => {
     const d = el('details', 'bp-group');
-    d.open = _bpOpenGroups.has(g.key);
+    d.open = g.open;
     d.addEventListener('toggle', () => {
       if (d.open && !_bpOpenGroups.has(g.key)) { _bpOpenGroups.add(g.key); draw(); } else if (!d.open && _bpOpenGroups.has(g.key)) _bpOpenGroups.delete(g.key);
     });
-    d.append(el('summary', '', `${g.label} (${g.items.length})`));
+    d.append(el('summary', '', `${g.label} (${g.count})`));
     if (d.open) d.append(ideaGrid(g.items, list));
     box.append(d);
   });
@@ -987,6 +988,7 @@ async function doLoad(force) {
     const data = await res.json();
     if (!data || typeof data !== 'object') throw new Error('shape');
     _data = data;
+    syncLook(normalizeProgress(data.progress));
     if (!_doneOpen) _lookBase = lastLook();
     _state = data.feed && Array.isArray(data.feed.items) ? 'ready' : 'empty';
     _loadedAt = Date.now();

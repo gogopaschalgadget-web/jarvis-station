@@ -7,8 +7,8 @@ import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas75';
 import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress } from './cas-desk.js?v=cas92';
-import { renderThemeSettings, applyLook, loadLook } from './cas-themes.js?v=cas92';
-applyLook(loadLook());
+import { renderThemeSettingsSafe, applyLook } from './cas-themes.js?v=cas92';
+applyLook(null);
 import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas75';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,
@@ -1978,7 +1978,7 @@ function renderSettings() {
     </div>`;
   if (preferences) { preferences.hidden = false; panel.prepend(preferences); }
   renderScenesSettings(panel);
-  renderThemeSettings(panel, deskProgress);
+  renderThemeSettingsSafe(panel, deskProgress);
   document.getElementById('reload-card')?.addEventListener('click', () => location.reload());
   document.getElementById('reset-view-btn')?.addEventListener('click', () => { resetView(); switchTab('station'); });
   document.getElementById('unpair-btn')?.addEventListener('click', () => {
