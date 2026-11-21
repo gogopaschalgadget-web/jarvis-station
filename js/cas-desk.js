@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas91';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES } from './cas-blueprints.js?v=cas91';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas91';
 import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor, tileArt } from './cas-places.js?v=cas91';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas91';
 
@@ -499,9 +499,19 @@ async function wantIdea(idea) {
   say(wantLine(res.ok ? 200 : res.status, res.json));
 }
 
+function artImg(src, cls) {
+  if (!src) return null;
+  const img = el('img', cls);
+  img.loading = 'lazy'; img.decoding = 'async'; img.alt = ''; img.src = src;
+  img.addEventListener('error', () => img.remove());
+  return img;
+}
+
 function ideaDetail(idea, list) {
-  const box = el('div', 'bp-detail');
+  const box = el('div', 'bp-detail bp-' + idea.state);
   box.dataset.slot = 'blueprint-' + idea.area;
+  const pic = artImg(ideaArt(idea), 'bp-art big');
+  if (pic) box.append(pic);
   box.append(el('b', '', idea.title));
   box.append(el('p', 'bp-tags', [STATE_WORDS[idea.state], idea.size && idea.size + ' size', idea.fun && ({ fun: 'Fun', work: 'Work', both: 'Fun and work' })[idea.fun]].filter(Boolean).join(' · ')));
   if (idea.oneLine) box.append(el('p', '', idea.oneLine));
@@ -514,8 +524,10 @@ function ideaDetail(idea, list) {
 }
 
 function ideaTile(idea, grid) {
-  const t = button('bp-tile' + (idea.state === 'parked' ? ' parked' : '') + (_bpIdea === idea.id ? ' on' : ''), '', () => { _bpIdea = _bpIdea === idea.id ? null : idea.id; draw(); });
+  const t = button('bp-tile bp-' + idea.state + (idea.state === 'parked' ? ' parked' : '') + (_bpIdea === idea.id ? ' on' : ''), '', () => { _bpIdea = _bpIdea === idea.id ? null : idea.id; draw(); });
   t.dataset.slot = 'blueprint-' + idea.area;
+  const pic = artImg(ideaArt(idea), 'bp-art');
+  if (pic) t.append(pic);
   t.setAttribute('aria-pressed', String(_bpIdea === idea.id));
   t.append(el('b', '', idea.title));
   t.append(el('small', '', [idea.state === 'parked' ? 'Parked' : '', idea.size, idea.fun === 'both' ? 'fun and work' : idea.fun].filter(Boolean).join(' · ')));

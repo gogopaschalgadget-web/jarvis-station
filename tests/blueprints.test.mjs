@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeBlueprints, filterIdeas, blueprintView, ideasForPlace, dependsTitles } from '../js/cas-blueprints.js';
+import { normalizeBlueprints, filterIdeas, blueprintView, ideasForPlace, dependsTitles, ideaArt, AREAS } from '../js/cas-blueprints.js';
 
 const rec = (id, o = {}) => ({ id, title: 'T ' + id, one_line: 'line', area: 'station', state: 'idea', size: 'medium', fun_or_work: 'work', depends_on: [], ...o });
 
@@ -46,4 +46,14 @@ test('the answer to a want tap is worded from the status and the tap count only'
   assert.match(wantLine(429), /Too many taps/);
   assert.match(wantLine(422), /no longer on the list/);
   assert.equal(wantLine(0), 'Not sent. Try again.');
+});
+
+test('every idea has a drawing file in the repo: its own, else its area, else the generic one', async () => {
+  const { existsSync } = await import('node:fs');
+  const ids = ['artwork-reveal-gallery', 'cas-avatar-levels', 'desk-machines-animations', 'money-gauge-wall', 'theme-pack-game-vs-professional', 'customer-experience-switchboard', '3d-map-live-rooms', 'picture-bot-taste-loop', 'signal-tower-ripple', 'finishing-stretch-steps-left'];
+  ids.forEach(id => assert.ok(existsSync(new URL('../' + ideaArt({ id, area: 'other' }), import.meta.url)), id));
+  AREAS.forEach(([k]) => assert.ok(existsSync(new URL('../' + ideaArt({ id: 'zzz', area: k }), import.meta.url)), k));
+  assert.match(ideaArt({ id: 'zzz', area: 'nowhere' }), /blueprint_tile\.jpg$/);
+  assert.equal(ideaArt(null), null);
+  assert.ok(existsSync(new URL('../' + ideaArt({ id: 'zzz', area: 'nowhere' }), import.meta.url)));
 });

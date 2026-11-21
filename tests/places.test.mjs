@@ -88,7 +88,7 @@ test('every tile has a picture file in the repo; unbuilt places use the blueprin
     assert.ok(art, p.id);
     assert.ok(existsSync(new URL('../' + art, import.meta.url)), art);
   });
-  assert.equal(tileArt(PLACES.find(p => p.id === 'quora')), 'assets/themes/forge-and-brass/tiles/blueprint.jpg');
+  assert.equal(tileArt(PLACES.find(p => p.id === 'quora')), 'assets/themes/forge-and-brass/blueprints/tiles_blueprint/quora.jpg');
   assert.equal(tileArt(PLACES.find(p => p.id === 'mint')), 'assets/themes/forge-and-brass/tiles/mint.jpg');
   assert.equal(tileArt(null), null);
 });

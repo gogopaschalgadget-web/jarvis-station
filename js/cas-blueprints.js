@@ -86,3 +86,14 @@ export function wantLine(status, json) {
   if (status === 422) return 'That idea is no longer on the list.';
   return 'Not sent. Try again.';
 }
+
+const ART_DIR = 'assets/themes/forge-and-brass/blueprints/';
+const IDEA_ART = ['artwork-reveal-gallery', 'cas-avatar-levels', 'desk-machines-animations', 'money-gauge-wall', 'theme-pack-game-vs-professional', 'customer-experience-switchboard', '3d-map-live-rooms', 'picture-bot-taste-loop', 'signal-tower-ripple', 'finishing-stretch-steps-left'];
+
+/** The drawing for an idea: its own if there is one, else its area's, else the generic blueprint. Fixed names only, never taken from the feed text. */
+export function ideaArt(idea) {
+  if (!idea) return null;
+  if (IDEA_ART.includes(idea.id)) return ART_DIR + 'idea_' + idea.id + '.jpg';
+  if (AREAS.some(a => a[0] === idea.area)) return ART_DIR + 'area_' + idea.area + '.jpg';
+  return ART_DIR + 'blueprint_tile.jpg';
+}
