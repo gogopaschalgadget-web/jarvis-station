@@ -1,11 +1,11 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas91';
-import { initReveal, requestReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas91';
-import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas90';
-import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas91';
-import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas91';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas91';
+import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas92';
+import { initReveal, requestReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas92';
+import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas92';
+import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas92';
+import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas92';
 
 export { rankItems };
 

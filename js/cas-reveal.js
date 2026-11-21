@@ -1,4 +1,4 @@
-import { normalizeReveal, normalizePictures, isNew, choiceBody, replacementLine, addWaiting, dropWaiting, rarityLabel, REASON_MAX } from './cas-reveal-logic.js?v=cas91';
+import { normalizeReveal, normalizePictures, isNew, choiceBody, replacementLine, addWaiting, dropWaiting, rarityLabel, REASON_MAX } from './cas-reveal-logic.js?v=cas92';
 
 const STORE = 'reveal-waiting';
 const POLL_MS = 60000;
