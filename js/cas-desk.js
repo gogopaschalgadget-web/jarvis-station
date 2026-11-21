@@ -4,7 +4,7 @@ import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, re
 import { syncLook } from './cas-themes.js?v=cas92';
 import { barAnimates } from './cas-reveal-logic.js?v=cas92';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas92';
-import { normalizeStuckMeta, stuckStatus, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas92';
+import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas92';
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas92';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas92';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
@@ -79,8 +79,9 @@ function words(id) { return String(id || '').replace(/-/g, ' '); }
 const field = (name, fallback) => (_data && _data[name]) || fallback;
 
 function age(data) {
-  if (!data || data.uploaded == null || data.now == null) return { text: 'age unknown', old: false, day: false };
-  const s = Math.max(0, Math.round(data.now - data.uploaded + (Date.now() - _loadedAt) / 1000));
+  const raw = ageSeconds(data, _loadedAt, Date.now());
+  if (raw == null) return { text: 'age unknown', old: false, day: false };
+  const s = Math.max(0, Math.round(raw));
   const text = s < 90 ? 'just now' : s < 5400 ? Math.round(s / 60) + ' min ago' : s < 172800 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago';
   return { text, old: s > OLD_FEED_S, day: s > DAY_S };
 }
@@ -859,7 +860,7 @@ function draw() {
   const snoozed = new Set(field('snoozed', []));
   const stuckMap = field('stuck', {});
   const stuckMeta = normalizeStuckMeta(_data.stuck_meta);
-  const nowSecs = _data.now == null ? null : _data.now + (Date.now() - _loadedAt) / 1000;
+  const nowSecs = clockNow(_data, _loadedAt, Date.now());
   const kidsMap = field('children', {});
   const waitMap = field('waiting', {});
   const hints = field('hints', {});
@@ -892,7 +893,7 @@ function draw() {
   const make = (id, n, drag) => {
     const item = items.get(id);
     const ctx = {
-      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: (field('held', {})[id] || {}).line || '', status: stuckStatus(stuckMeta[id], nowSecs, (kidsMap[id] || []).length > 0) } : null,
+      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: heldLine(field('held', {})[id]), status: stuckStatus(stuckMeta[id], nowSecs, (kidsMap[id] || []).length > 0) } : null,
       hint: hints[id], waiting: waitMap[id] || [], kids: visibleKids(kidsMap[id] || [], id in stuckMap),
     };
     try { return card(item, n, ctx); } catch (e) {

@@ -41,3 +41,23 @@ export function stuckStatus(meta, now, hasKids) {
 
 export const UNSTUCK_NOTE = 'Unstuck takes the card off Stuck. Cas stops working on it.';
 export const SEND_NOTE = 'Send to Cas adds your words on top of what Cas already has.';
+
+const finite = v => typeof v === 'number' && Number.isFinite(v);
+
+/** The server's clock moved on by the time since the read; null unless `now` is a real number (a string must never be added to). */
+export function clockNow(data, loadedAt, nowMs) {
+  const n = data && data.now;
+  return finite(n) && finite(loadedAt) && finite(nowMs) ? n + (nowMs - loadedAt) / 1000 : null;
+}
+
+/** Seconds since the feed was uploaded, or null when either time is not a real number. */
+export function ageSeconds(data, loadedAt, nowMs) {
+  const now = clockNow(data, loadedAt, nowMs);
+  const up = data && data.uploaded;
+  return now == null || !finite(up) ? null : now - up;
+}
+
+/** The held line from the server: text only, at most 300 characters, else nothing. */
+export function heldLine(entry) {
+  return entry && typeof entry === 'object' && typeof entry.line === 'string' ? entry.line.trim().slice(0, 300) : '';
+}
