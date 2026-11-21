@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { openIds } from '../js/cas-desk-logic.js';
-import { PLACES, BENCH, tileFor, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from '../js/cas-places.js';
+import { PLACES, BENCH, tileFor, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor, tileArt } from '../js/cas-places.js';
 
 const ids = PLACES.map(p => p.id);
 
@@ -79,4 +80,15 @@ test('the drawn view is the tile list, so a fold over the target is judged by po
   assert.equal(viewFor(ids, items, 'x').indexOf('m7'), 0);
   assert.equal(ids.indexOf('m7'), 7);
   assert.deepEqual(viewFor(ids, items, 'quora'), []);
+});
+
+test('every tile has a picture file in the repo; unbuilt places use the blueprint picture; text never depends on it', () => {
+  [...PLACES, BENCH].forEach(p => {
+    const art = tileArt(p);
+    assert.ok(art, p.id);
+    assert.ok(existsSync(new URL('../' + art, import.meta.url)), art);
+  });
+  assert.equal(tileArt(PLACES.find(p => p.id === 'quora')), 'assets/themes/forge-and-brass/tiles/blueprint.jpg');
+  assert.equal(tileArt(PLACES.find(p => p.id === 'mint')), 'assets/themes/forge-and-brass/tiles/mint.jpg');
+  assert.equal(tileArt(null), null);
 });

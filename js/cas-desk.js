@@ -1,8 +1,8 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas89';
-import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas89';
-import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas89';
+import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas90';
+import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor, tileArt } from './cas-places.js?v=cas90';
+import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas90';
 
 export { rankItems };
 
@@ -465,9 +465,17 @@ function placesMap(buckets, loops) {
       const n = (buckets.get(p.id) || []).length;
       const t = button('wd-tile' + (p.built ? '' : ' blue') + (_tile === p.id ? ' on' : ''), '', () => { _tile = _tile === p.id ? null : p.id; draw(); });
       t.setAttribute('aria-pressed', String(_tile === p.id));
-      t.append(el('b', '', p.name));
+      const art = tileArt(p);
+      if (art) {
+        const img = el('img', 'wd-art');
+        img.loading = 'lazy'; img.decoding = 'async'; img.alt = ''; img.src = art;
+        img.addEventListener('error', () => img.remove());
+        t.append(img);
+      }
+      const txt = el('div', 'wd-txt');
+      txt.append(el('b', '', p.name), el('small', 'wd-lamp ' + (p.built ? lamp : 'blueprint'), p.built ? LAMP[lamp] : 'Blueprint, not built yet'));
+      t.append(txt);
       if (n) t.append(el('span', 'wd-count', String(n)));
-      t.append(el('small', 'wd-lamp ' + (p.built ? lamp : 'blueprint'), p.built ? LAMP[lamp] : 'Blueprint, not built yet'));
       grid.append(t);
     });
     map.append(grid);

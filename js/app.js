@@ -6,7 +6,7 @@ import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPubl
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas75';
-import { initDesk, showDesk, deskMissions, preloadDesk } from './cas-desk.js?v=cas89';
+import { initDesk, showDesk, deskMissions, preloadDesk } from './cas-desk.js?v=cas90';
 import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas75';
 import {
   initThreads, routeFor, currentKey, currentMode, setMode, touch, toast, modelLabel, branchOff, setMainUnread, reading, draftNote, typing,

@@ -54,3 +54,13 @@ export function tileAfterJump(tile, item) {
 export function viewFor(ids, items, tile) {
   return tile ? (tileBuckets(ids, items).get(tile) || []) : ids;
 }
+
+const ART = { spire: 'spire', library: 'library', workshop: 'workshop', mint: 'mint', 'content-engine': 'content', 'traffic-control': 'traffic', x: 'x', bench: 'bench' };
+export const THEME_DIR = 'assets/themes/forge-and-brass/tiles/';
+
+/** The painted picture for a tile: its own when built, the blueprint picture when not; null when none is listed. */
+export function tileArt(place) {
+  if (!place) return null;
+  const name = place.built ? ART[place.id] : 'blueprint';
+  return name ? THEME_DIR + name + '.jpg' : null;
+}
