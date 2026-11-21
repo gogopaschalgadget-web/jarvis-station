@@ -25,8 +25,11 @@ const find = (root, pred) => { let hit = null; walk(root, e => { if (!hit && pre
 const overlay = () => body.find(e => e.className === 'rv-overlay');
 
 let n = 0;
-async function fresh(handler) {
+const store = {};
+globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
+async function fresh(handler, keep = false) {
   body.length = 0; keyListeners.clear();
+  if (!keep) Object.keys(store).forEach(k => delete store[k]);
   const calls = [];
   const said = [];
   const revoked = [];
@@ -43,7 +46,7 @@ async function fresh(handler) {
       return r;
     },
   });
-  return { m, calls, said, revoked, restore: () => { URL.revokeObjectURL = origRevoke; } };
+  return { m, calls, said, revoked, restore: () => { m.stopReveal(); body.length = 0; URL.revokeObjectURL = origRevoke; } };
 }
 const json = (b, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'Content-Type': 'application/json' } });
 const jpg = () => new Response(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }), { status: 200 });
@@ -124,5 +127,100 @@ test('an unsafe picture id from the server is never put in a request', async () 
   const t = await fresh(async path => (path === '/reveal' ? json({ status: 'ready', picture_id: '../admin' }) : json({})));
   await t.m.requestReveal('c1'); await tick();
   assert.deepEqual(t.calls, ['POST /reveal']);
+  t.restore();
+});
+
+const WINDOW = 9000;
+const revealHandler = (calls = []) => async path => {
+  if (path === '/reveal') return json({ status: 'ready', picture_id: 'p1' });
+  if (path === '/p1/picture') return jpg();
+  return json({ ok: true });
+};
+
+test('the reveal is scheduled on Done, asked only after the Undo window, and only once', async () => {
+  const t = await fresh(revealHandler());
+  const t0 = 1_000_000;
+  t.m.scheduleReveal('c1', t0);
+  await t.m.runScheduled(t0 + 1);
+  assert.deepEqual(t.calls, [], 'nothing inside the Undo window');
+  await t.m.runScheduled(t0 + WINDOW + 1);
+  assert.equal(t.calls.filter(c => c === 'POST /reveal').length, 1);
+  await t.m.runScheduled(t0 + WINDOW + 5000);
+  assert.equal(t.calls.filter(c => c === 'POST /reveal').length, 1, 'fires once');
+  await tick(60);
+  t.restore();
+});
+
+test('Undo cancels the scheduled reveal', async () => {
+  const t = await fresh(revealHandler());
+  const t0 = 2_000_000;
+  t.m.scheduleReveal('c1', t0);
+  t.m.cancelReveal('c1');
+  await t.m.runScheduled(t0 + WINDOW + 1);
+  assert.deepEqual(t.calls, []);
+  t.restore();
+});
+
+test('a scheduled reveal survives a reload and still fires once after the window', async () => {
+  const first = await fresh(revealHandler());
+  const t0 = 3_000_000;
+  first.m.scheduleReveal('c1', t0);
+  assert.equal(JSON.parse(store['reveal-scheduled']).length, 1);
+  first.restore();
+  const second = await fresh(revealHandler(), true);
+  await second.m.runScheduled(t0 + WINDOW + 1);
+  assert.equal(second.calls.filter(c => c === 'POST /reveal').length, 1);
+  assert.equal(JSON.parse(store['reveal-scheduled']).length, 0);
+  await tick(60);
+  second.restore();
+});
+
+test('a choice that could not be saved is kept and sent again at the next poll, then not sent again', async () => {
+  let fail = true;
+  const t = await fresh(async path => {
+    if (path === '/reveal') return json({ status: 'ready', picture_id: 'p1' });
+    if (path === '/p1/picture') return jpg();
+    if (path === '/p1/choice') return fail ? json({ detail: 'busy' }, 429) : json({ state: 'starred', replacement: 'none' });
+    return json({ pictures: [], waiting: 0 });
+  });
+  await t.m.requestReveal('c1'); await tick();
+  find(overlay(), e => e.textContent === 'Star').click(); await tick();
+  assert.equal(overlay(), undefined);
+  assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 1);
+  fail = false;
+  await t.m.pollReveals();
+  assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 2, 'retried');
+  await t.m.pollReveals();
+  assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 2, 'not sent a third time');
+  t.restore();
+});
+
+test('a choice the server refuses for good (404, 409, 422) is dropped quietly and that picture is not shown again this session', async () => {
+  for (const status of [404, 409, 422]) {
+    const t = await fresh(async path => {
+      if (path === '/reveal') return json({ status: 'ready', picture_id: 'p1' });
+      if (path === '/p1/picture') return jpg();
+      if (path === '/p1/choice') return json({ detail: 'no' }, status);
+      return json({ pictures: [{ id: 'p1', state: 'shown' }], waiting: 0 });
+    });
+    await t.m.requestReveal('c1'); await tick();
+    find(overlay(), e => e.textContent === 'Keep').click(); await tick();
+    assert.equal(overlay(), undefined, 'closed, status ' + status);
+    assert.equal(t.said.length, 0, 'no message');
+    const before = t.calls.filter(c => c === 'GET /p1/picture').length;
+    await t.m.pollReveals(); await tick();
+    assert.equal(overlay(), undefined, 'not shown again');
+    assert.equal(t.calls.filter(c => c === 'GET /p1/picture').length, before);
+    t.restore();
+  }
+});
+
+test('closing with the close button or Escape counts as Keep, also after X was tapped', async () => {
+  const t = await fresh(revealHandler());
+  await t.m.requestReveal('c1'); await tick();
+  find(overlay(), e => e.textContent === 'X').click();
+  find(overlay(), e => e.className === 'rv-close').click(); await tick();
+  assert.equal(overlay(), undefined);
+  assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 1);
   t.restore();
 });

@@ -58,6 +58,14 @@ export function initReveal(options) {
 
 export const revealWaiting = () => _waiting.length;
 
+/** Stops every timer and forgets what is waiting or scheduled (tests, and a sign-out). */
+export function stopReveal() {
+  clearTimeout(_timer);
+  clearTimeout(_flushTimer);
+  _waiting = []; _scheduled = []; _pending = []; _queue = [];
+  _stopped = true;
+}
+
 function schedulePoll() {
   clearTimeout(_timer);
   if (_waiting.length && !_stopped) _timer = later(pollReveals, POLL_MS);
@@ -83,11 +91,12 @@ function armFlush() {
   clearTimeout(_flushTimer);
   if (!_scheduled.length) return;
   const wait = Math.max(500, Math.min(..._scheduled.map(s => s.due)) - Date.now() + 100);
-  _flushTimer = later(flushScheduled, wait);
+  _flushTimer = later(() => runScheduled(), wait);
 }
 
-async function flushScheduled() {
-  const { due, rest } = dueScheduled(_scheduled, Date.now());
+/** Asks for the picture of every finished card whose Undo window has passed; each card is asked once. */
+export async function runScheduled(now = Date.now()) {
+  const { due, rest } = dueScheduled(_scheduled, now);
   _scheduled = rest;
   saveScheduled();
   for (const id of due) await requestReveal(id);
@@ -120,6 +129,7 @@ async function flushPending() {
     const act = r.ok ? 'drop' : failureAction(r.status);
     if (act === 'stop') { _stopped = true; return; }
     if (act !== 'later') _pending = _pending.filter(x => x !== p);
+    if (act === 'drop') _skip.add(p.id);
   }
 }
 
@@ -223,6 +233,7 @@ function show(item) {
           const act = failureAction(r.status);
           if (act === 'stop') { _stopped = true; _o.say('The sign-in has expired. Sign in again.'); }
           else if (act === 'later') { _pending = addPending(_pending, { id: item.id, body }); _o.say('Not saved yet. It will try again.'); }
+          else _skip.add(item.id);
         }
         finish();
       };
