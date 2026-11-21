@@ -9,6 +9,7 @@ const SIZE_RANK = { small: 0, medium: 1, large: 2 };
 const FUN = ['fun', 'work', 'both'];
 const MONEY = ['direct', 'indirect', 'no'];
 const MAX_IDEAS = 150;
+const own = (obj, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(obj, key);
 const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 /** The feed's blueprint records, checked. Unknown keys (such as file paths) are dropped; a record without an id and a title is skipped. */
@@ -22,13 +23,13 @@ export function normalizeBlueprints(raw) {
     const title = text(r.title, 120);
     if (!id || !title || seen.has(id)) return;
     const state = text(r.state, 20);
-    if (!STATE_WORDS[state]) return;
+    if (!own(STATE_WORDS, state)) return;
     seen.add(id);
     out.push({
       id, title, state,
       oneLine: text(r.one_line, 400), said: text(r.said, 400), needs: text(r.needs_from_chris, 300),
       area: AREAS.some(a => a[0] === r.area) ? r.area : 'other',
-      size: SIZE_RANK[r.size] == null ? '' : r.size,
+      size: own(SIZE_RANK, r.size) ? r.size : '',
       fun: FUN.includes(r.fun_or_work) ? r.fun_or_work : '',
       money: MONEY.includes(r.leads_to_money) ? r.leads_to_money : '',
       tile: text(r.map_tile, 40),
@@ -45,11 +46,11 @@ export function filterIdeas(items, filter) {
   const f = filter || {};
   let list = items.filter(i => OPEN_STATES.includes(i.state));
   if (f.fun === 'fun' || f.fun === 'work') list = list.filter(i => i.fun === f.fun || i.fun === 'both');
-  if (SIZE_RANK[f.size] != null) list = list.filter(i => i.size === f.size);
+  if (own(SIZE_RANK, f.size)) list = list.filter(i => i.size === f.size);
   const kindRank = i => (f.fun === 'fun' || f.fun === 'work' ? (i.fun === f.fun ? 0 : 1) : 0);
   return list.sort((a, b) => kindRank(a) - kindRank(b)
-    || (SIZE_RANK[a.size] ?? 3) - (SIZE_RANK[b.size] ?? 3)
-    || STATE_ORDER[a.state] - STATE_ORDER[b.state]
+    || (own(SIZE_RANK, a.size) ? SIZE_RANK[a.size] : 3) - (own(SIZE_RANK, b.size) ? SIZE_RANK[b.size] : 3)
+    || (own(STATE_ORDER, a.state) ? STATE_ORDER[a.state] : 3) - (own(STATE_ORDER, b.state) ? STATE_ORDER[b.state] : 3)
     || a.title.localeCompare(b.title));
 }
 
@@ -82,6 +83,7 @@ export function wantLine(status, json) {
     const n = json && Number.isFinite(json.wants) ? json.wants : 0;
     return n > 1 ? 'Sent to the orchestrator again (' + n + ' taps so far).' : 'Sent to the orchestrator.';
   }
+  if (status === 401) return 'The sign-in has expired. Sign in again.';
   if (status === 429) return 'Too many taps in a minute. Wait a moment.';
   if (status === 422) return 'That idea is no longer on the list.';
   return 'Not sent. Try again.';

@@ -557,8 +557,9 @@ function blueprintDrawer(list) {
   const view = blueprintView(list, _bpFilter);
   const box = el('details', 'bp-drawer');
   box.open = _bpOpen;
-  box.addEventListener('toggle', () => { _bpOpen = box.open; });
+  box.addEventListener('toggle', () => { if (box.open !== _bpOpen) { _bpOpen = box.open; draw(); } });
   box.append(el('summary', '', `Blueprints (${view.openCount})`));
+  if (!_bpOpen) return box;
   const chips = (label, key, options) => {
     const row = el('div', 'bp-chips');
     row.append(el('small', '', label));
@@ -570,8 +571,11 @@ function blueprintDrawer(list) {
   view.groups.forEach(g => {
     const d = el('details', 'bp-group');
     d.open = !_bpClosed.has(g.key);
-    d.addEventListener('toggle', () => { if (d.open) _bpClosed.delete(g.key); else _bpClosed.add(g.key); });
-    d.append(el('summary', '', `${g.label} (${g.items.length})`), ideaGrid(g.items, list));
+    d.addEventListener('toggle', () => {
+      if (d.open && _bpClosed.has(g.key)) { _bpClosed.delete(g.key); draw(); } else if (!d.open && !_bpClosed.has(g.key)) _bpClosed.add(g.key);
+    });
+    d.append(el('summary', '', `${g.label} (${g.items.length})`));
+    if (d.open) d.append(ideaGrid(g.items, list));
     box.append(d);
   });
   const plain = (title, rows) => {
@@ -858,12 +862,13 @@ function draw() {
     const place = [...PLACES, BENCH].find(p => p.id === _tile);
     const ideas = place && placeIdeas(place, bpList);
     if (ideas) wrap.append(ideas);
-  } else {
-    const drawer = blueprintDrawer(bpList);
-    if (drawer) wrap.append(drawer);
   }
 
   if (heldList.length) wrap.append(heldStrip(heldList));
+  if (!_tile) {
+    const drawer = blueprintDrawer(bpList);
+    if (drawer) wrap.append(drawer);
+  }
 
   const answered = field('answered', []);
   if (answered.length) {

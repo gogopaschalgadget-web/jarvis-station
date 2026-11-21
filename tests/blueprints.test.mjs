@@ -57,3 +57,18 @@ test('every idea has a drawing file in the repo: its own, else its area, else th
   assert.equal(ideaArt(null), null);
   assert.ok(existsSync(new URL('../' + ideaArt({ id: 'zzz', area: 'nowhere' }), import.meta.url)));
 });
+
+test('inherited names like "constructor" or "toString" are not states, sizes or filters', () => {
+  const list = normalizeBlueprints([rec('a', { state: 'constructor' }), rec('b', { state: 'toString' }), rec('c', { size: 'constructor' }), rec('d', { size: '__proto__' })]);
+  assert.deepEqual(list.map(i => i.id), ['c', 'd']);
+  assert.equal(list[0].size, '');
+  assert.equal(list[1].size, '');
+  const order = filterIdeas(list, { size: 'constructor' });
+  assert.equal(order.length, 2);
+  assert.deepEqual(filterIdeas(list, {}).map(i => i.id), ['c', 'd']);
+});
+
+test('a 401 on the want tap says the sign-in has expired', async () => {
+  const { wantLine } = await import('../js/cas-blueprints.js');
+  assert.match(wantLine(401), /sign-in has expired/);
+});
