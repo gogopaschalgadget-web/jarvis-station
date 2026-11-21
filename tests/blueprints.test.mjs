@@ -36,6 +36,7 @@ test('ideas for a place match by the place name and only open ideas; depends-on 
   const list = normalizeBlueprints([rec('a', { map_tile: 'The Mint' }), rec('b', { map_tile: 'The Mint', state: 'live' }), rec('c', { map_tile: 'X', depends_on: ['a', 'zzz'] })]);
   assert.deepEqual(ideasForPlace(list, { id: 'mint', name: 'The Mint' }).map(i => i.id), ['a']);
   assert.deepEqual(ideasForPlace(normalizeBlueprints([rec('p', { map_tile: 'mint' }), rec('q', { map_tile: '' }), rec('r')]), { id: 'mint', name: 'The Mint' }).map(i => i.id), ['p']);
+  assert.deepEqual(ideasForPlace(normalizeBlueprints([rec('m', { map_tile: 'MINT' }), rec('n', { map_tile: 'the mint' })]), { id: 'mint', name: 'The Mint' }).map(i => i.id), ['m', 'n']);
   assert.deepEqual(ideasForPlace(list, null), []);
   assert.deepEqual(dependsTitles(list.find(i => i.id === 'c'), list), ['T a', 'zzz']);
 });
