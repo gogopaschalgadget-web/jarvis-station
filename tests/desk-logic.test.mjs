@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DESK_SUBS, LANDING_SUB, unseenLinks, casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, holdUntil, holdDates, serverDay, heldCards, dayWords, deskDay } from '../js/cas-desk-logic.js';
+import { DESK_SUBS, LANDING_SUB, unseenLinks, casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, holdUntil, holdDates, serverDay, heldCards, dayWords, deskDay, returnDay, openIds } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -149,4 +149,17 @@ test('heldCards ignores malformed rows and reads both shapes', () => {
   assert.deepEqual(got.map(h => [h.id, h.back, h.reason]), [['a', '2026-11-20', 'r'], ['b', '2026-11-22', 'q']]);
   assert.deepEqual(heldCards({ held_cards: 'x' }), []);
   assert.equal(dayWords('nope'), '');
+});
+
+test('a hold never returns the day it was held', () => {
+  assert.equal(returnDay('2026-11-18', '2026-11-18'), '2026-11-19');
+  assert.equal(returnDay('2026-11-21', '2026-11-18'), '2026-11-21');
+  assert.equal(returnDay('2026-11-10', '2026-11-18'), '2026-11-19');
+});
+
+test('cards on hold are not counted as needing Chris, in the list or the Missions rows', () => {
+  const data = { feed: { items: [{ id: 'a', project: 'p', title: 'A', kind: 'do-by-hand' }, { id: 'b', project: 'p', title: 'B', kind: 'do-by-hand' }] }, order: ['a', 'b'], held_cards: [{ id: 'b', title: 'B', hold: { until: '2026-11-20', reason: 'r' } }] };
+  assert.deepEqual(openIds(data), ['a']);
+  assert.deepEqual(deskRows(data).map(r => r.id), ['a']);
+  assert.deepEqual(openIds({ ...data, held_cards: undefined }), ['a', 'b']);
 });

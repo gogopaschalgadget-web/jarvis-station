@@ -81,7 +81,7 @@ export function deskRows(data) {
   if (!data || !data.feed) return [];
   const items = itemsById(data);
   const stuck = data.stuck || {};
-  return orderedIds(data).map(id => items.get(id)).filter(Boolean).map(i => ({
+  return openIds(data).map(id => items.get(id)).filter(Boolean).map(i => ({
     id: i.id, title: i.title, project: i.project, minutes: i.minutes, stuck: Object.prototype.hasOwnProperty.call(stuck, i.id),
   }));
 }
@@ -185,6 +185,18 @@ export function holdUntil(kind, day, picked = '') {
 export function dayWords(iso) {
   const d = new Date(String(iso) + 'T12:00:00');
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** The day a hold returns: never the day it was held, so at least the day after. */
+export function returnDay(until, day) {
+  const next = dayKey(new Date(new Date(day + 'T12:00:00').getTime() + DAY_MS));
+  return until > next ? until : next;
+}
+
+/** Card ids that need Chris: the ordered ids without any card on hold. */
+export function openIds(data) {
+  const held = new Set(heldCards(data).map(h => h.id));
+  return orderedIds(data).filter(id => !held.has(id));
 }
 
 /** Cards on hold, from the server's held_cards list; anything malformed is ignored. */

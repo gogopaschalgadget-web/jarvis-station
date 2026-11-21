@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas87';
-import { LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas87';
+import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas88';
+import { LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, returnDay, openIds, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas88';
 
 export { rankItems };
 
@@ -131,6 +131,7 @@ async function answer(id, kind, extra = {}) {
 const _holdWhy = new Map();
 let _holdFor = null;
 let _holdPick = false;
+const _holdDate = new Map();
 let _heldOpen = false;
 
 async function holdCard(id, until) {
@@ -145,8 +146,8 @@ async function holdCard(id, until) {
     if (res.status === 422 || res.status === 409) load(true);
     return;
   }
-  _holdWhy.delete(id); _need.delete('hold:' + id); _holdFor = null; _holdPick = false;
-  say(res.json.line || 'Held. It comes back ' + (dayWords(until) || 'on the day you chose') + '.', () => unhold(id));
+  _holdWhy.delete(id); _holdDate.delete(id); _need.delete('hold:' + id); _holdFor = null; _holdPick = false;
+  say(res.json.line || 'Held. It comes back ' + (dayWords(returnDay(until, serverDay(_data))) || 'on the day you chose') + '.', () => unhold(id));
   await load(true);
 }
 
@@ -410,9 +411,10 @@ function holdSheet(item) {
   if (holdUntil('weekend', day) === dates.today) box.append(el('p', 'dk-hold', 'It is the weekend, so This weekend means back tomorrow.'));
   if (_holdPick) {
     const pick = el('div', 'dk-holdpick');
-    const d = el('input', 'dk-whyin'); d.type = 'date'; d.min = dates.today; d.max = dates.max; d.value = dates.today;
+    const d = el('input', 'dk-whyin'); d.type = 'date'; d.min = dates.today; d.max = dates.max; d.value = _holdDate.get(id) || dates.today;
+    d.addEventListener('change', () => _holdDate.set(id, d.value));
     d.addEventListener('click', e => e.stopPropagation());
-    pick.append(d, button('dk-act', 'Hold until this day', () => { const u = holdUntil('date', day, d.value); if (u) holdCard(id, u); else say('Pick a day from today to 90 days ahead.'); }));
+    pick.append(d, button('dk-act', 'Back on this day', () => { const u = holdUntil('date', day, d.value); if (u) holdCard(id, u); else say('Pick a day from today to 90 days ahead.'); }));
     box.append(pick);
   }
   box.append(button('dk-notoday', 'Cancel', () => { _holdFor = null; _holdPick = false; draw(); }));
@@ -603,7 +605,7 @@ function draw() {
   if (_state === 'empty') { wrap.append(el('p', 'dk-note', 'Nothing here yet. The list appears once the PC sends it.')); return; }
   if (_sub === 'bulletin') {
     clearTimeout(_rerankTimer);
-    const need = orderedIds(_data).length;
+    const need = openIds(_data).length;
     const logged = Math.max(doneList(_data).length, Number(_data.done_total) || 0);
     head.append(el('span', 'dk-pill' + (need ? '' : ' none'), need ? need + ' need you' : 'All clear'));
     renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
@@ -613,8 +615,7 @@ function draw() {
 
   const items = itemsById(_data);
   const heldList = heldCards(_data);
-  const heldIds = new Set(heldList.map(h => h.id));
-  const ids = orderedIds(_data).filter(id => !heldIds.has(id));
+  const ids = openIds(_data);
   if (!_openInit && ids.length) { _open.add(ids[0]); _openInit = true; }
   const mine = new Set(field('mine', []));
   const snoozed = new Set(field('snoozed', []));
