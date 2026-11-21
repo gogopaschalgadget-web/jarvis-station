@@ -175,3 +175,26 @@
 .wd-txt { padding: 8px 10px; }
 .wd-tile.blue .wd-art { opacity: .8; }
 .wd-count { top: 6px; right: 6px; box-shadow: 0 0 0 2px #14100a; }
+
+.bp-drawer { margin: 0 0 12px; border-radius: 10px; border: 2px dashed #5b8fc0; background: #0f1a24; overflow: hidden; }
+.bp-drawer > summary { min-height: 48px; display: flex; align-items: center; padding: 0 14px; font: 900 13px var(--dk-ui); letter-spacing: .1em; text-transform: uppercase; color: #8fb4d6; cursor: pointer; }
+.bp-chips { display: flex; gap: 6px; align-items: center; padding: 0 10px 8px; flex-wrap: wrap; }
+.bp-chips small { width: 36px; font: 800 10.5px var(--dk-ui); letter-spacing: .08em; text-transform: uppercase; color: #6f8fb0; }
+.bp-chip { min-height: 38px; padding: 0 12px; border-radius: 999px; border: 1px solid #5b8fc0; background: transparent; color: #8fb4d6; font: 800 12px var(--dk-ui); }
+.bp-chip.on { background: #5b8fc0; color: #0b1620; }
+.bp-group { margin: 0 8px 8px; border-top: 1px dashed #3a5670; }
+.bp-group > summary { min-height: 44px; display: flex; align-items: center; font: 800 12.5px var(--dk-ui); color: #b8cfe4; cursor: pointer; }
+.bp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+.bp-tile { min-height: 64px; padding: 8px 10px; text-align: left; border-radius: 10px; border: 2px dashed #5b8fc0; background: #12202e; color: #cfe0f0; }
+.bp-tile b { display: block; font: 800 12.5px/1.25 var(--dk-ui); }
+.bp-tile small { display: block; margin-top: 4px; font: 700 11px var(--dk-ui); color: #7fa0c0; text-transform: capitalize; }
+.bp-tile.on { background: #1a3045; border-style: solid; }
+.bp-tile.parked { opacity: .6; }
+.bp-detail { margin: 0 0 8px; padding: 10px; border-radius: 10px; border: 2px solid #5b8fc0; background: #0b1620; color: #cfe0f0; font: 600 13px/1.45 var(--dk-ui); }
+.bp-detail b { color: #e3f0fb; }
+.bp-detail p { margin: 6px 0 0; }
+.bp-tags { font: 800 11px var(--dk-ui); letter-spacing: .06em; text-transform: uppercase; color: #7fa0c0; }
+.bp-said { font-style: italic; }
+.bp-plain .bp-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; font: 700 12.5px var(--dk-ui); color: #9ab5cf; border-top: 1px solid #1d2f40; }
+.bp-plain .bp-row small { color: #6f8fb0; text-align: right; }
+.bp-place { margin: 0 0 12px; }

@@ -1,8 +1,9 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas90';
-import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor, tileArt } from './cas-places.js?v=cas90';
-import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas90';
+import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas91';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS } from './cas-blueprints.js?v=cas91';
+import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor, tileArt } from './cas-places.js?v=cas91';
+import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas91';
 
 export { rankItems };
 
@@ -131,6 +132,10 @@ async function answer(id, kind, extra = {}) {
 
 const _holdWhy = new Map();
 let _tile = null;
+let _bpOpen = false;
+let _bpIdea = null;
+const _bpFilter = { fun: 'all', size: 'all' };
+const _bpClosed = new Set();
 let _holdFor = null;
 let _holdPick = false;
 const _holdDate = new Map();
@@ -483,6 +488,80 @@ function placesMap(buckets, loops) {
   return map;
 }
 
+function ideaDetail(idea, list) {
+  const box = el('div', 'bp-detail');
+  box.dataset.slot = 'blueprint-' + idea.area;
+  box.append(el('b', '', idea.title));
+  box.append(el('p', 'bp-tags', [STATE_WORDS[idea.state], idea.size && idea.size + ' size', idea.fun && ({ fun: 'Fun', work: 'Work', both: 'Fun and work' })[idea.fun]].filter(Boolean).join(' · ')));
+  if (idea.oneLine) box.append(el('p', '', idea.oneLine));
+  if (idea.said) { const p = el('p', 'bp-said'); p.append(el('b', '', 'Chris said: '), document.createTextNode(idea.said)); box.append(p); }
+  if (idea.needs) { const p = el('p', ''); p.append(el('b', '', 'Needs from Chris: '), document.createTextNode(idea.needs)); box.append(p); }
+  const deps = dependsTitles(idea, list);
+  if (deps.length) { const p = el('p', ''); p.append(el('b', '', 'Depends on: '), document.createTextNode(deps.join(', '))); box.append(p); }
+  return box;
+}
+
+function ideaTile(idea, grid) {
+  const t = button('bp-tile' + (idea.state === 'parked' ? ' parked' : '') + (_bpIdea === idea.id ? ' on' : ''), '', () => { _bpIdea = _bpIdea === idea.id ? null : idea.id; draw(); });
+  t.dataset.slot = 'blueprint-' + idea.area;
+  t.setAttribute('aria-pressed', String(_bpIdea === idea.id));
+  t.append(el('b', '', idea.title));
+  t.append(el('small', '', [idea.state === 'parked' ? 'Parked' : '', idea.size, idea.fun === 'both' ? 'fun and work' : idea.fun].filter(Boolean).join(' · ')));
+  grid.append(t);
+}
+
+function ideaGrid(items, list) {
+  const wrap = el('div', 'bp-wrap');
+  const grid = el('div', 'bp-grid');
+  items.forEach(i => ideaTile(i, grid));
+  wrap.append(grid);
+  const open = items.find(i => i.id === _bpIdea);
+  if (open) wrap.append(ideaDetail(open, list));
+  return wrap;
+}
+
+function placeIdeas(place, list) {
+  const items = ideasForPlace(list, place.name);
+  if (!items.length) return null;
+  const box = el('div', 'bp-place');
+  box.append(el('p', 'wd-sub', 'Ideas for this place (' + items.length + ')'), ideaGrid(items, list));
+  return box;
+}
+
+function blueprintDrawer(list) {
+  if (!list.length) return null;
+  const view = blueprintView(list, _bpFilter);
+  const box = el('details', 'bp-drawer');
+  box.open = _bpOpen;
+  box.addEventListener('toggle', () => { _bpOpen = box.open; });
+  box.append(el('summary', '', `Blueprints (${view.openCount})`));
+  const chips = (label, key, options) => {
+    const row = el('div', 'bp-chips');
+    row.append(el('small', '', label));
+    options.forEach(([val, name]) => row.append(button('bp-chip' + (_bpFilter[key] === val ? ' on' : ''), name, () => { _bpFilter[key] = val; draw(); })));
+    return row;
+  };
+  box.append(chips('Kind', 'fun', [['all', 'All'], ['fun', 'Fun'], ['work', 'Work']]), chips('Size', 'size', [['all', 'All'], ['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']]));
+  if (!view.groups.length) box.append(el('p', 'dk-note', 'No ideas match these filters.'));
+  view.groups.forEach(g => {
+    const d = el('details', 'bp-group');
+    d.open = !_bpClosed.has(g.key);
+    d.addEventListener('toggle', () => { if (d.open) _bpClosed.delete(g.key); else _bpClosed.add(g.key); });
+    d.append(el('summary', '', `${g.label} (${g.items.length})`), ideaGrid(g.items, list));
+    box.append(d);
+  });
+  const plain = (title, rows) => {
+    if (!rows.length) return;
+    const d = el('details', 'bp-group bp-plain');
+    d.append(el('summary', '', `${title} (${rows.length})`));
+    rows.forEach(r => { const line = el('div', 'bp-row'); line.append(el('span', '', r.title), el('small', '', STATE_WORDS[r.state])); d.append(line); });
+    box.append(d);
+  };
+  plain('Already built or being built', view.built);
+  plain('Dropped', view.dropped);
+  return box;
+}
+
 function tileHeader(id, loops) {
   const place = [...PLACES, BENCH].find(p => p.id === id);
   const box = el('div', 'wd-open');
@@ -741,6 +820,7 @@ function draw() {
   view.slice(0, SHOWN).forEach(id => main.append(make(id, ids.indexOf(id) + 1, !_tile)));
   if (_tile && !view.length) main.append(el('p', 'dk-note', 'No cards on this tile right now.'));
   wrap.append(main);
+  const bpList = normalizeBlueprints(_data && _data.feed && _data.feed.blueprints);
   if (view.length > SHOWN) {
     const more = el('details', 'dk-fold');
     more.open = _moreOpen;
@@ -748,6 +828,15 @@ function draw() {
     more.append(el('summary', '', `Top ${SHOWN} shown, ${view.length - SHOWN} more folded`));
     view.slice(SHOWN).forEach(id => more.append(make(id, ids.indexOf(id) + 1, false)));
     wrap.append(more);
+  }
+
+  if (_tile) {
+    const place = [...PLACES, BENCH].find(p => p.id === _tile);
+    const ideas = place && placeIdeas(place, bpList);
+    if (ideas) wrap.append(ideas);
+  } else {
+    const drawer = blueprintDrawer(bpList);
+    if (drawer) wrap.append(drawer);
   }
 
   if (heldList.length) wrap.append(heldStrip(heldList));
