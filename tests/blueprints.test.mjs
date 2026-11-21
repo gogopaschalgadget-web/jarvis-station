@@ -75,3 +75,43 @@ test('a 401 on the want tap says the sign-in has expired', async () => {
   const { wantLine } = await import('../js/cas-blueprints.js');
   assert.match(wantLine(401), /sign-in has expired/);
 });
+
+test('the want tap: one request at a time, button words change after a send, the toast comes from the status', async () => {
+  const { makeWanter } = await import('../js/cas-blueprints.js');
+  const said = [];
+  let release;
+  const calls = [];
+  const wanter = makeWanter(id => { calls.push(id); return new Promise(r => { release = r; }); }, t => said.push(t));
+  const idea = { id: 'a' };
+  assert.equal(wanter.label(idea), 'I want to work on this');
+  const first = wanter.tap(idea);
+  assert.equal(wanter.isBusy(), true);
+  assert.equal(await wanter.tap(idea), false);
+  assert.deepEqual(calls, ['a']);
+  release({ ok: true, status: 200, json: { wants: 1 } });
+  assert.equal(await first, true);
+  assert.deepEqual(said, ['Sent to the orchestrator.']);
+  assert.equal(wanter.label(idea), 'Sent. Tap to send again');
+  assert.equal(wanter.isBusy(), false);
+  const second = wanter.tap(idea);
+  release({ ok: true, status: 200, json: { wants: 2 } });
+  await second;
+  assert.equal(said[1], 'Sent to the orchestrator. You have asked for this on 2 days.');
+});
+
+test('the want tap failures: 401, 403, 422, 429 and a thrown request leave the button as it was and say why', async () => {
+  const { makeWanter, wantLine } = await import('../js/cas-blueprints.js');
+  assert.match(wantLine(403), /not allowed/);
+  for (const status of [401, 403, 422, 429, 500]) {
+    const said = [];
+    const w = makeWanter(async () => ({ ok: false, status, json: {} }), t => said.push(t));
+    assert.equal(await w.tap({ id: 'x' }), false);
+    assert.equal(w.label({ id: 'x' }), 'I want to work on this');
+    assert.equal(said.length, 1);
+  }
+  const said = [];
+  const w = makeWanter(async () => { throw new Error('boom'); }, t => said.push(t));
+  assert.equal(await w.tap({ id: 'y' }), false);
+  assert.equal(said[0], 'Not sent. Try again.');
+  assert.equal(w.isBusy(), false);
+});

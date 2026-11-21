@@ -85,6 +85,7 @@ export function wantLine(status, json) {
     return n > 1 ? 'Sent to the orchestrator. You have asked for this on ' + n + ' days.' : 'Sent to the orchestrator.';
   }
   if (status === 401) return 'The sign-in has expired. Sign in again.';
+  if (status === 403) return 'This device is not allowed to send that.';
   if (status === 429) return 'Too many taps in a minute. Wait a moment.';
   if (status === 422) return 'That idea is no longer on the list.';
   return 'Not sent. Try again.';
@@ -99,4 +100,24 @@ export function ideaArt(idea) {
   if (IDEA_ART.includes(idea.id)) return ART_DIR + 'idea_' + idea.id + '.jpg';
   if (AREAS.some(a => a[0] === idea.area)) return ART_DIR + 'area_' + idea.area + '.jpg';
   return ART_DIR + 'blueprint_tile.jpg';
+}
+
+/** The "I want to work on this" tap: one request at a time, remembers what was sent this session, words the button and the toast. */
+export function makeWanter(postFn, sayFn) {
+  const sent = new Set();
+  let busy = false;
+  return {
+    label: idea => (sent.has(idea.id) ? 'Sent. Tap to send again' : 'I want to work on this'),
+    isBusy: () => busy,
+    async tap(idea) {
+      if (busy) return false;
+      busy = true;
+      let res;
+      try { res = await postFn(idea.id); } catch { res = { ok: false, status: 0, json: {} }; }
+      busy = false;
+      if (res.ok) sent.add(idea.id);
+      sayFn(wantLine(res.ok ? 200 : res.status, res.json));
+      return !!res.ok;
+    },
+  };
 }

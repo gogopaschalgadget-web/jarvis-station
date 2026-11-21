@@ -6,7 +6,7 @@ import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } 
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas92';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas92';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas92';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas92';
 
 export { rankItems };
 
@@ -141,9 +141,7 @@ let _tile = null;
 let _bpOpen = false;
 let _bpIdea = null;
 const _bpFilter = { fun: 'all', size: 'all' };
-const _bpClosed = new Set();
-const _bpSent = new Set();
-let _bpBusy = false;
+const _bpOpenGroups = new Set();
 let _holdFor = null;
 let _holdPick = false;
 const _holdDate = new Map();
@@ -544,14 +542,7 @@ function placesMap(buckets, loops) {
   return map;
 }
 
-async function wantIdea(idea) {
-  if (_bpBusy) return;
-  _bpBusy = true;
-  const res = await post('/blueprint', { id: idea.id });
-  _bpBusy = false;
-  if (res.ok) _bpSent.add(idea.id);
-  say(wantLine(res.ok ? 200 : res.status, res.json));
-}
+const _wanter = makeWanter(id => post('/blueprint', { id }), t => say(t));
 
 function artImg(src, cls) {
   if (!src) return null;
@@ -573,7 +564,7 @@ function ideaDetail(idea, list) {
   if (idea.needs) { const p = el('p', ''); p.append(el('b', '', 'Needs from Chris: '), document.createTextNode(idea.needs)); box.append(p); }
   const deps = dependsTitles(idea, list);
   if (deps.length) { const p = el('p', ''); p.append(el('b', '', 'Depends on: '), document.createTextNode(deps.join(', '))); box.append(p); }
-  if (OPEN_STATES.includes(idea.state)) box.append(button('dk-act bp-want', _bpSent.has(idea.id) ? 'Sent. Tap to send again' : 'I want to work on this', () => wantIdea(idea)));
+  if (OPEN_STATES.includes(idea.state)) box.append(button('dk-act bp-want', _wanter.label(idea), () => _wanter.tap(idea)));
   return box;
 }
 
@@ -624,9 +615,9 @@ function blueprintDrawer(list) {
   if (!view.groups.length) box.append(el('p', 'dk-note', 'No ideas match these filters.'));
   view.groups.forEach(g => {
     const d = el('details', 'bp-group');
-    d.open = !_bpClosed.has(g.key);
+    d.open = _bpOpenGroups.has(g.key);
     d.addEventListener('toggle', () => {
-      if (d.open && _bpClosed.has(g.key)) { _bpClosed.delete(g.key); draw(); } else if (!d.open && !_bpClosed.has(g.key)) _bpClosed.add(g.key);
+      if (d.open && !_bpOpenGroups.has(g.key)) { _bpOpenGroups.add(g.key); draw(); } else if (!d.open && _bpOpenGroups.has(g.key)) _bpOpenGroups.delete(g.key);
     });
     d.append(el('summary', '', `${g.label} (${g.items.length})`));
     if (d.open) d.append(ideaGrid(g.items, list));

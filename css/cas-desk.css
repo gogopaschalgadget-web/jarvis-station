@@ -247,3 +247,6 @@
 .rv-close { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border-radius: 50%; border: 2px ridge var(--dk-brass); background: #1a130a; color: var(--dk-brass-hi); font: 800 16px var(--dk-ui); }
 
 .rv-why[hidden] { display: none; }
+.bp-tile.parked { opacity: 1; }
+.bp-tile.parked b { color: #a9bdd0; }
+.bp-chips small { font-size: 12px; width: 44px; }
