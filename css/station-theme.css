@@ -110,8 +110,8 @@ body { background: #241917; }
 }
 
 /* Monthly trim: the strip comes from cas-trim.js (--trim-url). December adds a faint sleigh shadow that crosses the bar about every 15 seconds. */
-.trim-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; border-radius: inherit; }
-.trim-fx i { position: absolute; top: 76%; left: 0; width: 96px; height: 41px; margin-top: -20px; pointer-events: none;
+.trim-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; border-radius: inherit; } /* behind the icons and labels, above the bar's own picture */
+.trim-fx[data-anim="sleigh"] i { position: absolute; top: 76%; left: 0; width: 96px; height: 41px; margin-top: -20px; pointer-events: none;
   background: url('../assets/theme/sleigh.png') center / contain no-repeat; opacity: .55; filter: drop-shadow(0 0 2px #cfe4ff66);
   transform: translateX(-140px); animation: trim-sleigh 15s linear infinite; will-change: transform; }
 @keyframes trim-sleigh {
@@ -119,7 +119,42 @@ body { background: #241917; }
   26% { transform: translateX(calc(100vw + 20px)); }
   100% { transform: translateX(calc(100vw + 20px)); }
 }
-html[data-hidden="1"] .trim-fx i { animation-play-state: paused; }
+html[data-hidden="1"] .trim-fx i, html[data-hidden="1"] .trim-fx b { animation-play-state: paused; }
 html[data-mode="professional"] .trim-fx { display: none; }
 @media (prefers-reduced-motion: reduce) { .trim-fx { display: none; } }
 @media (min-width: 960px) { .trim-fx { display: none; } }
+
+/* November: the toast. A sprite (24 frames, 6 by 4) laid over the tankards on the strip, played for 2 seconds about every 18 seconds. */
+.trim-fx[data-anim="cheers"] b { position: absolute; left: 41.29%; top: 10.42%; width: 17.86%; height: 55.56%; pointer-events: none; opacity: 0;
+  background-image: linear-gradient(rgb(0 0 0 / var(--trim-dim, 0)), rgb(0 0 0 / var(--trim-dim, 0))), url('../assets/themes/forge-and-brass/trim/november/toast-sprite.webp');
+  background-size: 100% 100%, 600% 400%; background-repeat: no-repeat; background-position: 0 0, 0 0;
+  animation: trim-cheers 18s steps(1) 4s infinite; }
+@keyframes trim-cheers {
+  0.000% { opacity: 1; background-position: 0 0, 0.0% 0.000%; }
+  0.463% { opacity: 1; background-position: 0 0, 20.0% 0.000%; }
+  0.926% { opacity: 1; background-position: 0 0, 40.0% 0.000%; }
+  1.389% { opacity: 1; background-position: 0 0, 60.0% 0.000%; }
+  1.852% { opacity: 1; background-position: 0 0, 80.0% 0.000%; }
+  2.315% { opacity: 1; background-position: 0 0, 100.0% 0.000%; }
+  2.778% { opacity: 1; background-position: 0 0, 0.0% 33.333%; }
+  3.241% { opacity: 1; background-position: 0 0, 20.0% 33.333%; }
+  3.704% { opacity: 1; background-position: 0 0, 40.0% 33.333%; }
+  4.167% { opacity: 1; background-position: 0 0, 60.0% 33.333%; }
+  4.630% { opacity: 1; background-position: 0 0, 80.0% 33.333%; }
+  5.093% { opacity: 1; background-position: 0 0, 100.0% 33.333%; }
+  5.556% { opacity: 1; background-position: 0 0, 0.0% 66.667%; }
+  6.019% { opacity: 1; background-position: 0 0, 20.0% 66.667%; }
+  6.481% { opacity: 1; background-position: 0 0, 40.0% 66.667%; }
+  6.944% { opacity: 1; background-position: 0 0, 60.0% 66.667%; }
+  7.407% { opacity: 1; background-position: 0 0, 80.0% 66.667%; }
+  7.870% { opacity: 1; background-position: 0 0, 100.0% 66.667%; }
+  8.333% { opacity: 1; background-position: 0 0, 0.0% 100.000%; }
+  8.796% { opacity: 1; background-position: 0 0, 20.0% 100.000%; }
+  9.259% { opacity: 1; background-position: 0 0, 40.0% 100.000%; }
+  9.722% { opacity: 1; background-position: 0 0, 60.0% 100.000%; }
+  10.185% { opacity: 1; background-position: 0 0, 80.0% 100.000%; }
+  10.648% { opacity: 1; background-position: 0 0, 100.0% 100.000%; }
+  11.111% { opacity: 1; background-position: 0 0, 100% 100%; }
+  11.911% { opacity: 0; background-position: 0 0, 100% 100%; }
+  100% { opacity: 0; background-position: 0 0, 0% 0%; }
+}

@@ -2,13 +2,19 @@ const DIR = 'assets/themes/forge-and-brass/trim/';
 
 /**
  * Monthly trim for the bottom bar: month number (1 to 12) to a strip file. No entry means today's plain trim.
- * To add a month: put the picture in the folder above and add one line here. `sleigh: true` adds the December sleigh shadow;
- * `dim` (0 to 1) lays a dark overlay over a busy strip so the icons and labels keep their contrast.
+ * To add a month: put the picture in the folder above and add one line here. `dim` (0 to 1) lays a dark overlay over a busy strip so the
+ * icons and labels keep their contrast; `anim` names a small animation from ANIMS that plays over the strip (CSS only).
  */
 export const TRIMS = {
-  11: { file: DIR + 'november/candle-hall.jpg', dim: 0.4 },
-  12: { file: DIR + 'december/frost-on-iron.jpg', sleigh: true, dim: 0.15 },
+  11: { file: DIR + 'november/the-toast.jpg', dim: 0.1, anim: 'cheers' },
+  12: { file: DIR + 'december/frost-on-iron.jpg', dim: 0.15, anim: 'sleigh' },
 };
+
+/** The animations the stylesheet knows (rules `.trim-fx[data-anim="<name>"]`). A name not listed here never plays. */
+export const ANIMS = ['sleigh', 'cheers'];
+
+/** The element each animation draws: the sleigh is an <i>, the toast a <b> (the stylesheet keys on the tag and the data-anim name). */
+const ANIM_TAG = { sleigh: 'i', cheers: 'b' };
 
 /** The overlay strength for a trim: 0 to 1, else none. */
 export function dimFor(trim) {
@@ -21,10 +27,11 @@ export function trimFor(month, table = TRIMS) {
   return Object.prototype.hasOwnProperty.call(table, month) ? table[month] : null;
 }
 
-/** The sleigh shows only in a month that asks for it, in game mode, and never under reduced motion. */
-export function sleighWanted({ month, mode, reduced }, table = TRIMS) {
+/** The animation for a month: its name only when the month asks for a known one, in game mode, and never under reduced motion. */
+export function animWanted({ month, mode, reduced }, table = TRIMS, anims = ANIMS) {
   const t = trimFor(month, table);
-  return !!(t && t.sleigh === true && mode !== 'professional' && !reduced);
+  if (!t || mode === 'professional' || reduced) return null;
+  return typeof t.anim === 'string' && anims.includes(t.anim) ? t.anim : null;
 }
 
 const FX_ID = 'trim-fx';
@@ -50,18 +57,18 @@ export function applyTrim(date = new Date(), doc = typeof document === 'undefine
     delete root.dataset.trim;
   }
   const fx = doc.getElementById ? doc.getElementById(FX_ID) : null;
-  const want = sleighWanted({ month, mode: root.dataset.mode, reduced: reducedMotion() });
-  if (want && nav && !fx) {
+  const want = animWanted({ month, mode: root.dataset.mode, reduced: reducedMotion() });
+  if (fx && (!want || fx.dataset.anim !== want)) fx.remove();
+  if (want && nav && (!fx || fx.dataset.anim !== want)) {
     const box = doc.createElement('div');
     box.id = FX_ID;
     box.className = 'trim-fx';
+    box.dataset.anim = want;
     box.setAttribute('aria-hidden', 'true');
-    box.append(doc.createElement('i'));
+    box.append(doc.createElement(ANIM_TAG[want] || 'i'));
     nav.append(box);
-  } else if (!want && fx) {
-    fx.remove();
   }
-  return { month, trim, sleigh: want };
+  return { month, trim, anim: want };
 }
 
 /** Starts the trim and keeps it right: re-applied when the page comes back (the month may have changed) and the sleigh rests while the page is hidden. */
