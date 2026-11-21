@@ -242,3 +242,6 @@
 .rv-input { flex: 1; min-height: 44px; border-radius: 8px; border: 1px solid #8a6a2a; background: #fff8e3; color: #2a1a05; font: 14px var(--dk-ui); padding: 8px; box-sizing: border-box; }
 .rv-status { margin: 8px 0 0; min-height: 1em; font: 700 12.5px var(--dk-ui); color: #e8b0a0; }
 @media (prefers-reduced-motion: reduce) { .rv-cover { display: none; } }
+
+.rv-card { position: relative; }
+.rv-close { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border-radius: 50%; border: 2px ridge var(--dk-brass); background: #1a130a; color: var(--dk-brass-hi); font: 800 16px var(--dk-ui); }

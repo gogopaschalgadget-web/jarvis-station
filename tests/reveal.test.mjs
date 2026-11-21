@@ -12,7 +12,7 @@ test('a reveal answer is waiting, ready with a picture, or gone; anything else i
 });
 
 test('the picture list keeps only well-formed rows and caps waiting at five', () => {
-  const d = normalizePictures({ pictures: [null, { id: '' }, { id: 'a', state: 'new', rarity: 'common', card_id: 'c1' }, { id: 'b', state: 'starred' }], waiting: 9 });
+  const d = normalizePictures({ pictures: [null, { id: '' }, { id: 'a', state: 'shown', rarity: 'common', card_id: 'c1' }, { id: 'b', state: 'starred' }], waiting: 9 });
   assert.deepEqual(d.pictures.map(p => p.id), ['a', 'b']);
   assert.equal(d.waiting, MAX_WAITING);
   assert.deepEqual(d.pictures.filter(isNew).map(p => p.id), ['a']);

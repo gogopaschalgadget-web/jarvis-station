@@ -30,5 +30,6 @@ export function xpLine(res) {
 /** The rank-up the server reported in a done response, or null. */
 export function rankUpOf(res) {
   const r = res && res.rank_up && typeof res.rank_up === 'object' ? res.rank_up : null;
-  return r && text(r.name, 40) ? { name: text(r.name, 40), index: num(r.index) } : null;
+  const name = r ? text(r.to, 40) || text(r.name, 40) : '';
+  return name ? { name, index: num(r.index) } : null;
 }

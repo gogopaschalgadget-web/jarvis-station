@@ -45,6 +45,7 @@ test('xp line and rank-up read only what the server reported', () => {
   assert.equal(xpLine({ xp_gained: 'x' }), '');
   assert.equal(xpLine(null), '');
   assert.deepEqual(rankUpOf({ rank_up: { name: 'Technician', index: 4 } }), { name: 'Technician', index: 4 });
+  assert.deepEqual(rankUpOf({ rank_up: { from: 'Beginner', to: 'Technician', index: 4, ranks_gained: 1 } }), { name: 'Technician', index: 4 });
   assert.equal(rankUpOf({ rank_up: {} }), null);
   assert.equal(rankUpOf({}), null);
 });

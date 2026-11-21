@@ -16,13 +16,14 @@ export function normalizeReveal(raw) {
 export function normalizePictures(raw) {
   const list = raw && Array.isArray(raw.pictures) ? raw.pictures : [];
   const pictures = list.filter(p => p && typeof p === 'object' && text(String(p.id == null ? '' : p.id), 80)).map(p => ({
-    id: text(String(p.id), 80), state: text(p.state, 20), rarity: text(p.rarity, 20), kind: text(p.kind, 20), subject: text(p.subject, 40), cardId: text(p.card_id, 80),
+    id: text(String(p.id), 80), state: text(p.state, 20), rarity: text(p.rarity, 20), kind: text(p.kind, 20), source: text(p.source, 10), subject: text(p.subject, 40), cardId: text(p.card_id, 80),
   }));
   const waiting = raw && Number.isFinite(raw.waiting) && raw.waiting >= 0 ? Math.min(raw.waiting, MAX_WAITING) : 0;
   return { pictures, waiting };
 }
 
-export const isNew = p => p.state === 'new';
+/** A picture revealed but not yet answered: the server calls it "shown". */
+export const isNew = p => p.state === 'shown';
 
 /** The body of a choice: a known choice, and a trimmed reason only for a reject. Null when the choice is unknown. */
 export function choiceBody(choice, reason) {

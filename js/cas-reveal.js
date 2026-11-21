@@ -106,7 +106,8 @@ function show(item) {
     overlay.setAttribute('aria-label', 'Artwork unlocked');
     const card = el('div', 'rv-card');
     const label = rarityLabel(item.meta && item.meta.rarity);
-    card.append(el('p', 'rv-head', 'Artwork unlocked' + (label ? ' · ' + label : '')));
+    const kindLabel = item.meta && item.meta.kind === 'replacement' ? 'Replacement' : '';
+    card.append(el('p', 'rv-head', 'Artwork unlocked' + [label, kindLabel].filter(Boolean).map(x => ' · ' + x).join('')));
     const frame = el('div', 'rv-frame');
     const img = el('img', 'rv-img');
     img.alt = 'Unlocked artwork';
@@ -133,6 +134,10 @@ function show(item) {
       if (line) _o.say(line);
       close();
     };
+    const closeBtn = el('button', 'rv-close', '✕');
+    closeBtn.setAttribute('aria-label', 'Close (keeps the picture)');
+    closeBtn.addEventListener('click', () => choose('keep'));
+    card.append(closeBtn);
     const row = el('div', 'rv-row');
     const star = el('button', 'rv-btn star', 'Star');
     star.addEventListener('click', () => choose('star'));
