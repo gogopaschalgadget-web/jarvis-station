@@ -1,7 +1,8 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas92';
-import { initReveal, requestReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas92';
+import { barAnimates } from './cas-reveal-logic.js?v=cas92';
+import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas92';
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas92';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas92';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
@@ -130,7 +131,7 @@ async function answer(id, kind, extra = {}) {
   const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
   const xp = kind === 'done' || kind === 'choice' ? xpLine(res.json) : '';
   const up = rankUpOf(res.json);
-  if (kind === 'done' || kind === 'choice') requestReveal(id);
+  if (kind === 'done') scheduleReveal(id); else if (kind === 'undo') cancelReveal(id);
   say(kind === 'undo' ? 'Undone.' : [res.json.line || 'Saved.', xp, up ? 'Rank up: ' + up.name + '.' : ''].filter(Boolean).join(' '), undoable ? () => answer(id, 'undo') : null);
   await load(true);
 }
@@ -468,12 +469,18 @@ function heldStrip(list) {
 
 const LAMP = { running: 'Running', waiting: 'Waiting on you', blocked: 'Blocked', none: 'Not reported' };
 
-function barNode(pct) {
+const _barPct = new Map();
+
+function barNode(key, pct) {
   const bar = el('div', 'bb-bar');
   const fill = el('i', '');
-  fill.style.width = '0%';
+  const prev = _barPct.get(key);
+  _barPct.set(key, pct);
+  if (barAnimates(prev, pct)) {
+    fill.style.width = (prev == null ? 0 : prev) + '%';
+    requestAnimationFrame(() => { fill.style.width = pct + '%'; });
+  } else fill.style.width = pct + '%';
   bar.append(fill);
-  requestAnimationFrame(() => { fill.style.width = pct + '%'; });
   bar.setAttribute('role', 'progressbar');
   bar.setAttribute('aria-valuenow', String(pct));
   return bar;
@@ -487,7 +494,7 @@ function progressBlock(p) {
   const body = el('div', 'bb-platebody');
   body.append(el('small', '', 'Owner'), el('b', '', p.rank.name));
   body.append(el('span', '', p.rank.nextAt == null ? p.xp.toLocaleString('en-US') + ' XP. Top rank.' : p.xp.toLocaleString('en-US') + ' of ' + p.rank.nextAt.toLocaleString('en-US') + ' XP to ' + (p.rank.nextName || 'the next rank')));
-  body.append(barNode(p.rank.pct));
+  body.append(barNode('rank', p.rank.pct));
   plate.append(medal, body);
   box.append(plate);
   if (p.desks.length) {
@@ -497,7 +504,7 @@ function progressBlock(p) {
       c.dataset.slot = 'machine-' + d.id;
       c.append(el('b', '', d.name), el('small', '', [d.machine, d.tier].filter(Boolean).join(' · ') || 'Not reported'));
       if (d.placeholder) c.append(el('em', '', 'Placeholder: Chris does this by hand now, automation later'));
-      else c.append(barNode(d.pct), el('span', '', d.nextAt == null ? d.xp + ' XP' : d.xp + ' / ' + d.nextAt + ' XP'));
+      else if (d.xp != null) c.append(barNode('desk:' + d.id, d.pct), el('span', '', d.nextAt == null ? d.xp + ' XP' : d.xp + ' / ' + d.nextAt + ' XP'));
       if (d.legendary) c.append(el('em', '', d.legendary));
       grid.append(c);
     });

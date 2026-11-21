@@ -12,10 +12,10 @@ export function normalizeProgress(raw) {
   const nextAt = num(r.next_at);
   const rank = { index: r.index, name: text(r.name, 40), nextName: text(r.next_name, 40), at, nextAt, pct: nextAt == null ? 100 : pctOf(xp, at, nextAt), toGo: nextAt == null ? 0 : Math.max(0, nextAt - xp) };
   const desks = (Array.isArray(raw.desks) ? raw.desks : []).filter(d => d && typeof d === 'object' && text(d.id, 40) && text(d.name, 40)).slice(0, 8).map(d => {
-    const dxp = num(d.xp) || 0;
+    const dxp = num(d.xp);
     const dNext = num(d.next_at);
     const dFrom = num(d.from) == null ? 0 : d.from;
-    return { id: text(d.id, 40), name: text(d.name, 40), machine: text(d.machine, 40), tier: text(d.tier, 30), xp: dxp, nextAt: dNext, pct: dNext == null ? 100 : pctOf(dxp, dFrom, dNext), legendary: text(d.legendary, 120), placeholder: d.placeholder === true };
+    return { id: text(d.id, 40), name: text(d.name, 40), machine: text(d.machine, 40), tier: text(d.tier, 30), xp: dxp, nextAt: dNext, pct: dxp == null ? null : dNext == null ? 100 : pctOf(dxp, dFrom, dNext), legendary: text(d.legendary, 120), placeholder: d.placeholder === true };
   });
   const today = raw.today && typeof raw.today === 'object' ? { xp: num(raw.today.xp), cards: num(raw.today.cards) } : null;
   return { xp, rank, desks, today, structure: text(raw.structure, 30), days: num(raw.days_at_desk) };

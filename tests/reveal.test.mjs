@@ -46,3 +46,52 @@ test('waiting cards: unique, newest five kept, droppable', () => {
   assert.equal(rarityLabel('rare'), 'Rare');
   assert.equal(rarityLabel('weird'), '');
 });
+
+import { isSafeId, failureAction, addScheduled, cancelScheduled, dueScheduled, addPending, barAnimates, UNDO_WINDOW_MS } from '../js/cas-reveal-logic.js';
+import { readFileSync } from 'node:fs';
+
+test('ids put in request paths are short and plain: no slashes, dots pairs, spaces or odd characters', () => {
+  ['p1', 'abc-123', 'replace:b7', 'a.b'].forEach(id => assert.equal(isSafeId(id), true, id));
+  ['', '../x', 'a/b', 'a b', 'a?b', 'a#b', '%2e', 'x'.repeat(81), 7, null].forEach(id => assert.equal(isSafeId(id), false, String(id)));
+  assert.equal(normalizeReveal({ status: 'ready', picture_id: '../etc' }), null);
+  assert.deepEqual(normalizePictures({ pictures: [{ id: 'a/b' }, { id: 'ok1' }] }).pictures.map(p => p.id), ['ok1']);
+});
+
+test('failures: sign-in gone stops, offline and busy retry later, other client errors are dropped', () => {
+  assert.equal(failureAction(401), 'stop');
+  assert.equal(failureAction(403), 'stop');
+  assert.equal(failureAction(0), 'later');
+  assert.equal(failureAction(429), 'later');
+  assert.equal(failureAction(503), 'later');
+  assert.equal(failureAction(404), 'drop');
+  assert.equal(failureAction(409), 'drop');
+  assert.equal(failureAction(422), 'drop');
+});
+
+test('a finished card is asked for only after the Undo window, and Undo cancels it', () => {
+  let l = addScheduled([], 'c1', 1000 + UNDO_WINDOW_MS);
+  assert.deepEqual(dueScheduled(l, 1000), { due: [], rest: l });
+  assert.deepEqual(dueScheduled(l, 1000 + UNDO_WINDOW_MS).due, ['c1']);
+  assert.deepEqual(cancelScheduled(l, 'c1'), []);
+  assert.deepEqual(addScheduled([], 'bad id', 5), []);
+  l = addScheduled(addScheduled(l, 'c2', 5), 'c1', 9);
+  assert.deepEqual(l.map(s => s.id), ['c2', 'c1']);
+});
+
+test('unsaved choices are kept one per picture, newest ten', () => {
+  let l = [];
+  for (let i = 0; i < 12; i++) l = addPending(l, { id: 'p' + i, body: { choice: 'keep' } });
+  assert.equal(l.length, 10);
+  assert.equal(addPending(l, { id: 'p11', body: { choice: 'star' } }).filter(p => p.id === 'p11').length, 1);
+});
+
+test('a progress bar animates only when its number changed', () => {
+  assert.equal(barAnimates(undefined, 40), true);
+  assert.equal(barAnimates(40, 40), false);
+  assert.equal(barAnimates(40, 55), true);
+});
+
+test('the reason box stays hidden until X: the stylesheet has a hidden rule for it', () => {
+  const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
+  assert.match(css, /\.rv-why\[hidden\]\s*\{\s*display:\s*none/);
+});

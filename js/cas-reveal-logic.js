@@ -7,15 +7,15 @@ const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 /** The answer to a reveal request: waiting, ready with a picture id, or gone. Null for anything else. */
 export function normalizeReveal(raw) {
   if (!raw || typeof raw !== 'object' || !STATUSES.includes(raw.status)) return null;
-  const pictureId = text(String(raw.picture_id == null ? '' : raw.picture_id), 80);
-  if (raw.status === 'ready' && !pictureId) return null;
+  const pictureId = raw.picture_id == null ? '' : String(raw.picture_id);
+  if (raw.status === 'ready' && !isSafeId(pictureId)) return null;
   return { requestId: text(String(raw.request_id == null ? '' : raw.request_id), 80), status: raw.status, pictureId };
 }
 
 /** The picture list: only well-formed rows; `isNew` marks a picture Chris has not answered yet. */
 export function normalizePictures(raw) {
   const list = raw && Array.isArray(raw.pictures) ? raw.pictures : [];
-  const pictures = list.filter(p => p && typeof p === 'object' && text(String(p.id == null ? '' : p.id), 80)).map(p => ({
+  const pictures = list.filter(p => p && typeof p === 'object' && isSafeId(String(p.id == null ? '' : p.id))).map(p => ({
     id: text(String(p.id), 80), state: text(p.state, 20), rarity: text(p.rarity, 20), kind: text(p.kind, 20), source: text(p.source, 10), subject: text(p.subject, 40), cardId: text(p.card_id, 80),
   }));
   const waiting = raw && Number.isFinite(raw.waiting) && raw.waiting >= 0 ? Math.min(raw.waiting, MAX_WAITING) : 0;
@@ -56,3 +56,38 @@ export const dropWaiting = (list, cardId) => (Array.isArray(list) ? list : []).f
 export function rarityLabel(r) {
   return { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', legendary: 'Legendary' }[r] || '';
 }
+
+/** An id the Station will put in a request path: short, plain characters only (no slashes, no "..", no spaces). */
+export function isSafeId(v) {
+  return typeof v === 'string' && /^[A-Za-z0-9_.:-]{1,80}$/.test(v) && !v.includes('..');
+}
+
+export const UNDO_WINDOW_MS = 9000;
+
+/** What to do after a failed request: stop (the sign-in is gone), try again later (offline, busy, server trouble) or drop it. */
+export function failureAction(status) {
+  if (status === 401 || status === 403) return 'stop';
+  if (status === 0 || status === 429 || status >= 500) return 'later';
+  return 'drop';
+}
+
+/** Cards whose picture is asked for after the Undo window: added with a due time, cancelled by Undo. */
+export function addScheduled(list, id, due) {
+  const base = (Array.isArray(list) ? list : []).filter(s => s && s.id !== id);
+  if (isSafeId(id) && Number.isFinite(due)) base.push({ id, due });
+  return base.slice(-20);
+}
+export const cancelScheduled = (list, id) => (Array.isArray(list) ? list : []).filter(s => s && s.id !== id);
+export function dueScheduled(list, now) {
+  const all = Array.isArray(list) ? list : [];
+  return { due: all.filter(s => s.due <= now).map(s => s.id), rest: all.filter(s => s.due > now) };
+}
+
+/** Choices that could not be saved yet: kept (newest ten), one per picture. */
+export function addPending(list, entry) {
+  const base = (Array.isArray(list) ? list : []).filter(p => p && p.id !== entry.id);
+  return [...base, entry].slice(-10);
+}
+
+/** A progress bar animates only when its number changed since it was last drawn. */
+export const barAnimates = (prev, next) => prev !== next;
