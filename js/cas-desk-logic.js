@@ -145,3 +145,7 @@ export function unseenLinks(links, seen) {
     return true;
   });
 }
+
+/** Desk sub tabs in order; the first one is also the tab that opens with the Desk. */
+export const DESK_SUBS = [['bulletin', 'Bulletin Board'], ['desk', 'Work Desk'], ['orders', 'Orders'], ['dashboard', 'Dashboard']];
+export const LANDING_SUB = DESK_SUBS[0][0];

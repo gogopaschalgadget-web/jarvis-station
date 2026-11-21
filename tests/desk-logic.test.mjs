@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, unseenLinks } from '../js/cas-desk-logic.js';
+import { casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, unseenLinks, DESK_SUBS, LANDING_SUB } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -117,4 +117,9 @@ test('unseenLinks shows each link once per card or mission', () => {
   assert.deepEqual(unseenLinks([{ kind: 'card', target: 'https://x.test/a' }], seen).length, 1);
   assert.deepEqual(unseenLinks(null, seen), []);
   assert.deepEqual(unseenLinks([null, 5], new Set()), []);
+});
+
+test('Bulletin Board is first in the list and is the tab the Desk opens on', () => {
+  assert.deepEqual(DESK_SUBS.map(x => x[0]), ['bulletin', 'desk', 'orders', 'dashboard']);
+  assert.equal(LANDING_SUB, 'bulletin');
 });

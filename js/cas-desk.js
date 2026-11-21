@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, renderBulletin, ordersPill, typingInOrders } from './cas-orders.js?v=cas86';
-import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, unseenLinks, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas86';
+import { DESK_SUBS, LANDING_SUB, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, unseenLinks, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas86';
 
 export { rankItems };
 
@@ -37,8 +37,8 @@ const _need = new Set();
 const _busy = new Set();
 const _sentKids = new Set();
 let _onData = () => {};
-let _sub = 'orders';
-const SUBS = [['bulletin', 'Bulletin Board'], ['desk', 'Work Desk'], ['orders', 'Orders'], ['dashboard', 'Dashboard']];
+let _sub = LANDING_SUB;
+const SUBS = DESK_SUBS;
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
