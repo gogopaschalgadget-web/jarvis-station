@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
-import { TRIMS, trimFor, sleighWanted, applyTrim } from '../js/cas-trim.js';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { TRIMS, trimFor, sleighWanted, applyTrim, dimFor } from '../js/cas-trim.js';
 
 test('a month picks its strip; a month with no entry, or a bad month, falls back to the plain trim', () => {
   assert.equal(trimFor(12).file, TRIMS[12].file);
+  assert.equal(trimFor(11).file, TRIMS[11].file);
   assert.equal(trimFor(1), null);
   assert.equal(trimFor(0), null);
   assert.equal(trimFor(13), null);
@@ -17,7 +18,8 @@ test('a month picks its strip; a month with no entry, or a bad month, falls back
 
 test('every strip in the table exists in the repo', () => {
   Object.values(TRIMS).forEach(t => assert.ok(existsSync(new URL('../' + t.file, import.meta.url)), t.file));
-  assert.ok(existsSync(new URL('../assets/theme/sleigh.svg', import.meta.url)));
+  assert.ok(existsSync(new URL('../assets/theme/sleigh.png', import.meta.url)));
+  Object.values(TRIMS).forEach(t => assert.ok(statSync(new URL('../' + t.file, import.meta.url)).size < 100 * 1024, t.file + ' stays under 100 KB'));
 });
 
 test('the sleigh shows only in a month that asks for it, in game mode, without reduced motion', () => {
@@ -43,7 +45,7 @@ function fakeDoc(mode) {
   } };
 }
 
-test('December applies the strip and adds the sleigh; November and other months leave the plain bar and no sleigh', () => {
+test('December applies the strip and adds the sleigh; a month with no entry leaves the plain bar and no sleigh', () => {
   const dec = fakeDoc();
   const r = applyTrim(new Date(2026, 11, 5), dec.doc);
   assert.equal(r.sleigh, true);
@@ -53,7 +55,7 @@ test('December applies the strip and adds the sleigh; November and other months 
   applyTrim(new Date(2026, 11, 6), dec.doc);
   assert.equal(dec.kids.length, 1, 'applied twice adds one sleigh');
   const nov = fakeDoc();
-  assert.equal(applyTrim(new Date(2026, 10, 5), nov.doc).sleigh, false);
+  assert.equal(applyTrim(new Date(2026, 9, 5), nov.doc).sleigh, false);
   assert.equal(nov.style['--trim-url'], undefined);
   assert.equal(nov.kids.length, 0);
   applyTrim(new Date(2026, 0, 1), dec.doc);
@@ -91,4 +93,28 @@ test('the sleigh layer is put back after the bar is drawn (the bar redraw would 
   const apply = nav.indexOf('applyTrim()');
   assert.ok(html > 0 && apply > html, 'applyTrim runs after the bar content is written');
   assert.ok(apply < nav.indexOf("nav.addEventListener('click'"));
+});
+
+test('November has a strip with a 40 percent dark overlay and no sleigh; December has the sleigh and a light 15 percent overlay', () => {
+  assert.equal(dimFor(trimFor(11)), 0.4);
+  assert.equal(dimFor(trimFor(12)), 0.15);
+  assert.equal(sleighWanted({ month: 11, mode: 'game', reduced: false }), false);
+  assert.equal(dimFor(null), 0);
+  assert.equal(dimFor({ dim: 5 }), 0);
+  assert.equal(dimFor({ dim: '0.4' }), 0);
+  const nov = fakeDoc();
+  applyTrim(new Date(2026, 10, 20), nov.doc);
+  assert.equal(nov.style['--trim-dim'], '0.4');
+  assert.match(nov.style['--trim-url'], /november\/candle-hall\.jpg/);
+  applyTrim(new Date(2026, 11, 20), nov.doc);
+  assert.equal(nov.style['--trim-dim'], '0.15');
+  applyTrim(new Date(2026, 5, 20), nov.doc);
+  assert.equal(nov.style['--trim-dim'], undefined);
+});
+
+test('the strips and the sleigh are in the offline precache list, so the trim also shows offline', () => {
+  const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  Object.values(TRIMS).forEach(t => assert.ok(sw.includes("'" + t.file + "'"), t.file));
+  assert.ok(sw.includes("'assets/theme/sleigh.png'"));
+  assert.ok(sw.includes("'js/cas-trim.js'"));
 });
