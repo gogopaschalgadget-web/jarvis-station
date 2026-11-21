@@ -123,12 +123,6 @@ test('Bulletin Board is first in the list and is the tab the Desk opens on', () 
   assert.deepEqual(DESK_SUBS.map(x => x[0]), ['bulletin', 'desk', 'orders', 'dashboard']);
   assert.equal(LANDING_SUB, 'bulletin');
 });
-const at = (y, m, d, h = 12) => new Date(y, m - 1, d, h);
-test('hold dates: Wednesday', () => {
-  const now = at(2026, 11, 18);
-  assert.equal(holdUntil('tomorrow', now), '2026-11-18');
-  assert.equal(holdUntil('weekend', now), '2026-11-21');
-  assert.equal(holdUntil('date', now, '2026-12-01'), '2026-12-01');
 test('hold dates: Wednesday server day', () => {
   assert.equal(holdUntil('tomorrow', '2026-11-18'), '2026-11-18');
   assert.equal(holdUntil('weekend', '2026-11-18'), '2026-11-21');

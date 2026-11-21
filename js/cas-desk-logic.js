@@ -150,7 +150,7 @@ const DAY_MS = 86400000;
 const pad = n => String(n).padStart(2, '0');
 const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const HOLD_MAX_DAYS = 90;
-export const HOLD_REASONS = ['Not at a PC', 'Not feeling this today', 'Not today'];
+export const HOLD_REASONS = ['Not at a PC', 'Not today', 'Just not right now'];
 
 /** The Desk day starts at 2 am: before that it is still yesterday. */
 export function deskDay(now = new Date()) {
