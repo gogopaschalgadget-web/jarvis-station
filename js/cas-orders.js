@@ -100,6 +100,8 @@ export async function loadDashboard(force) {
   _o.redraw();
 }
 
+export function dashLoops() { return _dash.state === 'ready' && _dash.data && Array.isArray(_dash.data.loops) ? _dash.data.loops : []; }
+
 export function ordersPill() {
   const d = _orders.data;
   return d && d.total ? `${d.done} of ${d.total}` : 'Orders';

@@ -1,7 +1,8 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas88';
-import { LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, returnDay, openIds, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas88';
+import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas88';
+import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor } from './cas-places.js?v=cas88';
+import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas88';
 
 export { rankItems };
 
@@ -129,6 +130,7 @@ async function answer(id, kind, extra = {}) {
 }
 
 const _holdWhy = new Map();
+let _tile = null;
 let _holdFor = null;
 let _holdPick = false;
 const _holdDate = new Map();
@@ -436,6 +438,51 @@ function heldStrip(list) {
   return box;
 }
 
+const LAMP = { running: 'Running', waiting: 'Waiting on you', blocked: 'Blocked', none: 'Not reported' };
+
+function placesMap(buckets, loops) {
+  const map = el('div', 'wd-map');
+  [...ROWS, ['bench', 'Bench']].forEach(([key, label]) => {
+    const row = PLACES.filter(p => p.row === key);
+    if (key === 'bench') row.push(BENCH);
+    if (!row.length) return;
+    map.append(el('h3', 'wd-rowh', label));
+    const grid = el('div', 'wd-grid');
+    row.forEach(p => {
+      const lamp = lampFor(p, loops);
+      const n = (buckets.get(p.id) || []).length;
+      const t = button('wd-tile' + (p.built ? '' : ' blue') + (_tile === p.id ? ' on' : ''), '', () => { _tile = _tile === p.id ? null : p.id; draw(); });
+      t.setAttribute('aria-pressed', String(_tile === p.id));
+      t.append(el('b', '', p.name));
+      if (n) t.append(el('span', 'wd-count', String(n)));
+      t.append(el('small', 'wd-lamp ' + lamp, p.built ? LAMP[lamp] : 'Blueprint, not built yet'));
+      grid.append(t);
+    });
+    map.append(grid);
+  });
+  return map;
+}
+
+function tileHeader(id, loops) {
+  const place = [...PLACES, BENCH].find(p => p.id === id);
+  const box = el('div', 'wd-open');
+  const head = el('div', 'wd-openh');
+  head.append(el('h3', '', place.name), button('dk-link', 'Show all cards', () => { _tile = null; draw(); }));
+  box.append(head);
+  if (!place.built) box.append(el('p', 'dk-note', 'Blueprint: this place is not on the 3D map yet.'));
+  const real = loopsFor(place, loops);
+  if (real.length) {
+    box.append(el('p', 'wd-sub', 'Bots, machines and agents'));
+    real.forEach(l => {
+      const line = el('div', 'wd-loop');
+      line.append(el('span', '', l.name), el('span', 'wd-proof', (l.proof && l.proof.state === 'proven') ? 'Unlocked, proven' : 'Locked, not earned: not yet proven'));
+      box.append(line);
+    });
+  }
+  if (place.built && place.id !== BENCH.id) box.append(button('dk-act', 'Open the 3D map', () => _o.openTab('station')));
+  return box;
+}
+
 function card(item, n, ctx) {
   const c = el('details', 'dk-card' + (ctx.mine ? ' mine' : '') + (ctx.stuckNow ? ' stuck' : '') + (ctx.snoozed ? ' snoozed' : ''));
   c.dataset.id = item.id;
@@ -562,7 +609,7 @@ function subTabs() {
 }
 
 function loadSub(force) {
-  if (_sub === 'orders') loadOrders(force); else if (_sub === 'dashboard') loadDashboard(force); else if (_sub === 'bulletin') { load(force); loadDashboard(force); } else load(force);
+  if (_sub === 'orders') loadOrders(force); else if (_sub === 'dashboard') loadDashboard(force); else if (_sub === 'bulletin' || _sub === 'desk') { load(force); loadDashboard(force); } else load(force);
 }
 
 async function jumpToCard(id) {
@@ -664,15 +711,21 @@ function draw() {
       try { return card(plainItem(item), n, ctx); } catch { return el('p', 'dk-note', 'This card could not be shown.'); }
     }
   };
+  const loops = dashLoops();
+  const buckets = tileBuckets(ids, items);
+  wrap.append(placesMap(buckets, loops));
+  if (_tile) wrap.append(tileHeader(_tile, loops));
+  const view = _tile ? (buckets.get(_tile) || []) : ids;
   const main = el('div', 'dk-main');
-  ids.slice(0, SHOWN).forEach((id, i) => main.append(make(id, i + 1, true)));
+  view.slice(0, SHOWN).forEach(id => main.append(make(id, ids.indexOf(id) + 1, !_tile)));
+  if (_tile && !view.length) main.append(el('p', 'dk-note', 'No cards on this tile right now.'));
   wrap.append(main);
-  if (ids.length > SHOWN) {
+  if (view.length > SHOWN) {
     const more = el('details', 'dk-fold');
     more.open = _moreOpen;
     more.addEventListener('toggle', () => { _moreOpen = more.open; });
-    more.append(el('summary', '', `Top ${SHOWN} shown, ${ids.length - SHOWN} more folded`));
-    ids.slice(SHOWN).forEach((id, i) => more.append(make(id, SHOWN + i + 1, false)));
+    more.append(el('summary', '', `Top ${SHOWN} shown, ${view.length - SHOWN} more folded`));
+    view.slice(SHOWN).forEach(id => more.append(make(id, ids.indexOf(id) + 1, false)));
     wrap.append(more);
   }
 

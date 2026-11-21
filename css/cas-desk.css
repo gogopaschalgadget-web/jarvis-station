@@ -149,3 +149,22 @@
 .dk-holdpick .dk-whyin { flex: 1; }
 .dk-backhold { margin: 0 0 8px; padding: 6px 8px; border-radius: 8px; background: #e9f2dd; border: 1px solid #5b8a4a; font: 700 12.5px var(--dk-ui); color: #1f4a2a; }
 .dk-heldstrip .dk-donerow small { text-transform: none; }
+.wd-map { margin: 0 0 12px; }
+.wd-rowh { margin: 12px 0 6px; font: 900 12px var(--dk-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--dk-brass-hi); }
+.wd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wd-tile { position: relative; min-height: 68px; padding: 8px 10px; text-align: left; border-radius: 10px; border: 2px ridge var(--dk-brass-lo); background: linear-gradient(#2a2010, #14100a); color: var(--dk-brass-hi); }
+.wd-tile b { display: block; font: 800 14px var(--dk-ui); }
+.wd-tile.on { border-color: var(--dk-brass); background: linear-gradient(#3d2e13, #1a130a); }
+.wd-tile.blue { border-style: dashed; background: #0f1a24; color: #8fb4d6; }
+.wd-count { position: absolute; top: 6px; right: 8px; min-width: 22px; padding: 1px 6px; border-radius: 999px; background: #7e231d; color: #fff; font: 900 12px var(--dk-ui); text-align: center; }
+.wd-lamp { display: block; margin-top: 6px; font: 700 11.5px var(--dk-ui); color: #a89468; }
+.wd-lamp::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: #6a5a3a; }
+.wd-lamp.running::before { background: #4f9a63; }
+.wd-lamp.waiting::before { background: #d9b25a; }
+.wd-lamp.blocked::before { background: #c0392b; }
+.wd-open { margin: 0 0 12px; padding: 10px; border-radius: 10px; border: 2px ridge var(--dk-brass); background: #1a130a; }
+.wd-openh { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wd-openh h3 { margin: 0; font: 900 16px var(--dk-ui); color: var(--dk-brass-hi); }
+.wd-sub { margin: 10px 0 4px; font: 800 11px var(--dk-ui); letter-spacing: .1em; text-transform: uppercase; color: #a89468; }
+.wd-loop { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px dashed #3c3423; font: 700 13px var(--dk-ui); color: var(--dk-text); }
+.wd-proof { color: #a89468; font-size: 12px; text-align: right; }
