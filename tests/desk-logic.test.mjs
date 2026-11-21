@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DESK_SUBS, LANDING_SUB, unseenLinks, casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, holdUntil, holdDates, serverDay, heldCards, dayWords, deskDay, returnDay, openIds } from '../js/cas-desk-logic.js';
+import { DESK_SUBS, LANDING_SUB, unseenLinks, casMessage, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, linkAction, orderedIds, deskRows, rankItems, holdUntil, holdDates, serverDay, heldCards, dayWords, deskDay, returnDay, openIds, isHttps, linkHost } from '../js/cas-desk-logic.js';
 
 const item = (id, extra = {}) => ({ id, project: 'p', title: 'T' + id, kind: 'review', status: 'open', minutes: 3, ...extra });
 const data = { feed: { project_order: ['p'], items: [item('a'), item('b'), item('c'), item('a1', { parent_id: 'a' })] } };
@@ -162,4 +162,20 @@ test('cards on hold are not counted as needing Chris, in the list or the Mission
   assert.deepEqual(openIds(data), ['a']);
   assert.deepEqual(deskRows(data).map(r => r.id), ['a']);
   assert.deepEqual(openIds({ ...data, held_cards: undefined }), ['a', 'b']);
+});
+
+test('a link must be a real https address: no user name or password, a host, no spaces, no other scheme', () => {
+  assert.equal(isHttps('https://comptroller.texas.gov/taxes/permit/'), true);
+  assert.equal(isHttps('https://name@evil.tld/'), false);
+  assert.equal(isHttps('https://user:pw@evil.tld/'), false);
+  assert.equal(isHttps('https://'), false);
+  assert.equal(isHttps('http://example.com'), false);
+  assert.equal(isHttps('javascript:alert(1)'), false);
+  assert.equal(isHttps('data:text/html,x'), false);
+  assert.equal(isHttps('https://exa mple.com'), false);
+  assert.equal(isHttps('https://example.com/' + 'a'.repeat(2100)), false);
+  assert.equal(isHttps(null), false);
+  assert.equal(linkAction({ kind: 'url', target: 'https://name@evil.tld/' }).type, 'none');
+  assert.equal(linkHost('https://www.printify.com/app/login'), 'printify.com');
+  assert.equal(linkHost('https://name@evil.tld/'), '');
 });

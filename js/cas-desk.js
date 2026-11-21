@@ -4,7 +4,7 @@ import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, re
 import { initReveal, requestReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas92';
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas92';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas92';
-import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
+import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas92';
 
 export { rankItems };
@@ -166,7 +166,10 @@ async function holdCard(id, until) {
 }
 
 async function unhold(id) {
+  if (_busy.has('unhold:' + id)) return;
+  _busy.add('unhold:' + id);
   const res = await post('/unhold', { item_id: id });
+  _busy.delete('unhold:' + id);
   say(res.ok ? 'Back on your list.' : (SAY[res.status] || 'Not saved. Try again.'));
   await load(true);
 }
@@ -218,7 +221,8 @@ function linkNode(link, text, cls) {
   const act = linkAction(link);
   const label = text || link.label;
   if (act.type === 'open') {
-    const a = el('a', cls || 'dk-chip', label + (cls ? '' : ' ↗'));
+    const host = linkHost(act.href);
+    const a = el('a', cls || 'dk-chip', cls ? label : label + (host ? ' · ' + host : '') + ' ↗');
     a.href = act.href;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';

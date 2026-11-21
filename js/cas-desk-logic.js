@@ -62,8 +62,18 @@ export function casMessage(parent, kid, why) {
   return lines.join('\n').slice(0, 1800);
 }
 
+/** A link the phone may open: a parsed https address with a host, no user name or password in it (blocks https://name@evil.tld/), no spaces. */
 export function isHttps(target) {
-  return typeof target === 'string' && /^https:\/\/[^\s]+$/.test(target);
+  if (typeof target !== 'string' || target.length > 2000 || /\s/.test(target)) return false;
+  let u;
+  try { u = new URL(target); } catch { return false; }
+  return u.protocol === 'https:' && !!u.hostname && !u.username && !u.password;
+}
+
+/** The host shown on a link chip, so the real destination is visible; '' when the address is not a usable https link. */
+export function linkHost(target) {
+  if (!isHttps(target)) return '';
+  return new URL(target).hostname.replace(/^www\./, '');
 }
 
 /** What tapping a link does. A folder or data path lives on the PC, so the phone shows it and does nothing. */
