@@ -260,3 +260,6 @@
 #look-card .look-name { display: flex; justify-content: space-between; gap: 8px; font: 700 13px var(--dk-ui, sans-serif); color: #2a1a05; }
 #look-card small { display: block; margin-top: 2px; font: 600 12px var(--dk-ui, sans-serif); color: #5a3d14; }
 #look-card .look-note { margin: 8px 0 0; font: 600 12px/1.4 var(--dk-ui, sans-serif); color: #5a3d14; }
+
+.dk-actnote { margin: 4px 0 0; font-size: 12px; color: #5a3d14; }
+.dk-stuckline.timeout, .dk-stuckline.left { color: #7e231d; font-weight: 700; }

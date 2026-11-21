@@ -4,6 +4,7 @@ import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, re
 import { syncLook } from './cas-themes.js?v=cas92';
 import { barAnimates } from './cas-reveal-logic.js?v=cas92';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas92';
+import { normalizeStuckMeta, stuckStatus, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas92';
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas92';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas92';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas92';
@@ -346,11 +347,12 @@ function actions(item, stuckNow) {
   const box = el('div', 'dk-acts');
   const text = () => (_whys.get(item.id) || '').trim();
   if (stuckNow) {
-    box.append(el('p', 'dk-stuckline', stuckNow.hasKids
-      ? (stuckNow.why ? 'You said: ' + stuckNow.why : 'Repair missions are listed above.')
-      : 'Cas is working on it. Repair missions appear under this card when they are ready.' + (stuckNow.why ? ' You said: ' + stuckNow.why : '')));
+    const st = stuckNow.status || stuckStatus(null, null, !!stuckNow.hasKids);
+    const said = stuckNow.why ? 'You said: ' + stuckNow.why : '';
+    const line = [st.line || (st.kind === 'missions' ? 'Repair missions are listed above.' : ''), st.next, said].filter(Boolean).join(' ');
+    if (line) box.append(el('p', 'dk-stuckline ' + st.kind, line));
     if (stuckNow.held) box.append(el('p', 'dk-heldline', stuckNow.held));
-    box.append(button('dk-act', 'Unstuck', () => answer(item.id, 'unstuck')));
+    box.append(button('dk-act', 'Unstuck', () => answer(item.id, 'unstuck')), el('p', 'dk-note dk-actnote', UNSTUCK_NOTE));
     return box;
   }
   const hasChoices = item.choices && item.choices.length;
@@ -403,7 +405,7 @@ function kidCard(item, done, stuckNow, parent, why) {
   });
   if (item.summary) k.append(el('p', 'dk-sum', item.summary));
   if (item.cas_prompt) {
-    k.append(button('dk-act cas', 'Send to Cas', () => sendToCas(item, parent, why)));
+    k.append(button('dk-act cas', 'Send to Cas', () => sendToCas(item, parent, why)), el('p', 'dk-note dk-actnote', SEND_NOTE));
     return k;
   }
   const seen = new Set();
@@ -667,7 +669,9 @@ function card(item, n, ctx) {
   top.append(titleNode(item));
   const marks = el('div', 'dk-marks');
   if (ctx.mine) { marks.append(el('span', 'dk-mark', 'Your order')); marks.append(button('dk-rel', 'Release', () => release(item.id))); }
-  if (ctx.stuckNow && !ctx.kids.length) marks.append(el('span', 'dk-mark warn', 'Cas is working on it'));
+  if (ctx.stuckNow && ctx.stuckNow.status && ctx.stuckNow.status.working) marks.append(el('span', 'dk-mark warn', 'Cas is working on it'));
+  else if (ctx.stuckNow && ctx.stuckNow.status && ctx.stuckNow.status.kind === 'timeout') marks.append(el('span', 'dk-mark warn', 'Cas has not answered'));
+  else if (ctx.stuckNow && ctx.stuckNow.status && ctx.stuckNow.status.kind === 'left') marks.append(el('span', 'dk-mark warn', 'No repair missions'));
   if (ctx.snoozed) marks.append(el('span', 'dk-mark', 'Not today'), button('dk-rel', 'Bring back', () => answer(item.id, 'undo')));
   if (marks.childNodes.length) top.append(marks);
   top.append(grip(item, ctx));
@@ -854,6 +858,8 @@ function draw() {
   const mine = new Set(field('mine', []));
   const snoozed = new Set(field('snoozed', []));
   const stuckMap = field('stuck', {});
+  const stuckMeta = normalizeStuckMeta(_data.stuck_meta);
+  const nowSecs = _data.now == null ? null : _data.now + (Date.now() - _loadedAt) / 1000;
   const kidsMap = field('children', {});
   const waitMap = field('waiting', {});
   const hints = field('hints', {});
@@ -886,7 +892,7 @@ function draw() {
   const make = (id, n, drag) => {
     const item = items.get(id);
     const ctx = {
-      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: (field('held', {})[id] || {}).line || '' } : null,
+      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: (field('held', {})[id] || {}).line || '', status: stuckStatus(stuckMeta[id], nowSecs, (kidsMap[id] || []).length > 0) } : null,
       hint: hints[id], waiting: waitMap[id] || [], kids: visibleKids(kidsMap[id] || [], id in stuckMap),
     };
     try { return card(item, n, ctx); } catch (e) {
