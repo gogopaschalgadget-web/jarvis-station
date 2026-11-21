@@ -81,7 +81,7 @@ export function dependsTitles(idea, items) {
 export function wantLine(status, json) {
   if (status === 200 || status === 201) {
     const n = json && Number.isFinite(json.wants) ? json.wants : 0;
-    return n > 1 ? 'Sent to the orchestrator again (' + n + ' taps so far).' : 'Sent to the orchestrator.';
+    return n > 1 ? 'Sent to the orchestrator. You have asked for this on ' + n + ' days.' : 'Sent to the orchestrator.';
   }
   if (status === 401) return 'The sign-in has expired. Sign in again.';
   if (status === 429) return 'Too many taps in a minute. Wait a moment.';

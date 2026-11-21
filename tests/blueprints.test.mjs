@@ -41,7 +41,7 @@ test('ideas for a place match by the place name and only open ideas; depends-on 
 test('the answer to a want tap is worded from the status and the tap count only', async () => {
   const { wantLine } = await import('../js/cas-blueprints.js');
   assert.equal(wantLine(200, { wants: 1 }), 'Sent to the orchestrator.');
-  assert.equal(wantLine(200, { wants: 3 }), 'Sent to the orchestrator again (3 taps so far).');
+  assert.equal(wantLine(200, { wants: 3 }), 'Sent to the orchestrator. You have asked for this on 3 days.');
   assert.equal(wantLine(200, null), 'Sent to the orchestrator.');
   assert.match(wantLine(429), /Too many taps/);
   assert.match(wantLine(422), /no longer on the list/);
