@@ -545,7 +545,7 @@ function ideaGrid(items, list) {
 }
 
 function placeIdeas(place, list) {
-  const items = ideasForPlace(list, place.name);
+  const items = ideasForPlace(list, place);
   if (!items.length) return null;
   const box = el('div', 'bp-place');
   box.append(el('p', 'wd-sub', 'Ideas for this place (' + items.length + ')'), ideaGrid(items, list));

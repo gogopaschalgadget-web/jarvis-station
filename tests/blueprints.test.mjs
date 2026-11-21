@@ -34,7 +34,9 @@ test('sorting: smallest first; with Fun on, fun first then both; filters by kind
 
 test('ideas for a place match by the place name and only open ideas; depends-on shows titles', () => {
   const list = normalizeBlueprints([rec('a', { map_tile: 'The Mint' }), rec('b', { map_tile: 'The Mint', state: 'live' }), rec('c', { map_tile: 'X', depends_on: ['a', 'zzz'] })]);
-  assert.deepEqual(ideasForPlace(list, 'The Mint').map(i => i.id), ['a']);
+  assert.deepEqual(ideasForPlace(list, { id: 'mint', name: 'The Mint' }).map(i => i.id), ['a']);
+  assert.deepEqual(ideasForPlace(normalizeBlueprints([rec('p', { map_tile: 'mint' }), rec('q', { map_tile: '' }), rec('r')]), { id: 'mint', name: 'The Mint' }).map(i => i.id), ['p']);
+  assert.deepEqual(ideasForPlace(list, null), []);
   assert.deepEqual(dependsTitles(list.find(i => i.id === 'c'), list), ['T a', 'zzz']);
 });
 

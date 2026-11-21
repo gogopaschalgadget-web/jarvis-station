@@ -66,9 +66,10 @@ export function blueprintView(items, filter) {
   };
 }
 
-/** Open ideas that belong to a map place, by the place's name. */
-export function ideasForPlace(items, placeName) {
-  return items.filter(i => OPEN_STATES.includes(i.state) && i.tile === placeName);
+/** Open ideas that belong to a map place: map_tile holds the place id (spire, mint, ...), the place name is accepted too. */
+export function ideasForPlace(items, place) {
+  if (!place) return [];
+  return items.filter(i => OPEN_STATES.includes(i.state) && i.tile && (i.tile === place.id || i.tile === place.name));
 }
 
 /** What an idea depends on, as titles where the idea is known, else the id as written. */
