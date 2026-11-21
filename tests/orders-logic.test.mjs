@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { timeWords, quickGroup, quickTitle, rundownText, allDoneText, weekNote, normalizeOrders, normalizeDashboard, sittingGroups, sittingTitle, budgetLabel, resetText, tomorrowLocal, windowText, agoText, hoursText, weekText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView } from '../js/cas-orders-logic.js';
+import { timeWords, quickGroup, quickTitle, rundownText, allDoneText, weekNote, normalizeOrders, normalizeDashboard, sittingGroups, sittingTitle, budgetLabel, resetText, tomorrowLocal, windowText, bulletinSections, agoText, hoursText, weekText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView } from '../js/cas-orders-logic.js';
 
 test('ages read in words and unknown stays unknown', () => {
   assert.equal(agoText(null), 'unknown');
@@ -127,4 +127,18 @@ test('rows the server left out of the sittings still show, and thin sittings do 
   const d = normalizeOrders({ rows: [{ key: 'a', minutes: 25 }, { key: 'b', minutes: 10 }], sittings: [{ keys: ['a'] }, { n: 2 }, null] });
   assert.deepEqual(sittingGroups(d).map(g => [g.n, g.rows.map(r => r.key)]), [[1, ['a']], [2, ['b']]]);
   assert.equal(windowText({}), 'Open 9 to 5');
+});
+
+test('bulletinSections groups real numbers by block, adds loops under Operation, drops empty blocks', () => {
+  const d = {
+    numbers: [{ label: 'X posts', value: '4', block: 'production', source: 's' }, { label: 'Views', value: null, block: 'analytics' }],
+    loops: [{ id: 'x', name: 'X posts', status: 'running' }], proven: 0, total: 1,
+  };
+  const s = bulletinSections(d);
+  assert.deepEqual(s.map(x => x.key), ['production', 'operation', 'analytics']);
+  assert.equal(s[0].tiles[0].value, '4');
+  assert.equal(s[1].tiles[0].value, '0 of 1');
+  assert.equal(s[2].tiles[0].unknown, true);
+  assert.deepEqual(bulletinSections(null), []);
+  assert.deepEqual(bulletinSections({ numbers: 'x', loops: null }), []);
 });

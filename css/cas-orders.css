@@ -89,3 +89,6 @@
 #panel-desk .or-run { margin: 6px 0 0; font: 800 14px/1.3 var(--dk-ui); color: #f6e6c0; }
 #panel-desk .or-alldone { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #0f2a17; border: 1px solid #3f9a53; color: #bfe8c8; font: 800 14px var(--dk-ui); }
 #panel-desk .or-over { color: #ffcba8; }
+
+#panel-desk .bb-h { margin: 14px 0 6px; font: 900 12px var(--dk-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--dk-brass-hi); }
+#panel-desk .bb-loop { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 36px; padding: 4px 10px; margin: 0 0 6px; border-radius: 9px; border: 1px solid #3c3423; font: 700 13px var(--dk-ui); color: var(--dk-text); }

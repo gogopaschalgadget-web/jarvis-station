@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, ordersPill, typingInOrders } from './cas-orders.js?v=cas81';
-import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, unseenLinks, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas83';
+import { initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, renderBulletin, ordersPill, typingInOrders } from './cas-orders.js?v=cas86';
+import { SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, unseenLinks, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas86';
 
 export { rankItems };
 
@@ -38,7 +38,7 @@ const _busy = new Set();
 const _sentKids = new Set();
 let _onData = () => {};
 let _sub = 'orders';
-const SUBS = [['orders', 'Orders'], ['desk', 'Desk'], ['dashboard', 'Dashboard']];
+const SUBS = [['bulletin', 'Bulletin Board'], ['desk', 'Work Desk'], ['orders', 'Orders'], ['dashboard', 'Dashboard']];
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -481,7 +481,7 @@ function subTabs() {
 }
 
 function loadSub(force) {
-  if (_sub === 'orders') loadOrders(force); else if (_sub === 'dashboard') loadDashboard(force); else load(force);
+  if (_sub === 'orders') loadOrders(force); else if (_sub === 'dashboard') loadDashboard(force); else if (_sub === 'bulletin') { load(force); loadDashboard(force); } else load(force);
 }
 
 async function jumpToCard(id) {
@@ -498,7 +498,7 @@ async function jumpToCard(id) {
 function draw() {
   const panel = _panel;
   if (!panel) return;
-  if (_sub !== 'desk' && typingInOrders()) return;
+  if ((_sub === 'orders' || _sub === 'dashboard') && typingInOrders()) return;
   const scroll = panel.scrollTop;
   const typing = document.activeElement && document.activeElement.classList.contains('dk-whyin') ? document.activeElement.closest('[data-id]') : null;
   const typingId = typing && typing.dataset.id;
@@ -508,7 +508,7 @@ function draw() {
   const wrap = el('div', 'dk-body');
   panel.append(head, subTabs(), wrap);
 
-  if (_sub !== 'desk') {
+  if (_sub === 'orders' || _sub === 'dashboard') {
     clearTimeout(_rerankTimer);
     head.append(el('span', 'dk-pill', _sub === 'orders' ? ordersPill() : 'Dashboard'));
     if (_sub === 'orders') renderOrders(wrap); else renderDashboard(wrap);
@@ -522,6 +522,15 @@ function draw() {
     return;
   }
   if (_state === 'empty') { wrap.append(el('p', 'dk-note', 'Nothing here yet. The list appears once the PC sends it.')); return; }
+  if (_sub === 'bulletin') {
+    clearTimeout(_rerankTimer);
+    const need = orderedIds(_data).length;
+    const logged = Math.max(doneList(_data).length, Number(_data.done_total) || 0);
+    head.append(el('span', 'dk-pill' + (need ? '' : ' none'), need ? need + ' need you' : 'All clear'));
+    renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
+    panel.scrollTop = scroll;
+    return;
+  }
 
   const items = itemsById(_data);
   const ids = orderedIds(_data);
@@ -670,7 +679,7 @@ export function preloadDesk(done) { _onData = done || (() => {}); load(false); }
 
 export function showDesk() {
   if (!_panel) _panel = document.getElementById('panel-desk');
-  if (_state === 'ready' || _state === 'empty' || _sub !== 'desk') draw();
+  if (_state === 'ready' || _state === 'empty' || _sub === 'orders' || _sub === 'dashboard') draw();
   startTick();
   loadSub(false);
 }

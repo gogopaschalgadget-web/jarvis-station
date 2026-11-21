@@ -1,9 +1,9 @@
 // cas-orders.js - Orders of the Day and the Dashboard, the two other sub-tabs of the Desk. Server text goes in with textContent only.
 
 import {
-  BLOCKS, agoText, hoursText, weekText, windowText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView,
+  BLOCKS, agoText, hoursText, weekText, windowText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView, bulletinSections,
   tomorrowLocal, resetText, budgetLabel, timeWords, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote,
-} from './cas-orders-logic.js?v=cas81';
+} from './cas-orders-logic.js?v=cas86';
 
 const TIMEOUT_MS = 15_000;
 const TOAST_MS = 8_000;
@@ -263,6 +263,28 @@ export function renderOrders(wrap) {
 }
 
 // Dashboard
+
+export function renderBulletin(wrap, top) {
+  const row = el('div', 'db-nums');
+  top.forEach(t => row.append(tile(t.label, t.value, t.note, false)));
+  wrap.append(row);
+  if (_dash.state === 'idle' || _dash.state === 'loading') { wrap.append(el('p', 'dk-note', 'Loading...')); return; }
+  if (_dash.state === 'failed') { wrap.append(el('p', 'dk-note', 'Reports are not available right now.'), button('dk-btn', 'Try again', () => loadDashboard(true))); return; }
+  const sections = bulletinSections(_dash.data);
+  if (!sections.length) wrap.append(el('p', 'dk-note', 'No reports yet. Each number appears here once the PC sends it, with its source.'));
+  sections.forEach(s => {
+    wrap.append(el('h3', 'bb-h', s.label));
+    const grid = el('div', 'db-nums');
+    s.tiles.forEach(t => grid.append(tile(t.label, t.value, t.note, t.unknown)));
+    if (grid.childNodes.length) wrap.append(grid);
+    s.loops.forEach(l => {
+      const line = el('div', 'bb-loop');
+      const st = statusInfo(l.status);
+      line.append(el('span', '', l.name), el('span', 'db-st ' + st.cls, st.label));
+      wrap.append(line);
+    });
+  });
+}
 
 function tile(label, value, note, unknown) {
   const t = el('div', 'db-n');

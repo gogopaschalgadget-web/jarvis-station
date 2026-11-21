@@ -159,3 +159,14 @@ export function normalizeDashboard(j) {
   }));
   return { loops, numbers: Array.isArray(j.numbers) ? j.numbers : [], proven: loops.filter(l => l.proof.state === 'proven').length, total: loops.length };
 }
+
+/** The Bulletin Board's read-only sections: each block's real numbers (and the loops under Operation); empty blocks are left out. */
+export function bulletinSections(d) {
+  if (!d || typeof d !== 'object') return [];
+  const loops = Array.isArray(d.loops) ? d.loops : [];
+  return BLOCKS.map(([key, label]) => {
+    const tiles = numbersFor(Array.isArray(d.numbers) ? d.numbers : [], key).map(n => ({ label: String(n.label || ''), ...numberView(n) }));
+    if (key === 'operation' && loops.length) tiles.unshift({ label: 'Loops proven', value: `${d.proven} of ${d.total}`, note: 'end-to-end test passed', unknown: false });
+    return { key, label, tiles, loops: key === 'operation' ? loops : [] };
+  }).filter(s => s.tiles.length || s.loops.length);
+}
