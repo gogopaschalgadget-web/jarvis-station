@@ -168,3 +168,4 @@
 .wd-sub { margin: 10px 0 4px; font: 800 11px var(--dk-ui); letter-spacing: .1em; text-transform: uppercase; color: #a89468; }
 .wd-loop { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px dashed #3c3423; font: 700 13px var(--dk-ui); color: var(--dk-text); }
 .wd-proof { color: #a89468; font-size: 12px; text-align: right; }
+.wd-lamp.blueprint::before { background: #5b8fc0; }

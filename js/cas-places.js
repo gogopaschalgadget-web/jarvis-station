@@ -37,9 +37,15 @@ export function loopsFor(place, loops) {
 
 /** One state lamp for a tile, from its loops only; 'none' means not reported. Blocked beats waiting beats running. */
 export function lampFor(place, loops) {
+  if (!place.built) return 'none';
   const states = loopsFor(place, loops).map(l => l.status);
   if (states.includes('blocked')) return 'blocked';
   if (states.includes('waiting_you')) return 'waiting';
   if (states.includes('running')) return 'running';
   return 'none';
+}
+
+/** The tile filter after a jump to a card: kept only if the card sits on that tile, else cleared so the card is drawn. */
+export function tileAfterJump(tile, item) {
+  return tile && tileFor(item) === tile ? tile : null;
 }

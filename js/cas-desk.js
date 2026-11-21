@@ -1,8 +1,8 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas88';
-import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor } from './cas-places.js?v=cas88';
-import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas88';
+import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas89';
+import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump } from './cas-places.js?v=cas89';
+import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas89';
 
 export { rankItems };
 
@@ -185,6 +185,7 @@ function openCard(id) {
   const ids = orderedIds(_data);
   if (!ids.includes(id)) { say('That one is already done.'); return; }
   _open.add(id);
+  _tile = tileAfterJump(_tile, itemsById(_data).get(id));
   if (ids.indexOf(id) >= SHOWN) _moreOpen = true;
   draw();
   const node = _panel && _panel.querySelector(`[data-id="${CSS.escape(id)}"]`);
@@ -455,7 +456,7 @@ function placesMap(buckets, loops) {
       t.setAttribute('aria-pressed', String(_tile === p.id));
       t.append(el('b', '', p.name));
       if (n) t.append(el('span', 'wd-count', String(n)));
-      t.append(el('small', 'wd-lamp ' + lamp, p.built ? LAMP[lamp] : 'Blueprint, not built yet'));
+      t.append(el('small', 'wd-lamp ' + (p.built ? lamp : 'blueprint'), p.built ? LAMP[lamp] : 'Blueprint, not built yet'));
       grid.append(t);
     });
     map.append(grid);
@@ -614,6 +615,7 @@ function loadSub(force) {
 
 async function jumpToCard(id) {
   _sub = 'desk';
+  _tile = null;
   _open.add(id);
   draw();
   if (_state !== 'ready') await load(true);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PLACES, BENCH, tileFor, tileBuckets, loopsFor, lampFor } from '../js/cas-places.js';
+import { openIds } from '../js/cas-desk-logic.js';
+import { PLACES, BENCH, tileFor, tileBuckets, loopsFor, lampFor, tileAfterJump } from '../js/cas-places.js';
 
 const ids = PLACES.map(p => p.id);
 
@@ -45,4 +46,26 @@ test('lamp comes only from the tile\'s own loops: blocked, then waiting, then ru
   const two = { ...x, loops: ['a', 'b'] };
   assert.equal(lampFor(two, [{ id: 'a', status: 'running' }, { id: 'b', status: 'blocked' }]), 'blocked');
   assert.equal(loopsFor(two, [{ id: 'a' }, { id: 'c' }, null]).length, 1);
+});
+
+test('a blueprint tile shows no loop lamp', () => {
+  const q = PLACES.find(p => p.id === 'quora');
+  assert.equal(q.built, false);
+  assert.equal(lampFor(q, [{ id: 'quora_answers', status: 'running' }]), 'none');
+});
+
+test('a jump keeps the tile filter only when the card is on that tile, else clears it', () => {
+  assert.equal(tileAfterJump('mint', { project: 'veteran-prints' }), 'mint');
+  assert.equal(tileAfterJump('mint', { project: 'x-posts' }), null);
+  assert.equal(tileAfterJump('mint', null), null);
+  assert.equal(tileAfterJump(null, { project: 'x-posts' }), null);
+});
+
+test('tile counts: stuck cards count, held cards do not', () => {
+  const data = {
+    feed: { items: [{ id: 'a', project: 'veteran-prints' }, { id: 'b', project: 'veteran-prints' }, { id: 'c', project: 'veteran-prints' }] },
+    order: ['a', 'b', 'c'], stuck: { b: 'why' }, held_cards: [{ id: 'c', title: 'C', hold: { until: '2026-11-25', reason: 'r' } }],
+  };
+  const items = new Map(data.feed.items.map(i => [i.id, i]));
+  assert.deepEqual(tileBuckets(openIds(data), items).get('mint'), ['a', 'b']);
 });
