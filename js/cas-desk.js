@@ -1,9 +1,10 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas91';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas91';
-import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor, tileArt } from './cas-places.js?v=cas91';
+import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas90';
+import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas91';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas91';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES, ideaArt } from './cas-blueprints.js?v=cas91';
 
 export { rankItems };
 
@@ -126,7 +127,9 @@ async function answer(id, kind, extra = {}) {
   _whys.delete(id);
   _need.delete(id);
   const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
-  say(kind === 'undo' ? 'Undone.' : res.json.line || 'Saved.', undoable ? () => answer(id, 'undo') : null);
+  const xp = kind === 'done' || kind === 'choice' ? xpLine(res.json) : '';
+  const up = rankUpOf(res.json);
+  say(kind === 'undo' ? 'Undone.' : [res.json.line || 'Saved.', xp, up ? 'Rank up: ' + up.name + '.' : ''].filter(Boolean).join(' '), undoable ? () => answer(id, 'undo') : null);
   await load(true);
 }
 
@@ -459,6 +462,44 @@ function heldStrip(list) {
 
 const LAMP = { running: 'Running', waiting: 'Waiting on you', blocked: 'Blocked', none: 'Not reported' };
 
+function barNode(pct) {
+  const bar = el('div', 'bb-bar');
+  const fill = el('i', '');
+  fill.style.width = '0%';
+  bar.append(fill);
+  requestAnimationFrame(() => { fill.style.width = pct + '%'; });
+  bar.setAttribute('role', 'progressbar');
+  bar.setAttribute('aria-valuenow', String(pct));
+  return bar;
+}
+
+function progressBlock(p) {
+  const box = el('div', 'bb-prog');
+  const plate = el('div', 'bb-plate');
+  const medal = el('div', 'bb-medal', String(p.rank.index));
+  medal.dataset.slot = 'rank-medallion';
+  const body = el('div', 'bb-platebody');
+  body.append(el('small', '', 'Owner'), el('b', '', p.rank.name));
+  body.append(el('span', '', p.rank.nextAt == null ? p.xp.toLocaleString('en-US') + ' XP. Top rank.' : p.xp.toLocaleString('en-US') + ' of ' + p.rank.nextAt.toLocaleString('en-US') + ' XP to ' + (p.rank.nextName || 'the next rank')));
+  body.append(barNode(p.rank.pct));
+  plate.append(medal, body);
+  box.append(plate);
+  if (p.desks.length) {
+    const grid = el('div', 'bb-desks');
+    p.desks.forEach(d => {
+      const c = el('div', 'bb-desk' + (d.placeholder ? ' placeholder' : ''));
+      c.dataset.slot = 'machine-' + d.id;
+      c.append(el('b', '', d.name), el('small', '', [d.machine, d.tier].filter(Boolean).join(' · ') || 'Not reported'));
+      if (d.placeholder) c.append(el('em', '', 'Placeholder: Chris does this by hand now, automation later'));
+      else c.append(barNode(d.pct), el('span', '', d.nextAt == null ? d.xp + ' XP' : d.xp + ' / ' + d.nextAt + ' XP'));
+      if (d.legendary) c.append(el('em', '', d.legendary));
+      grid.append(c);
+    });
+    box.append(grid);
+  }
+  return box;
+}
+
 function placesMap(buckets, loops) {
   const map = el('div', 'wd-map');
   [...ROWS, ['bench', 'Bench']].forEach(([key, label]) => {
@@ -783,6 +824,8 @@ function draw() {
     const need = openIds(_data).length;
     const logged = Math.max(doneList(_data).length, Number(_data.done_total) || 0);
     head.append(el('span', 'dk-pill' + (need ? '' : ' none'), need ? need + ' need you' : 'All clear'));
+    const prog = normalizeProgress(_data && _data.progress);
+    if (prog) wrap.append(progressBlock(prog));
     renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
     panel.scrollTop = scroll;
     return;
