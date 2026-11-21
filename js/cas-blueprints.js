@@ -75,3 +75,14 @@ export function dependsTitles(idea, items) {
   const byId = new Map(items.map(i => [i.id, i.title]));
   return idea.dependsOn.map(id => byId.get(id) || id);
 }
+
+/** Words for the answer to an "I want to work on this" tap; from the status only, never invented. */
+export function wantLine(status, json) {
+  if (status === 200 || status === 201) {
+    const n = json && Number.isFinite(json.wants) ? json.wants : 0;
+    return n > 1 ? 'Sent to the orchestrator again (' + n + ' taps so far).' : 'Sent to the orchestrator.';
+  }
+  if (status === 429) return 'Too many taps in a minute. Wait a moment.';
+  if (status === 422) return 'That idea is no longer on the list.';
+  return 'Not sent. Try again.';
+}

@@ -1,7 +1,7 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas91';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS } from './cas-blueprints.js?v=cas91';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, wantLine, OPEN_STATES } from './cas-blueprints.js?v=cas91';
 import { PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor, tileArt } from './cas-places.js?v=cas91';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas91';
 
@@ -136,6 +136,8 @@ let _bpOpen = false;
 let _bpIdea = null;
 const _bpFilter = { fun: 'all', size: 'all' };
 const _bpClosed = new Set();
+const _bpSent = new Set();
+let _bpBusy = false;
 let _holdFor = null;
 let _holdPick = false;
 const _holdDate = new Map();
@@ -488,6 +490,15 @@ function placesMap(buckets, loops) {
   return map;
 }
 
+async function wantIdea(idea) {
+  if (_bpBusy) return;
+  _bpBusy = true;
+  const res = await post('/blueprint', { id: idea.id });
+  _bpBusy = false;
+  if (res.ok) _bpSent.add(idea.id);
+  say(wantLine(res.ok ? 200 : res.status, res.json));
+}
+
 function ideaDetail(idea, list) {
   const box = el('div', 'bp-detail');
   box.dataset.slot = 'blueprint-' + idea.area;
@@ -498,6 +509,7 @@ function ideaDetail(idea, list) {
   if (idea.needs) { const p = el('p', ''); p.append(el('b', '', 'Needs from Chris: '), document.createTextNode(idea.needs)); box.append(p); }
   const deps = dependsTitles(idea, list);
   if (deps.length) { const p = el('p', ''); p.append(el('b', '', 'Depends on: '), document.createTextNode(deps.join(', '))); box.append(p); }
+  if (OPEN_STATES.includes(idea.state)) box.append(button('dk-act bp-want', _bpSent.has(idea.id) ? 'Sent. Tap to send again' : 'I want to work on this', () => wantIdea(idea)));
   return box;
 }
 
