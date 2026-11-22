@@ -8,6 +8,7 @@ let _o = { apiBase: '', getToken: () => '', say: () => {}, fetch: (...a) => fetc
 let _list = [];
 let _state = 'idle';
 let _loadedAt = 0;
+let _failedAt = 0;
 let _inflight = null;
 let _inflightToken = null;
 let _stopped = false;
@@ -56,6 +57,7 @@ export function loadGallery(force = false) {
   if (_stopped) return Promise.resolve(_list);
   if (_inflight && !(force && _inflightToken && _inflightToken.gen !== _gen)) return _inflight;
   if (!force && _state === 'ready' && Date.now() - _loadedAt < TTL_MS) return Promise.resolve(_list);
+  if (!force && _state === 'failed' && Date.now() - _failedAt < BACKOFF_MS) return Promise.resolve(_list);
   const mine = { gen: _gen, epoch: _epoch };
   _inflightToken = mine;
   _inflight = (async () => {
@@ -67,7 +69,7 @@ export function loadGallery(force = false) {
         try { _list = normalizeGallery(await r.res.json()); _state = 'ready'; _loadedAt = Date.now(); } catch { if (_state !== 'ready') _state = 'failed'; }
       } else {
         if (failureAction(r.status) === 'stop') _stopped = true;
-        if (_state !== 'ready') _state = 'failed';
+        if (_state !== 'ready') { _state = 'failed'; _failedAt = Date.now(); }
       }
     } catch (e) {
       if (mine.epoch === _epoch && _state !== 'ready') _state = 'failed';
@@ -94,13 +96,14 @@ export function stopGallery() {
 
 // ---- thumbnails: fetched when they come near the screen, scaled in the browser, kept in memory only
 
-async function makeThumb(id) {
-  const epoch = _epoch;
+async function makeThumb(id, epoch) {
   const r = await call('/' + encodeURIComponent(id) + '/picture');
   if (!r.ok) {
-    if (failureAction(r.status) === 'stop') _stopped = true;
-    if (r.status === 429) { _thumbPause = Date.now() + BACKOFF_MS; throw new Error('busy'); }
-    throw new Error('failed');
+    if (epoch === _epoch) {
+      if (failureAction(r.status) === 'stop') _stopped = true;
+      if (r.status === 429) _thumbPause = Date.now() + BACKOFF_MS;
+    }
+    throw new Error(r.status === 429 ? 'busy' : 'failed');
   }
   const blob = await r.res.blob();
   if (!blob || typeof blob.type !== 'string' || !blob.type.startsWith('image/')) throw new Error('not an image');
@@ -122,14 +125,16 @@ async function makeThumb(id) {
 }
 
 function pump() {
+  if (_stopped) { while (_thumbWait.length) { const j = _thumbWait.shift(); _thumbPending.delete(j.id); j.done(''); } return; }
   if (Date.now() < _thumbPause) { setTimeout(pump, _thumbPause - Date.now() + 20); return; }
   while (_thumbBusy < THUMB_PARALLEL && _thumbWait.length) {
     const job = _thumbWait.shift();
+    const epoch = _epoch;
     _thumbBusy++;
-    makeThumb(job.id)
-      .then(u => { if (u) _thumbs.set(job.id, u); job.done(u); })
-      .catch(() => { _thumbFail.set(job.id, Date.now() + (Date.now() < _thumbPause ? BACKOFF_MS : FAIL_MS)); job.done(''); })
-      .finally(() => { _thumbBusy--; _thumbPending.delete(job.id); pump(); });
+    makeThumb(job.id, epoch)
+      .then(u => { if (u && epoch === _epoch) _thumbs.set(job.id, u); job.done(epoch === _epoch ? u : ''); })
+      .catch(() => { if (epoch === _epoch) _thumbFail.set(job.id, Date.now() + (Date.now() < _thumbPause ? BACKOFF_MS : FAIL_MS)); job.done(''); })
+      .finally(() => { _thumbBusy--; if (epoch === _epoch) _thumbPending.delete(job.id); pump(); });
   }
 }
 
@@ -314,10 +319,18 @@ function openPicture(id) {
   entry.shell.append(card);
   entry.shell.addEventListener('click', e => { if (e.target === entry.shell) popEntry(entry); });
 
+  img.addEventListener('error', () => { shown = false; status.textContent = 'This picture cannot be shown.'; row.replaceChildren(); why.hidden = true; });
   const current = () => _list.find(q => q.id === id) || null;
   const paint = () => {
     const p = current();
-    if (!p) { popEntry(entry); return false; }
+    if (!p) {
+      shown = false;
+      status.textContent = 'This picture is no longer in the gallery.';
+      row.replaceChildren();
+      why.hidden = true;
+      return false;
+    }
+    if (!actionsFor(p.state).includes('reject')) why.hidden = true;
     img.alt = p.subject || 'Picture';
     title.textContent = (p.state === 'starred' ? '★ ' : '') + (p.subject || 'Picture');
     when.textContent = dateWords(p.created);
@@ -343,20 +356,19 @@ function openPicture(id) {
     busy = true;
     const res = await call('/' + encodeURIComponent(id) + '/choice', body);
     busy = false;
-    if (closed) return;
     if (res.ok) {
       _list = afterChoice(_list, id, choice);
       _gen++;
       _loadedAt = 0;
-      popEntry(entry);
+      if (!closed) popEntry(entry);
       paintEntries();
       loadGallery(true);
       return;
     }
     const act = failureAction(res.status);
-    if (act === 'stop') { _stopped = true; _o.say('The sign-in has expired. Sign in again.'); closeAll(); }
-    else if (act === 'later') status.textContent = 'Not saved. Try again.';
-    else { status.textContent = 'That changed on the server. The list is refreshed.'; _gen++; loadGallery(true); }
+    if (act === 'stop') { _stopped = true; if (!closed) { _o.say('The sign-in has expired. Sign in again.'); closeAll(); } }
+    else if (act === 'later') { if (!closed) status.textContent = 'Not saved. Try again.'; }
+    else { if (!closed) status.textContent = 'That changed on the server. The list is refreshed.'; _gen++; loadGallery(true); }
   };
   send.addEventListener('click', () => choose('reject', input.value));
   paint();
