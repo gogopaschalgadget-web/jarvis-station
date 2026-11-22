@@ -33,3 +33,53 @@ export function rankUpOf(res) {
   const name = r ? text(r.to, 40) || text(r.name, 40) : '';
   return name ? { name, index: num(r.index) } : null;
 }
+
+const RANK_DIR = 'assets/themes/forge-and-brass/ranks/';
+const PLATE_FILES = { 1: 'rank01_founder', 2: 'rank02_amateur', 3: 'rank03_beginner', 4: 'rank04_technician', 5: 'rank05_supervisor', 6: 'rank06_manager', 7: 'rank07_senior-manager', 8: 'rank08_general-manager', 9: 'rank09_director', 10: 'rank10_vice-president', 11: 'rank11_executive', 12: 'rank12_chair' };
+/** Rank-up scenes painted so far, by rank index; a rank without one gets the plate on a dark brass backdrop. */
+const RANKUP_SCENES = { 4: 'rankup_technician' };
+
+/** The picture of a rank's plate (rank index 1 to 12), or '' when there is none. Fixed names only. */
+export function plateFor(index) {
+  return Number.isInteger(index) && Object.prototype.hasOwnProperty.call(PLATE_FILES, index) ? RANK_DIR + PLATE_FILES[index] + '.jpg' : '';
+}
+
+/** The painted scene for a rank-up, or '' when that rank has none yet. */
+export function rankUpScene(index) {
+  return Number.isInteger(index) && Object.prototype.hasOwnProperty.call(RANKUP_SCENES, index) ? RANK_DIR + RANKUP_SCENES[index] + '.jpg' : '';
+}
+
+/** The next rank's plate and what is still needed, from the server's progress only; null at the top rank. */
+export function nextPlate(progress) {
+  const r = progress && progress.rank;
+  if (!r || r.nextAt == null) return null;
+  return { index: r.index + 1, name: r.nextName, file: plateFor(r.index + 1), toGo: r.toGo };
+}
+
+/** How the rank-up is shown: professional mode is one quiet line, reduced motion is the new plate still, otherwise the animation. */
+export function rankUpMode({ mode, reduced } = {}) {
+  if (mode === 'professional') return 'line';
+  return reduced ? 'still' : 'animate';
+}
+
+/**
+ * What rank the phone last saw, kept in storage. `check` takes the server's progress and returns { index, name } once when the rank is higher than the
+ * phone last saw, then never again for that rank. The first time the phone sees any rank it only records it (no animation for a rank earned before).
+ * The rank comes from the server's progress alone. Storage that fails is ignored: the rank is still remembered for this session, so it cannot replay.
+ */
+export function makeRankMemory(storage, key = 'cas-rank-seen') {
+  let seen = null;
+  try { const v = storage && Number(storage.getItem(key)); if (Number.isInteger(v) && v >= 1 && v <= 99) seen = v; } catch { seen = null; }
+  return {
+    seen: () => seen,
+    check(progress) {
+      const r = progress && progress.rank;
+      if (!r || !Number.isInteger(r.index) || r.index < 1 || r.index > 99) return null;
+      const first = seen == null;
+      if (!first && r.index <= seen) return null;
+      seen = r.index;
+      try { if (storage) storage.setItem(key, String(r.index)); } catch { /* remembered for this session */ }
+      return first ? null : { index: r.index, name: r.name };
+    },
+  };
+}

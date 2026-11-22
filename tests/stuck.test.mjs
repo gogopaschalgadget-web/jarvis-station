@@ -100,7 +100,7 @@ test('the desk draw path uses the guards, not raw arithmetic on the server clock
 test('each desk read re-applies the look from its rank, so a later read with a lower rank or none falls back', async () => {
   const src = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
   const load = src.slice(src.indexOf('async function doLoad'));
-  assert.match(load.slice(0, load.indexOf('\n}\n')), /_data = data;\s*\n\s*syncLook\(normalizeProgress\(data\.progress\)\);/);
+  assert.match(load.slice(0, load.indexOf('\n}\n')), /_data = data;\s*\n\s*const prog = normalizeProgress\(data\.progress\);\s*\n\s*syncLook\(prog\);/);
   const { syncLook, saveLook, DEFAULT_LOOK } = await import('../js/cas-themes.js');
   const alt = [{ id: 'forge-and-brass', name: 'F', mode: 'game', ready: true, tagline: '' }, { id: 'counting-house', name: 'C', mode: 'professional', ready: true, tagline: '' }];
   const store = {};

@@ -5,7 +5,8 @@ import { syncLook } from './cas-themes.js?v=cas93';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas93';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas93';
-import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas93';
+import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas95';
+import { showRankUp } from './cas-rankup.js?v=cas95';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas93';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas95';
@@ -38,6 +39,7 @@ let _toastTimer = 0;
 let _rerankTimer = 0;
 let _openInit = false;
 let _tick = 0;
+const _rankMemory = makeRankMemory((() => { try { return localStorage; } catch { return null; } })());
 const _open = new Set();
 const _whys = new Map();
 const _need = new Set();
@@ -493,11 +495,31 @@ function progressBlock(p) {
   const plate = el('div', 'bb-plate');
   const medal = el('div', 'bb-medal', String(p.rank.index));
   medal.dataset.slot = 'rank-medallion';
+  const lead = el('div', 'bb-lead');
+  const art = plateFor(p.rank.index);
+  if (art) {
+    const img = el('img', 'bb-plateimg');
+    img.alt = p.rank.name + ' plate'; img.decoding = 'async'; img.src = art;
+    img.addEventListener('error', () => { img.remove(); lead.classList.remove('pic'); });
+    lead.classList.add('pic');
+    lead.append(img);
+  }
+  lead.append(medal);
   const body = el('div', 'bb-platebody');
   body.append(el('small', '', 'Owner'), el('b', '', p.rank.name));
   body.append(el('span', '', p.rank.nextAt == null ? p.xp.toLocaleString('en-US') + ' XP. Top rank.' : p.xp.toLocaleString('en-US') + ' of ' + p.rank.nextAt.toLocaleString('en-US') + ' XP to ' + (p.rank.nextName || 'the next rank')));
   body.append(barNode('rank', p.rank.pct));
-  plate.append(medal, body);
+  plate.append(lead, body);
+  const next = nextPlate(p);
+  if (next && next.file) {
+    const nx = el('div', 'bb-next');
+    nx.title = 'Next: ' + (next.name || 'the next rank') + ', ' + next.toGo.toLocaleString('en-US') + ' XP to go';
+    const nimg = el('img', 'bb-nextimg');
+    nimg.alt = ''; nimg.decoding = 'async'; nimg.src = next.file;
+    nimg.addEventListener('error', () => nx.remove());
+    nx.append(nimg, el('small', '', next.toGo.toLocaleString('en-US') + ' to go'));
+    plate.append(nx);
+  }
   box.append(plate);
   if (p.desks.length) {
     const grid = el('div', 'bb-desks');
@@ -998,7 +1020,12 @@ async function doLoad(force) {
     const data = await res.json();
     if (!data || typeof data !== 'object') throw new Error('shape');
     _data = data;
-    syncLook(normalizeProgress(data.progress));
+    const prog = normalizeProgress(data.progress);
+    syncLook(prog);
+    try {
+      const up = _rankMemory.check(prog);
+      if (up) showRankUp(document, { ...up, mode: document.documentElement.dataset.mode, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches, say });
+    } catch { /* the moment is a nicety; the Desk must load */ }
     if (!_doneOpen) _lookBase = lastLook();
     _state = data.feed && Array.isArray(data.feed.items) ? 'ready' : 'empty';
     _loadedAt = Date.now();
