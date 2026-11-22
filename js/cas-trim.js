@@ -1,4 +1,4 @@
-import { artFor } from './cas-theme-art.js?v=cas98';
+import { artFor } from './cas-theme-art.js?v=cas101';
 
 const DIR = 'assets/themes/forge-and-brass/trim/';
 

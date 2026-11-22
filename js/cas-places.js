@@ -1,4 +1,4 @@
-import { pictureFrom, artFor } from './cas-theme-art.js?v=cas98';
+import { pictureFrom, artFor } from './cas-theme-art.js?v=cas101';
 export const ROWS = [['command', 'Command'], ['production', 'Production'], ['channels', 'Channels']];
 
 /** One list of places, names as on the 3D map. `built` is false for blueprint tiles (not on the 3D map yet). Moves to the server when the 3D map reads it too. */
