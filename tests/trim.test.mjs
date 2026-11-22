@@ -214,6 +214,6 @@ test('the layer is put back after the bar is drawn (the bar redraw would wipe it
 });
 
 test('sw.js and the module tags are bumped for this change', () => {
-  assert.match(sw, /const VERSION = 'jarvis-cas-v101'/);
+  assert.match(sw, /const VERSION = 'jarvis-cas-v102'/);
   assert.ok(sw.includes("'js/cas-trim.js'"));
 });

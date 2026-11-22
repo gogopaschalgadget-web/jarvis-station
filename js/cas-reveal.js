@@ -229,6 +229,7 @@ function show(item) {
         if (r.ok) {
           const line = replacementLine(await json(r));
           if (line) _o.say(line);
+          if (_o.onChoice) { try { _o.onChoice(); } catch { /* the gallery list refreshes by itself */ } }
         } else {
           const act = failureAction(r.status);
           if (act === 'stop') { _stopped = true; _o.say('The sign-in has expired. Sign in again.'); }
