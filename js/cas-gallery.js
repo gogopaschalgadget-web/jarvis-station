@@ -296,6 +296,7 @@ function openPicture(id) {
   let busy = false;
   let shown = false;
   let gone = false;
+  let before = '';
   const entry = overlay('Picture', () => { closed = true; if (url) { try { URL.revokeObjectURL(url); } catch { /* gone */ } url = ''; } });
   const card = el('div', 'gal-card gal-view');
   const x = el('button', 'gal-close', 'Close');
@@ -326,13 +327,14 @@ function openPicture(id) {
   const paint = () => {
     const p = current();
     if (!p) {
+      if (!gone) before = status.textContent;
       gone = true;
       status.textContent = 'This picture is no longer in the gallery.';
       row.replaceChildren();
       why.hidden = true;
       return false;
     }
-    if (gone) { gone = false; if (shown) status.textContent = ''; }
+    if (gone) { gone = false; status.textContent = shown ? '' : before; }
     if (!actionsFor(p.state).includes('reject')) why.hidden = true;
     img.alt = p.subject || 'Picture';
     title.textContent = (p.state === 'starred' ? '★ ' : '') + (p.subject || 'Picture');
