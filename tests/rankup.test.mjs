@@ -17,14 +17,18 @@ test('a plate for each of the 12 ranks, from fixed names; anything else has none
     assert.ok(sw.includes(`'${f}'`), f + ' precached');
   }
   for (const bad of [0, 13, -1, 2.5, '3', null, undefined, NaN, '__proto__']) assert.equal(plateFor(bad), '');
-  const scene = rankUpScene(4);
-  assert.ok(scene && existsSync(new URL('../' + scene, import.meta.url)) && statSync(new URL('../' + scene, import.meta.url)).size < 100 * 1024 && sw.includes(`'${scene}'`));
-  assert.equal(rankUpScene(5), '', 'no scene painted yet for the other ranks');
+  const seen = new Set();
   for (let i = 1; i <= 12; i++) {
     const sc = rankUpScene(i);
-    if (!sc) continue;
-    assert.ok(existsSync(new URL('../' + sc, import.meta.url)) && statSync(new URL('../' + sc, import.meta.url)).size < 100 * 1024 && sw.includes(`'${sc}'`), 'a scene in the table exists, is small and precached: ' + sc);
+    assert.ok(sc, 'a scene for rank ' + i);
+    seen.add(sc);
+    assert.ok(existsSync(new URL('../' + sc, import.meta.url)) && statSync(new URL('../' + sc, import.meta.url)).size < 100 * 1024, 'a scene exists and is small: ' + sc);
+    assert.ok(!sw.includes(`'${sc}'`), 'a scene is loaded on demand, never precached: ' + sc);
   }
+  assert.equal(seen.size, 12, 'twelve different scenes');
+  assert.equal(rankUpScene(13), '');
+  assert.match(sw, /forge-and-brass\/rankup\//, 'the service worker keeps a scene after first use');
+  assert.ok(!existsSync(new URL('../assets/themes/forge-and-brass/ranks/rankup_technician.jpg', import.meta.url)), 'the old Technician scene (with a plate painted in) is gone');
   assert.ok(sw.includes("'js/cas-rankup.js'"));
 });
 
@@ -99,7 +103,7 @@ test('animate: a dialog with the scene (when painted), the plate and the name; a
   assert.equal(box.attrs.role, 'dialog');
   assert.match(box.attrs['aria-label'], /Technician/);
   const parts = all(box);
-  assert.ok(parts.some(p => p.className === 'ru-scene' && /rankup_technician\.jpg/.test(p.style.backgroundImage)));
+  assert.ok(parts.some(p => p.className === 'ru-scene' && /rankup_04_technician\.jpg/.test(p.style.backgroundImage)));
   assert.ok(parts.some(p => p.className === 'ru-plate' && /rank04_technician\.jpg/.test(p.src)));
   assert.ok(parts.some(p => p.tag === 'b' && p.textContent === 'Technician'));
   box.ev.click();
@@ -108,7 +112,7 @@ test('animate: a dialog with the scene (when painted), the plate and the name; a
   box.ev.click();
   assert.equal(body.kids.length, 0, 'a tap skips it');
   const again = showRankUp(doc, { name: 'Supervisor', index: 5, mode: 'game', reduced: false });
-  assert.ok(!all(again).some(p => p.className === 'ru-scene'), 'no scene painted for this rank: the plate on the brass backdrop');
+  assert.ok(all(again).some(p => p.className === 'ru-scene' && /rankup_05_supervisor\.jpg/.test(p.style.backgroundImage)), 'every rank has its own scene now');
   showRankUp(doc, { name: 'Manager', index: 6, mode: 'game', reduced: false });
   assert.equal(body.kids.length, 1, 'a new one replaces the old');
   listeners.keydown({ key: 'Escape' });
