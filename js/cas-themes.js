@@ -116,12 +116,13 @@ export function renderThemeSettings(panel, getProgress, themes = THEMES) {
     const row = el('button', 'look-theme' + (look.theme === t.id ? ' on' : ''));
     row.type = 'button';
     row.setAttribute('aria-pressed', String(look.theme === t.id));
-    row.disabled = !t.ready || !lock.open || look.theme === t.id;
+    row.disabled = !t.ready || !lock.open;
+    if (look.theme === t.id) row.setAttribute('aria-current', 'true');
     const head = el('div', 'look-name');
     head.append(el('b', '', t.name), el('span', '', look.theme === t.id ? 'Active' : t.ready ? (lock.open ? 'Tap to use' : 'Locked') : 'Art not here yet'));
     row.append(head, el('small', '', t.tagline));
     row.addEventListener('click', () => {
-      if (!t.ready || !lookLock(getProgress ? getProgress() : null).open) return;
+      if (!t.ready || look.theme === t.id || !lookLock(getProgress ? getProgress() : null).open) return;
       saveLook({ mode: t.mode, theme: t.id }, themes);
       applyLook({ mode: t.mode, theme: t.id }, themes);
       renderThemeSettings(panel, getProgress, themes);

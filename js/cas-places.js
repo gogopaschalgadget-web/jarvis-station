@@ -1,4 +1,4 @@
-import { pictureFrom } from './cas-theme-art.js?v=cas98';
+import { pictureFrom, artFor } from './cas-theme-art.js?v=cas98';
 export const ROWS = [['command', 'Command'], ['production', 'Production'], ['channels', 'Channels']];
 
 /** One list of places, names as on the 3D map. `built` is false for blueprint tiles (not on the 3D map yet). Moves to the server when the 3D map reads it too. */
@@ -56,12 +56,13 @@ export function viewFor(ids, items, tile) {
   return tile ? (tileBuckets(ids, items).get(tile) || []) : ids;
 }
 
-/** The painted picture for a tile in the active theme (else the default theme's): its own when built, the blueprint picture when not; null when none is listed. */
+/** The painted picture for a tile: a built place has the active theme's own picture or none (never another theme's); an unbuilt place has the blueprint picture (the shared blueprint drawing when the theme has none). Null when none is listed. */
 export function tileArt(place) {
   if (!place) return null;
   const own = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
   if (!place.built) {
     return pictureFrom(art => (own(art.tiles.blueprint, place.id) ? art.tiles.blueprint[place.id] : undefined)) || pictureFrom(art => art.tiles.blueprintDefault);
   }
-  return pictureFrom(art => (own(art.tiles.built, place.id) ? art.tiles.built[place.id] : undefined)) || null;
+  const own_ = artFor().tiles.built;
+  return own(own_, place.id) ? own_[place.id] : null;
 }

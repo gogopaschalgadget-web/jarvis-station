@@ -113,6 +113,7 @@ body { background: #241917; }
 html[data-theme-colors] .station-nav { background: linear-gradient(var(--th-bar-a), var(--th-bar-b)) !important; box-shadow: 0 -4px 14px #000c !important; }
 html.ios-short[data-theme-colors] .station-nav { background: linear-gradient(#0000 52%, var(--th-bar-b) 94%), linear-gradient(var(--th-bar-a), var(--th-bar-b)) !important; }
 html[data-theme-colors] .station-nav .nav-item { color: var(--th-text); }
+@media (max-width: 959px) { html[data-theme-colors], html[data-theme-colors] body { background: var(--th-bar-b); } }
 
 /* Monthly trim: the strip comes from cas-trim.js (--trim-url); the effects layer sits over it. Every effect moves only opacity or transform (no layout). */
 .trim-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; border-radius: inherit; } /* behind the icons and labels, above the bar's own picture */

@@ -69,7 +69,10 @@ test('each module reads the active theme: plates, scenes, machine stills, tiles'
   assert.equal(pictureNow({ id: 'operations', tier: 'Basic', xp: 900 }, { visible: true, hidden: false, reduced: false, mode: 'game' }), 'assets/themes/counting-house/machines/ops_basic.webp');
   assert.equal(tileArt(PLACES.find(p => p.id === 'mint')), 'assets/themes/counting-house/tiles/mint.webp');
   assert.equal(tileArt(PLACES.find(p => p.id === 'quora')), 'assets/themes/counting-house/tiles/quora.webp');
-  assert.equal(tileArt(BENCH), 'assets/themes/forge-and-brass/tiles/bench.jpg', 'no bench tile in the second theme: the default theme\'s');
+  assert.equal(tileArt(BENCH), null, 'no bench tile in the second theme: none, never another theme picture');
+  use('forge-and-brass');
+  assert.equal(tileArt(BENCH), 'assets/themes/forge-and-brass/tiles/bench.jpg');
+  use('counting-house');
   assert.equal(tileArt(null), null);
   const n = nextPlate({ rank: { index: 3, nextAt: 1500, nextName: 'Technician', toGo: 600 } });
   assert.equal(n.file, 'assets/themes/counting-house/ranks/rank04_technician.jpg');
@@ -148,6 +151,7 @@ test('the monthly strip and its effects belong to the Forge theme only; another 
 test('the stylesheets repaint the Desk and the bar from the theme colours, and nothing hard-codes the second theme', () => {
   const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8') + readFileSync(new URL('../css/station-theme.css', import.meta.url), 'utf8');
   assert.match(css, /html\[data-theme-colors\] #panel-desk \{ --dk-brass: var\(--th-accent\)/);
+  assert.match(css, /@media \(max-width: 959px\) \{ html\[data-theme-colors\], html\[data-theme-colors\] body \{ background: var\(--th-bar-b\); \} \}/, 'the system strip follows the bar colour');
   assert.match(css, /html\[data-theme-colors\] \.station-nav \{ background: linear-gradient\(var\(--th-bar-a\), var\(--th-bar-b\)\) !important/);
   assert.doesNotMatch(css, /data-theme="counting-house"/, 'colours come from the table, not from a rule per theme');
   for (const f of ['cas-progress.js', 'cas-machines.js', 'cas-places.js', 'cas-rankup.js', 'cas-desk.js']) {
