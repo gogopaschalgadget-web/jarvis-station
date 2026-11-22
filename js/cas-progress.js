@@ -67,20 +67,24 @@ export function rankUpMode({ mode, reduced } = {}) {
  * phone last saw, then never again for that rank. The first time the phone sees any rank it only records it (no animation for a rank earned before).
  * The rank comes from the server's progress alone. Storage that fails is ignored: the rank is still remembered for this session, so it cannot replay.
  */
-export function makeRankMemory(storage, key = 'cas-rank-seen') {
-  let seen = null;
-  try { const v = storage && Number(storage.getItem(key)); if (Number.isInteger(v) && v >= 1 && v <= 99) seen = v; } catch { seen = null; }
+export function makeRankMemory(storage, key = 'cas-rank-seen', shownKey = 'cas-rank-shown') {
+  const read = k => { try { const v = storage && Number(storage.getItem(k)); return Number.isInteger(v) && v >= 1 && v <= 99 ? v : null; } catch { return null; } };
+  const write = (k, v) => { try { if (storage) storage.setItem(k, String(v)); } catch { /* remembered for this session */ } };
+  let seen = read(key);
+  let shown = read(shownKey);
+  if (shown == null) shown = seen;
   return {
     seen: () => seen,
+    shown: () => shown,
     check(progress) {
       const r = progress && progress.rank;
       if (!r || !Number.isInteger(r.index) || r.index < 1 || r.index > 99) return null;
-      const first = seen == null;
-      if (!first && r.index === seen) return null;
-      const higher = !first && r.index > seen;
-      seen = r.index;
-      try { if (storage) storage.setItem(key, String(r.index)); } catch { /* remembered for this session */ }
-      return higher ? { index: r.index, name: r.name } : null;
+      if (r.index !== seen) { seen = r.index; write(key, seen); }
+      if (shown == null) { shown = r.index; write(shownKey, shown); return null; }
+      if (r.index <= shown) return null;
+      shown = r.index;
+      write(shownKey, shown);
+      return { index: r.index, name: r.name };
     },
   };
 }

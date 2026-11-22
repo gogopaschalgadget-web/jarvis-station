@@ -53,11 +53,14 @@ test('a higher rank than the phone last saw plays once, then never again for tha
   assert.equal(m.check(prog(3)), null, 'same rank');
   assert.deepEqual(m.check(prog(4)), { index: 4, name: 'R4' });
   assert.equal(s['cas-rank-seen'], '4', 'remembered at once, before the animation runs');
+  assert.equal(s['cas-rank-shown'], '4');
   assert.equal(m.check(prog(4)), null, 'not again');
   assert.equal(makeRankMemory(storage).check(prog(4)), null, 'not after a reload either');
   assert.equal(m.check(prog(3)), null, 'a lower rank from the server plays nothing');
-  assert.equal(m.seen(), 3, 'and the memory follows it down, so re-earning rank 4 plays the moment again');
-  assert.deepEqual(m.check(prog(4)), { index: 4, name: 'R4' });
+  assert.equal(m.seen(), 3, 'the last seen rank follows the server down');
+  assert.equal(m.shown(), 4, 'but the highest rank whose card was shown stays');
+  assert.equal(m.check(prog(4)), null, 'so a transient low rank can never cause a second card for rank 4');
+  assert.equal(makeRankMemory(storage).check(prog(4)), null, 'also after a reload');
   assert.deepEqual(m.check(prog(6)), { index: 6, name: 'R6' }, 'a jump of several ranks plays once for the new rank');
 });
 
@@ -66,6 +69,7 @@ test('the first time the phone sees a rank it only records it; bad progress play
   const m = makeRankMemory(storage);
   assert.equal(m.check(prog(5)), null);
   assert.equal(s['cas-rank-seen'], '5');
+  assert.equal(s['cas-rank-shown'], '5');
   for (const bad of [null, undefined, {}, { rank: null }, { rank: { index: 'x' } }, { rank: { index: 0 } }, { rank: { index: 1.5 } }, { rank: { index: 500 } }]) assert.equal(m.check(bad), null);
 });
 
@@ -158,4 +162,16 @@ test('the card makes the app behind it inert while open, gives focus back on clo
   assert.notEqual(first, second);
   assert.equal(app.inert, true);
   second.ev.click();
+});
+
+test('shown rank is kept apart from the last seen rank: a drop and a return never replay; only a new high plays; an old phone with only a seen value keeps it as shown', () => {
+  const { s, storage } = mem(5);
+  const m = makeRankMemory(storage);
+  assert.equal(m.shown(), 5, 'a phone with only the old key');
+  for (const i of [2, 5, 1, 5, 4, 5]) assert.equal(m.check(prog(i)), null);
+  assert.deepEqual(m.check(prog(6)), { index: 6, name: 'R6' });
+  assert.equal(m.check(prog(5)), null);
+  assert.equal(m.check(prog(6)), null);
+  assert.equal(s['cas-rank-shown'], '6');
+  assert.equal(makeRankMemory({ getItem: k => (k === 'cas-rank-shown' ? '9' : '2'), setItem() {} }).check(prog(7)), null, 'shown wins over seen');
 });
