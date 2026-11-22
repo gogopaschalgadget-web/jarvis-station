@@ -1,6 +1,7 @@
 import { THEME_ART, DEFAULT_THEME } from './cas-theme-art.js?v=cas98';
 
 const STORE = 'station-look';
+const UNLOCKED = 'station-look-unlocked';
 export const TECHNICIAN_INDEX = 4;
 
 /** The themes the Station knows about. `ready` is true only when its art is in the Station; nothing else can be chosen. */
@@ -36,7 +37,16 @@ export function effectiveLook(stored, progress, themes = THEMES) {
 
 /** Re-applies the look once the server has reported the rank. */
 export function syncLook(progress, themes = THEMES) {
+  if (progress && progress.rank) {
+    try { if (lookLock(progress).open) localStorage.setItem(UNLOCKED, '1'); else localStorage.removeItem(UNLOCKED); } catch { /* the first paint then stays the default */ }
+  }
   return applyLook(effectiveLook(rawLook(), progress, themes), themes);
+}
+
+/** The look for the first paint, before any server answer: the saved look only if the server's progress unlocked the Look card on an earlier read (that fact is written only by syncLook), else the default. The first Desk read confirms or reverts it. Cosmetic, not a lock. */
+export function bootLook(themes = THEMES) {
+  try { if (localStorage.getItem(UNLOCKED) === '1') return normalizeLook(rawLook(), themes); } catch { /* default */ }
+  return { ...DEFAULT_LOOK };
 }
 
 function rawLook() {

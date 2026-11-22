@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { THEME_ART, DEFAULT_THEME, artFor, activeThemeId, pictureFrom } from '../js/cas-theme-art.js';
-import { THEMES, applyLook, paintColors, renderThemeSettings, effectiveLook, saveLook, loadLook } from '../js/cas-themes.js';
+import { THEMES, applyLook, paintColors, renderThemeSettings, effectiveLook, saveLook, loadLook, bootLook, syncLook } from '../js/cas-themes.js';
 import { plateFor, rankUpScene, nextPlate } from '../js/cas-progress.js';
 import { stillFor, loopFor, pictureNow } from '../js/cas-machines.js';
 import { tileArt, PLACES, BENCH } from '../js/cas-places.js';
@@ -157,4 +157,39 @@ test('the stylesheets repaint the Desk and the bar from the theme colours, and n
   for (const f of ['cas-progress.js', 'cas-machines.js', 'cas-places.js', 'cas-rankup.js', 'cas-desk.js']) {
     assert.ok(!/counting-house|forge-and-brass/.test(readFileSync(new URL('../js/' + f, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')), f + ' names no theme');
   }
+});
+
+test('first paint: the saved look only if the server unlocked the Look card on an earlier read; the first Desk read confirms or reverts it', () => {
+  const store = {};
+  globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+  const CH = { mode: 'professional', theme: 'counting-house' };
+  const FORGE = { mode: 'game', theme: 'forge-and-brass' };
+  saveLook(CH);
+  assert.deepEqual(bootLook(), FORGE, 'never unlocked by the server: Forge, whatever is saved');
+  store['station-look-unlocked'] = '0';
+  assert.deepEqual(bootLook(), FORGE, 'only the exact mark counts');
+  delete store['station-look-unlocked'];
+  const f = fakeRoot('forge-and-brass');
+  syncLook({ rank: { index: 4 } });
+  assert.equal(store['station-look-unlocked'], '1', 'written only when the server progress says unlocked');
+  assert.equal(f.root.dataset.theme, 'counting-house');
+  assert.deepEqual(bootLook(), CH, 'unlocked earlier: the saved look at first paint');
+  syncLook(null);
+  assert.equal(store['station-look-unlocked'], '1', 'a read with no rank reported does not forget the earlier unlock');
+  assert.equal(f.root.dataset.theme, 'forge-and-brass', 'but that read does not apply the look either');
+  syncLook({ rank: { index: 3 } });
+  assert.equal(store['station-look-unlocked'], undefined, 'the server now says locked: forgotten');
+  assert.equal(f.root.dataset.theme, 'forge-and-brass', 'and the look reverts on the read');
+  assert.deepEqual(bootLook(), FORGE, 'and the next first paint is Forge again');
+  assert.deepEqual(JSON.parse(store['station-look']), CH, 'the saved choice itself is kept for later');
+  saveLook({ mode: 'professional', theme: 'nope' });
+  store['station-look-unlocked'] = '1';
+  assert.deepEqual(bootLook(), FORGE, 'a saved look naming no real theme is Forge even when unlocked');
+  const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => { throw new Error('blocked'); } };
+  globalThis.localStorage = broken;
+  assert.deepEqual(bootLook(), FORGE, 'blocked storage: Forge');
+  assert.doesNotThrow(() => syncLook({ rank: { index: 4 } }));
+  const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+  assert.match(app, /applyLook\(bootLook\(\)\);/, 'the page starts from the boot look, not a fixed default');
+  delete globalThis.localStorage;
 });
