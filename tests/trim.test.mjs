@@ -61,7 +61,7 @@ test('every file in the table exists in the repo, strips under 100 KB, sprites a
 test('effects play only in a month that lists some, in game mode, without reduced motion; a month can carry several at once', () => {
   assert.ok(fxWanted({ month: 12, mode: 'game', reduced: false }).sleigh);
   const nov = fxWanted({ month: 11, mode: 'game', reduced: false });
-  assert.ok(nov.lights.length === 8 && nov.shadows.length === 3 && nov.sprites.length === 2, 'November carries lights, shadows and servers together');
+  assert.ok(nov.lights.length === 8 && nov.shadows.length === 3 && nov.sprites.length === 3, 'November carries lights, shadows and three servers together');
   assert.ok(fxWanted({ month: 11, mode: 'professional', reduced: false }), 'the stylesheet hides it');
   assert.equal(fxWanted({ month: 11, mode: 'game', reduced: true }), null);
   assert.equal(fxWanted({ month: 12, mode: 'game', reduced: true }), null);
@@ -72,8 +72,8 @@ test('effects play only in a month that lists some, in game mode, without reduce
   assert.deepEqual(FX_KINDS, ['lights', 'shadows', 'sprites', 'sleigh']);
 });
 
-test('the overlay values: November 0.15, December 0.45 with a 0.6 fade under the labels; only a number from above 0 to 1 counts', () => {
-  assert.equal(dimFor(trimFor(11)), 0.15);
+test('the overlay values: November 0.2, December 0.45 with a 0.6 fade under the labels; only a number from above 0 to 1 counts', () => {
+  assert.equal(dimFor(trimFor(11)), 0.2);
   assert.equal(dimFor(trimFor(12)), 0.45);
   assert.equal(fadeFor(trimFor(12)), 0.6);
   assert.equal(fadeFor(trimFor(11)), 0);
@@ -87,10 +87,10 @@ test('November draws a glow per light, the shadows and both servers; December dr
   assert.equal(r.fx, '11');
   assert.equal(d.kids.length, 1);
   const c = classes(d.kids[0]);
-  assert.equal(c.filter(x => x === 'fx-light flame').length, 4);
-  assert.equal(c.filter(x => x === 'fx-light lamp').length, 4);
+  assert.equal(c.filter(x => x === 'fx-light flame').length, 6);
+  assert.equal(c.filter(x => x === 'fx-light lamp').length, 2);
   assert.equal(c.filter(x => x === 'fx-shadow').length, 3);
-  assert.equal(c.filter(x => x === 'fx-sprite').length, 2);
+  assert.equal(c.filter(x => x === 'fx-sprite').length, 3);
   assert.equal(d.kids[0].attrs['aria-hidden'], 'true');
   assert.equal(d.style['--trim-fade'], '0');
   applyTrim(new Date(2026, 10, 21), d.doc);
@@ -118,7 +118,7 @@ test('December applies the strip URL; professional mode keeps the strip and the 
   assert.match(pro.style['--trim-url'], /black-iron-hall\.jpg/);
 });
 
-test('lights and shadows: every value is range checked; the table follows the art manifest (8 lights, glow boxes in percent, flames faster than lamps)', () => {
+test('lights and shadows: every value is range checked; the table follows the Round 5 art manifest (2 lamps and 6 flames, glow boxes in percent, flames faster than lamps)', () => {
   const d = fakeDoc();
   const out = buildFx(d.doc, { lights: [{ kind: 'lamp', x: 10, y: 20, w: 8, h: 40, t: 9, lo: 0.7, hi: 1 }, { kind: 'x', x: 'bad', y: 500, w: -3, h: 0, t: 0, lo: 2, hi: -1 }], shadows: [{ x: 0, y: 5, w: 20, h: 95, t: 9, d: 0 }, { t: 1 }] }, 'https://s.test/');
   assert.equal(out.length, 4);
@@ -129,13 +129,15 @@ test('lights and shadows: every value is range checked; the table follows the ar
   assert.equal(out[3].style.vars['--t'], '9s');
   const lights = TRIMS[11].fx.lights;
   const flames = lights.filter(l => l.kind === 'flame'), lamps = lights.filter(l => l.kind === 'lamp');
-  assert.ok(flames.every(f => f.t <= 3) && lamps.every(l => l.t >= 8), 'flames flicker fast, lamps slowly');
+  assert.ok(flames.every(f => f.t <= 4) && lamps.every(l => l.t >= 8), 'flames flicker fast, lamps slowly');
   assert.ok(new Set(flames.map(f => f.t)).size === flames.length, 'no two flames share a rhythm');
   assert.ok(flames.every(f => f.lo === 0.35 && f.hi === 1) && lamps.every(l => l.lo === 0.7 && l.hi === 1), 'ranges from the art manifest');
   assert.deepEqual(TRIMS[11].fx.shadows.map(s => [s.x, s.w]), [[0, 20], [80, 20], [38, 24]], 'the three wall zones from the manifest');
+  assert.equal(lamps.length, 2);
+  assert.equal(flames.length, 6);
 });
 
-test('sprites: a one-row sheet plays once every 15 to 25 seconds; bad entries draw nothing; the two servers never play at the same moment', () => {
+test('sprites: a one-row sheet plays once every 15 to 25 seconds; bad entries draw nothing; the three servers never play at the same moment', () => {
   const d = fakeDoc();
   const entry = { file: 'a.webp', x: 10, y: 20, w: 12, h: 50, frames: 8, every: 17, delay: 3 };
   const out = buildFx(d.doc, { sprites: [entry, { ...entry, every: 23, x: 60 }, { file: 'b.webp', frames: 1 }, { frames: 6 }] }, 'https://s.test/app/');
@@ -150,14 +152,18 @@ test('sprites: a one-row sheet plays once every 15 to 25 seconds; bad entries dr
   assert.equal(out[0].kids[0].style.vars['--sheet'], 'url("https://s.test/app/a.webp")');
   assert.equal(buildFx(d.doc, { sprites: [{ ...entry, every: 3, delay: 99 }] }, 'https://s.test/')[0].style.vars['--every'], '20s', 'a period outside 15 to 25 falls back');
   assert.equal(buildFx(d.doc, { sprites: [{ ...entry, delay: 99 }] }, 'https://s.test/')[0].style.vars['--delay'], '0s');
-  const [a, b] = TRIMS[11].fx.sprites;
-  assert.equal(a.frames, 24);
-  assert.equal(b.frames, 24);
+  const sp = TRIMS[11].fx.sprites;
+  assert.deepEqual(sp.map(x => x.file.split('/').pop()), ['serve-roast-row.webp', 'set-plate-row.webp', 'pour-drink-row.webp']);
+  assert.ok(sp.every(x => x.frames === 24));
   const plays = x => Array.from({ length: 40 }, (_, k) => [x.delay + k * x.every, x.delay + k * x.every + x.every / 10]);
-  for (const [s1, e1] of plays(a)) for (const [s2, e2] of plays(b)) assert.ok(e1 <= s2 || e2 <= s1, 'plays do not overlap');
-  assert.ok([a, b].every(x => x.every >= 15 && x.every <= 25 && x.every / 10 === 2), 'each play is the 2 seconds the art was made for');
-  assert.deepEqual([a.x, a.y, a.w, a.h], [40.18, 31.94, 10.42, 43.06]);
-  assert.deepEqual([b.x, b.y, b.w, b.h], [49.7, 38.89, 7.74, 45.83]);
+  for (let i = 0; i < sp.length; i++) for (let j = i + 1; j < sp.length; j++) {
+    for (const [s1, e1] of plays(sp[i])) for (const [s2, e2] of plays(sp[j])) assert.ok(e1 <= s2 || e2 <= s1, `plays of ${i} and ${j} never overlap`);
+  }
+  assert.ok(sp.every(x => x.every >= 15 && x.every <= 25 && x.every / 10 === 2), 'each play is the 2 seconds the art was made for');
+  assert.deepEqual(sp.map(x => [x.x, x.y, x.w, x.h]), [[41.67, 34.72, 9.67, 52.08], [48.36, 41.67, 10.42, 55.56], [73.29, 17.36, 7.81, 74.65]], 'boxes from the Round 5 manifest');
+  const box = x => [x.x, x.x + x.w];
+  const overlap = (p, q) => box(p)[0] < box(q)[1] && box(q)[0] < box(p)[1];
+  assert.ok(overlap(sp[0], sp[1]) && !overlap(sp[0], sp[2]) && !overlap(sp[1], sp[2]), 'the serve and the set-plate boxes overlap on the strip, which is why they are scheduled apart');
 });
 
 test('the stylesheet: no taps, behind the labels, only opacity and transform move, nothing in professional mode, reduced motion or on the rail, paused when hidden', () => {
@@ -196,6 +202,7 @@ test('flicker is irregular and never brighter than the gain allows; shadows are 
   assert.match(trimCss, /html\.ios-short \.trim-fx\s*\{\s*--k:/, 'shallower flight on the short bar');
   assert.match(trimCss, /\.fx-bob\s*\{[^}]*animation:\s*trim-fly-y 45s cubic-bezier/);
   assert.match(trimCss, /trim-bob 1\.3s ease-in-out infinite alternate/);
+  assert.match(trimCss, /@keyframes trim-sprite-play \{ 0% \{ transform: translateX\(0\); \} 9\.5% \{ transform: translateX\(var\(--end\)\); \}/, 'the last frame, equal to the strip, shows before the sprite hides');
   assert.match(trimCss, /\.fx-sprite::after \{[^}]*rgb\(0 0 0 \/ var\(--trim-dim, 0\)\)[^}]*#00000018, #00000050/, 'a sprite carries the same dark layers as the bar, so there is no seam');
   assert.match(trimCss, /html\.ios-short \.fx-sprite::after \{[^}]*#3a281200 52%/, 'and the grain fade on the short bar');
 });

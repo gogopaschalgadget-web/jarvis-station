@@ -13,17 +13,17 @@ const DIR = 'assets/themes/forge-and-brass/trim/';
  */
 export const TRIMS = {
   11: {
-    file: DIR + 'november/black-iron-hall.jpg', dim: 0.15,
+    file: DIR + 'november/black-iron-hall.jpg', dim: 0.2,
     fx: {
       lights: [
-        { kind: 'lamp', x: 3.87, y: -3.47, w: 10.42, h: 48.61, t: 9, lo: 0.7, hi: 1 },
-        { kind: 'lamp', x: 27.08, y: 10.42, w: 8.93, h: 41.67, t: 12, lo: 0.7, hi: 1 },
-        { kind: 'lamp', x: 65.48, y: 15.62, w: 8.93, h: 41.67, t: 15, lo: 0.7, hi: 1 },
-        { kind: 'lamp', x: 81.47, y: -2.78, w: 10.42, h: 48.61, t: 11, lo: 0.7, hi: 1 },
-        { kind: 'flame', x: 47.54, y: 49.65, w: 6.25, h: 29.17, t: 2.2, lo: 0.35, hi: 1 },
-        { kind: 'flame', x: 47.4, y: 59.72, w: 4.17, h: 19.44, t: 1.6, lo: 0.35, hi: 1 },
-        { kind: 'flame', x: 49.63, y: 61.11, w: 4.17, h: 19.44, t: 2.9, lo: 0.35, hi: 1 },
-        { kind: 'flame', x: 33.63, y: 59.38, w: 3.57, h: 16.67, t: 2.4, lo: 0.35, hi: 1 },
+        { kind: 'lamp', x: 25.37, y: 6.94, w: 8.93, h: 41.67, t: 9, lo: 0.7, hi: 1 },
+        { kind: 'lamp', x: 65.4, y: 10.07, w: 8.18, h: 38.19, t: 13, lo: 0.7, hi: 1 },
+        { kind: 'flame', x: 43.68, y: 59.72, w: 3.87, h: 18.06, t: 2.2, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 47.99, y: 57.29, w: 4.46, h: 20.83, t: 2.9, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 50.67, y: 63.54, w: 4.46, h: 20.83, t: 1.7, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 53.27, y: 62.85, w: 4.46, h: 20.83, t: 3.4, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 57.59, y: 61.46, w: 4.17, h: 19.44, t: 2.5, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 69.64, y: 62.15, w: 3.87, h: 18.06, t: 1.9, lo: 0.35, hi: 1 },
       ],
       shadows: [
         { x: 0, y: 5, w: 20, h: 95, t: 9, d: 0 },
@@ -31,8 +31,9 @@ export const TRIMS = {
         { x: 38, y: 5, w: 24, h: 50, t: 7, d: -2 },
       ],
       sprites: [
-        { file: DIR + 'november/serve-plate-row.webp', x: 40.18, y: 31.94, w: 10.42, h: 43.06, frames: 24, every: 20, delay: 6 },
-        { file: DIR + 'november/pour-drink-row.webp', x: 49.7, y: 38.89, w: 7.74, h: 45.83, frames: 24, every: 20, delay: 15 },
+        { file: DIR + 'november/serve-roast-row.webp', x: 41.67, y: 34.72, w: 9.67, h: 52.08, frames: 24, every: 20, delay: 4 },
+        { file: DIR + 'november/set-plate-row.webp', x: 48.36, y: 41.67, w: 10.42, h: 55.56, frames: 24, every: 20, delay: 11 },
+        { file: DIR + 'november/pour-drink-row.webp', x: 73.29, y: 17.36, w: 7.81, h: 74.65, frames: 24, every: 20, delay: 16 },
       ],
     },
   },

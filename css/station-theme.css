@@ -156,7 +156,7 @@ html.ios-short .fx-sprite::after { background: linear-gradient(#3a281200 52%, #3
 .fx-sheet { width: var(--wide); height: 100%; background: var(--sheet) 0 0 / 100% 100% no-repeat; will-change: transform;
   animation: trim-sprite-play var(--every) steps(var(--s), end) var(--delay) infinite; }
 @keyframes trim-sprite-show { 0% { opacity: 1; } 10% { opacity: 1; } 10.01% { opacity: 0; } 100% { opacity: 0; } }
-@keyframes trim-sprite-play { 0% { transform: translateX(0); } 10% { transform: translateX(var(--end)); } 100% { transform: translateX(var(--end)); } }
+@keyframes trim-sprite-play { 0% { transform: translateX(0); } 9.5% { transform: translateX(var(--end)); } 100% { transform: translateX(var(--end)); } }
 
 /* December: the sleigh flies three different paths in turn (a high swoop, a dive and climb, a long high arc), about 4 seconds each, one every 15 seconds.
    Three nested parts so each eases on its own: across the bar (--sleigh), up and down with a tilt (--path), and a small bob. */
