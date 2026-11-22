@@ -15,10 +15,18 @@ const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** A real calendar day written YYYY-MM-DD (2026-02-31 is not one). */
+function realDay(d) {
+  if (typeof d !== 'string' || !DAY.test(d)) return false;
+  const [y, m, day] = d.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, day));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === day;
+}
+
 /** A list of YYYY-MM-DD days, checked, de-duplicated, oldest first, at most 60 kept (the newest). */
 export function days(raw) {
   if (!Array.isArray(raw)) return [];
-  return [...new Set(raw.filter(d => typeof d === 'string' && DAY.test(d)))].sort().slice(-60);
+  return [...new Set(raw.filter(realDay))].sort().slice(-60);
 }
 
 /** Today's day on the phone as YYYY-MM-DD. */
@@ -36,17 +44,17 @@ export function askedLine(askedDays) {
   return d.length > 1 ? base + ', and on ' + (d.length - 1) + (d.length === 2 ? ' earlier day' : ' earlier days') : base;
 }
 
-/** The days Chris asked for each idea, kept on this phone (a convenience: the feed's own `asked_on`, when it has one, is merged in). Storage that fails is ignored. */
+/** The days Chris asked for each idea, kept on this phone (a convenience: the feed's own `asked_on`, when it has one, is merged in; both are the phone's own calendar days, so the server should send days as Chris's local day). Storage that fails is ignored. */
 export function makeAskLog(storage, key = 'cas-bp-asked') {
   let map = Object.create(null);
   try {
     const raw = storage && JSON.parse(storage.getItem(key) || '{}');
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) Object.keys(raw).slice(0, MAX_IDEAS).forEach(id => { map[id] = days(raw[id]); });
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) Object.keys(raw).forEach(id => { const d = days(raw[id]); if (d.length && Object.keys(map).length < MAX_IDEAS) map[id] = d; });
   } catch { map = Object.create(null); }
   const save = () => { try { if (storage) storage.setItem(key, JSON.stringify(map)); } catch { /* the line is a convenience; the tap already went */ } };
   return {
-    days: idea => days([...(Object.prototype.hasOwnProperty.call(map, idea.id) ? map[idea.id] : []), ...(idea.asked || [])]),
-    record(id, day) { if (typeof id === 'string' && DAY.test(day) && Object.keys(map).length < MAX_IDEAS * 2) { map[id] = days([...(Object.prototype.hasOwnProperty.call(map, id) ? map[id] : []), day]); save(); } },
+    days: idea => days([...(Object.prototype.hasOwnProperty.call(map, idea.id) ? map[idea.id] : []), ...(Array.isArray(idea.asked) ? idea.asked : [])]),
+    record(id, day) { if (typeof id === 'string' && realDay(day) && (Object.prototype.hasOwnProperty.call(map, id) || Object.keys(map).length < MAX_IDEAS)) { map[id] = days([...(Object.prototype.hasOwnProperty.call(map, id) ? map[id] : []), day]); save(); } },
   };
 }
 
@@ -156,7 +164,7 @@ export function makeWanter(postFn, sayFn, onChange, log, today = dayKey) {
       let res;
       try { res = await postFn(idea.id); } catch { res = { ok: false, status: 0, json: {} }; }
       busy = false;
-      if (res.ok) { sent.add(idea.id); if (log) log.record(idea.id, today()); }
+      if (res.ok) { sent.add(idea.id); try { if (log) log.record(idea.id, today()); } catch { /* the line is a convenience; the tap already went */ } }
       sayFn(wantLine(res.ok ? 200 : res.status, res.json));
       return !!res.ok;
     },

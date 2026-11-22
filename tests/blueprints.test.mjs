@@ -182,3 +182,22 @@ test('the ask log keeps the days on this phone, merges the feed days, survives b
   const none = makeAskLog(null); none.record('x', '2026-11-21'); assert.deepEqual(none.days({ id: 'x' }), ['2026-11-21']);
   makeAskLog(storage).record('__proto__', '2026-11-21');
 });
+
+test('impossible days are dropped; the log cap never blocks an idea already in it; a throwing record cannot break the tap', async () => {
+  const { days, makeAskLog, makeWanter } = await import('../js/cas-blueprints.js');
+  assert.deepEqual(days(['2026-02-31', '2026-04-31', '2026-02-28', '2025-02-29', '2024-02-29']), ['2024-02-29', '2026-02-28']);
+  const store = {}; const storage = { getItem: k => store[k] ?? null, setItem: (k, v) => { store[k] = v; } };
+  const log = makeAskLog(storage);
+  for (let i = 0; i < 150; i++) log.record('i' + i, '2026-11-01');
+  log.record('new', '2026-11-02');
+  assert.deepEqual(log.days({ id: 'new' }), [], 'a 151st idea is not stored');
+  log.record('i3', '2026-11-21');
+  assert.deepEqual(log.days({ id: 'i3' }), ['2026-11-01', '2026-11-21'], 'an idea already in the log still updates');
+  const junk = makeAskLog({ getItem: () => JSON.stringify({ a: [], b: ['nope'], c: ['2026-11-01'] }), setItem() {} });
+  assert.deepEqual(junk.days({ id: 'c' }), ['2026-11-01']);
+  const said = [];
+  const w = makeWanter(async () => ({ ok: true, status: 200, json: {} }), t => said.push(t), null, { record() { throw new Error('boom'); } }, () => '2026-11-21');
+  assert.equal(await w.tap({ id: 'z' }), true);
+  assert.equal(said.length, 1, 'the toast still shows');
+  assert.deepEqual(makeAskLog(storage).days({ id: 'q', asked: 'not a list' }), []);
+});

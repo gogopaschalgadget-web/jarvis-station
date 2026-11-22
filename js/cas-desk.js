@@ -546,7 +546,7 @@ function placesMap(buckets, loops) {
   return map;
 }
 
-const _asked = makeAskLog(typeof localStorage === 'undefined' ? null : (() => { try { return localStorage; } catch { return null; } })());
+const _asked = makeAskLog((() => { try { return localStorage; } catch { return null; } })());
 const _wanter = makeWanter(id => post('/blueprint', { id }), t => say(t), () => draw(), _asked);
 
 function artImg(src, cls) {
