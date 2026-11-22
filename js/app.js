@@ -113,6 +113,7 @@ function clearAuth({ userRequested = false } = {}) {
   stopAllPolling();
   localStorage.removeItem('station_device_token');
   localStorage.removeItem('station_device_id');
+  try { localStorage.removeItem('station-look-unlocked'); } catch { /* the mark only ever vouches for the account that earned it */ }
   showPairingUI(userRequested ? '' : SIGNED_OUT_MESSAGE);
   if (rejectedToken && !userRequested) explainSignOut(rejectedToken);
 }

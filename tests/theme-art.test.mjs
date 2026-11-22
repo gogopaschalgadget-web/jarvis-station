@@ -193,3 +193,11 @@ test('first paint: the saved look only if the server unlocked the Look card on a
   assert.match(app, /applyLook\(bootLook\(\)\);/, 'the page starts from the boot look, not a fixed default');
   delete globalThis.localStorage;
 });
+
+test('signing out forgets the unlock mark, so another account on the phone never starts from the look of the last one', () => {
+  const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+  const clear = app.slice(app.indexOf('function clearAuth'));
+  const body = clear.slice(0, clear.indexOf('\n}\n'));
+  assert.ok(body.includes("localStorage.removeItem('station_device_id');"));
+  assert.ok(body.includes("try { localStorage.removeItem('station-look-unlocked'); }"));
+});
