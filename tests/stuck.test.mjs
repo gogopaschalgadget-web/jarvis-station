@@ -148,13 +148,25 @@ test('every changed module carries the new tag and the service worker the new ve
   const idx = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
-  assert.match(idx, /js\/app\.js\?v=cas105/);
-  assert.match(idx, /cas-desk\.css\?v=18/);
-  assert.match(app, /cas-desk\.js\?v=cas105/);
-  assert.match(desk, /cas-stuck\.js\?v=cas105/);
+  assert.match(idx, /js\/app\.js\?v=cas106/);
+  assert.match(idx, /cas-desk\.css\?v=19/);
+  assert.match(app, /cas-desk\.js\?v=cas106/);
+  assert.match(desk, /cas-stuck\.js\?v=cas106/);
 });
 
+const fakeNode = tag => {
+  const node = { tag, className: '', textContent: '', children: [], type: '', attrs: {}, style: {}, listeners: {}, tabIndex: -1,
+    addEventListener(name, fn) { (node.listeners[name] = node.listeners[name] || []).push(fn); },
+    setAttribute(k, v) { node.attrs[k] = v; }, append(...kids) { kids.forEach(k => node.children.push(k)); }, remove() { node.removed = true; },
+    fire(name, event = {}) { (node.listeners[name] || []).forEach(fn => fn({ preventDefault() {}, stopPropagation() {}, ...event })); }, clientWidth: 300 };
+  return node;
+};
 const fakeDocument = () => ({
+  body: fakeNode('body'),
+  documentElement: { dataset: {} },
+  createElement: tag => fakeNode(tag),
+});
+const fakeDocumentOld = () => ({
   documentElement: { dataset: {} },
   createElement: tag => {
     const node = { tag, className: '', textContent: '', children: [], type: '', addEventListener() {}, append(...kids) { kids.forEach(k => node.children.push(k)); } };
@@ -190,21 +202,23 @@ for (const outcome of ['left', 'answered', 'missions']) {
   });
 }
 
+const SAID = 'You said: W';
 const OLD = [
-  ['key absent', undefined, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
-  ['empty meta entry', {}, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
-  ['all-null entry', { at: null, outcome: null, note: null, updated_at: null }, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
-  ['outcome without a note (left)', { at: NOW - 600, outcome: 'left', note: '' }, {}, 'Cas answered, but nothing passed the checks, so there are no repair missions. Your question also went to the orchestrator. Unstuck puts the card back to normal. You said: W', 'dk-stuckline left'],
-  ['outcome without a note (missions)', { at: NOW - 600, outcome: 'missions', note: '' }, { hasKids: true }, 'Repair missions are listed above. You said: W', 'dk-stuckline missions'],
-  ['note without an outcome', { at: NOW - 10, outcome: null, note: 'A note' }, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
-  ['waiting', { at: NOW - 10 }, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
-  ['timeout', { at: NOW - WAIT_SECONDS - 5 }, {}, 'Cas has not answered yet. Your question also went to the orchestrator. You said: W', 'dk-stuckline timeout'],
+  ['key absent', undefined, {}, 'Cas has been asked. Nothing has come back yet.', 'dk-stuckline waiting'],
+  ['empty meta entry', {}, {}, 'Cas has been asked. Nothing has come back yet.', 'dk-stuckline waiting'],
+  ['all-null entry', { at: null, outcome: null, note: null, updated_at: null }, {}, 'Cas has been asked. Nothing has come back yet.', 'dk-stuckline waiting'],
+  ['outcome without a note (left)', { at: NOW - 600, outcome: 'left', note: '' }, {}, 'Cas answered, but nothing passed the checks, so there are no repair missions. Your question also went to the orchestrator. Unstuck puts the card back to normal.', 'dk-stuckline left'],
+  ['outcome without a note (missions)', { at: NOW - 600, outcome: 'missions', note: '' }, { hasKids: true }, 'Repair missions are below.', 'dk-stuckline missions'],
+  ['note without an outcome', { at: NOW - 10, outcome: null, note: 'A note' }, {}, 'Cas has been asked. Nothing has come back yet.', 'dk-stuckline waiting'],
+  ['waiting', { at: NOW - 10 }, {}, 'Cas has been asked. Nothing has come back yet.', 'dk-stuckline waiting'],
+  ['timeout', { at: NOW - WAIT_SECONDS - 5 }, {}, 'Cas has not answered yet. Your question also went to the orchestrator.', 'dk-stuckline timeout'],
 ];
 for (const [name, meta, opts, line, cls] of OLD) {
-  test(`unchanged card: ${name}`, () => {
+  test(`card without a box: ${name}: what you said first, then the status, then Unstuck`, () => {
     const box = render(meta, opts);
-    assert.deepEqual(classes(box), [cls, 'dk-act', 'dk-note dk-actnote']);
-    assert.equal(stuckLine(box), line);
+    assert.deepEqual(classes(box), ['dk-stuckline said', cls, 'dk-act', 'dk-note dk-actnote']);
+    assert.equal(box.children[0].textContent, SAID);
+    assert.equal(box.children[1].textContent, line);
     assert.equal(box.children.some(c => c.className === 'dk-casdid'), false);
   });
 }
@@ -239,4 +253,109 @@ test('a held line is hidden only when the box already says it: equal text, or a 
   assert.equal(box.children.some(c => c.className === 'dk-heldline'), false);
   const other = render({ at: NOW - 600, outcome: 'left', note: 'Short.' }, { held });
   assert.equal(other.children.some(c => c.className === 'dk-heldline'), true);
+});
+
+
+import { slideFraction, slideDone, SLIDE_CONFIRM, normalizeRepairXp, repairChip } from '../js/cas-stuck.js';
+const { stuckSheet } = await import('../js/cas-desk.js');
+
+const walk = (node, out = []) => { out.push(node); (node.children || []).forEach(c => walk(c, out)); return out; };
+
+test('a stuck card reads in the order it happened: what you said, what Cas did, the missions, then Unstuck', () => {
+  globalThis.document = fakeDocument();
+  const kids = globalThis.document.createElement('div');
+  kids.className = 'dk-kids';
+  const meta = { at: NOW - 600, outcome: 'missions', note: '2 repair missions added, 0 done.', updated_at: NOW - 60 };
+  const normalized = normalizeStuckMeta({ c: meta }).c;
+  const box = actions({ id: 'c', choices: [] }, { why: 'W', held: '', status: stuckStatus(normalized, NOW, true), hasKids: true }, kids);
+  assert.deepEqual(classes(box), ['dk-stuckline said', 'dk-casdid', 'dk-kids', 'dk-act', 'dk-note dk-actnote']);
+});
+
+test('without a box the order is what you said, the status line, the missions, then Unstuck', () => {
+  globalThis.document = fakeDocument();
+  const kids = globalThis.document.createElement('div');
+  kids.className = 'dk-kids';
+  const box = actions({ id: 'c', choices: [] }, { why: 'W', held: '', status: stuckStatus(undefined, NOW, true), hasKids: true }, kids);
+  assert.deepEqual(classes(box), ['dk-stuckline said', 'dk-stuckline missions', 'dk-kids', 'dk-act', 'dk-note dk-actnote']);
+  assert.equal(box.children[1].textContent, 'Repair missions are below.');
+});
+
+test('the slide: a fraction is clamped, a bad number is zero, and only 90 percent or more confirms', () => {
+  assert.equal(slideFraction(150, 300), 0.5);
+  assert.equal(slideFraction(-40, 300), 0);
+  assert.equal(slideFraction(900, 300), 1);
+  for (const bad of [NaN, Infinity, '5', null, undefined]) assert.equal(slideFraction(bad, 300), 0);
+  for (const bad of [0, -1, NaN, '300']) assert.equal(slideFraction(100, bad), 0);
+  assert.equal(SLIDE_CONFIRM, 0.9);
+  assert.equal(slideDone(0.89), false);
+  assert.equal(slideDone(0.9), true);
+  assert.equal(slideDone(1), true);
+  assert.equal(slideDone(NaN), false);
+  assert.equal(slideDone('1'), false);
+});
+
+test('the sheet quotes the question as plain text, Cancel sends nothing, and a short drag springs back', () => {
+  globalThis.document = fakeDocument();
+  const calls = [];
+  const sheet = stuckSheet('<img src=x onerror=alert(1)> I need examples', () => calls.push('confirm'), () => calls.push('cancel'));
+  const nodes = walk(sheet);
+  const quote = nodes.find(n => n.className === 'dk-sheetq');
+  assert.equal(quote.textContent, '\u201c<img src=x onerror=alert(1)> I need examples\u201d');
+  assert.equal(quote.children.length, 0);
+  const sliderNode = nodes.find(n => n.className === 'dk-slide');
+  const knob = nodes.find(n => n.className === 'dk-knob');
+  knob.clientWidth = 46;
+  assert.equal(sliderNode.attrs.role, 'slider');
+  knob.fire('pointerdown', { clientX: 10, pointerId: 1 });
+  knob.fire('pointermove', { clientX: 100 });
+  knob.fire('pointerup', { clientX: 100 });
+  assert.deepEqual(calls, []);
+  assert.equal(sliderNode.attrs['aria-valuenow'], '0');
+  nodes.find(n => n.className === 'dk-link dk-sheetcancel').fire('click');
+  nodes.find(n => n.className === 'dk-scrim').fire('click');
+  assert.deepEqual(calls, ['cancel', 'cancel']);
+});
+
+test('a full slide confirms exactly once, by pointer or by keyboard', () => {
+  globalThis.document = fakeDocument();
+  const calls = [];
+  const sheet = stuckSheet('q', () => calls.push('confirm'), () => calls.push('cancel'));
+  const nodes = walk(sheet);
+  const knob = nodes.find(n => n.className === 'dk-knob');
+  knob.clientWidth = 46;
+  knob.fire('pointerdown', { clientX: 0, pointerId: 1 });
+  knob.fire('pointermove', { clientX: 400 });
+  knob.fire('pointerup', { clientX: 400 });
+  knob.fire('pointerdown', { clientX: 0, pointerId: 2 });
+  knob.fire('pointerup', { clientX: 400 });
+  nodes.find(n => n.className === 'dk-slide').fire('keydown', { key: 'Enter' });
+  assert.deepEqual(calls, ['confirm']);
+  globalThis.document = fakeDocument();
+  const again = [];
+  const second = walk(stuckSheet('q', () => again.push('confirm'), () => {})).find(n => n.className === 'dk-slide');
+  second.fire('keydown', { key: 'ArrowRight' });
+  assert.deepEqual(again, ['confirm']);
+  second.fire('keydown', { key: 'a' });
+  assert.deepEqual(again, ['confirm']);
+});
+
+test('repair XP rows are checked and the chip says the size, then what it earned', () => {
+  const ok = normalizeRepairXp({ m1: { size: 'small', xp: 5, earned: null }, m2: { size: 'large', xp: 20, earned: 20 }, bad1: { size: 'huge', xp: 5 }, bad2: { size: 'small', xp: -1 },
+    bad3: { size: 'small', xp: 5.5 }, bad4: null, bad5: 'x', m3: { size: 'medium', xp: 10, earned: 'lots' } });
+  assert.deepEqual(Object.keys(ok), ['m1', 'm2', 'm3']);
+  assert.equal(ok.m3.earned, null);
+  assert.equal(repairChip(ok.m1), 'Small, 5 XP');
+  assert.equal(repairChip(ok.m2), 'Large, 20 XP earned');
+  assert.equal(repairChip(null), '');
+  assert.equal(repairChip({ size: 'nope', xp: 1 }), '');
+  for (const raw of [null, undefined, [], 'x', 5]) assert.deepEqual(normalizeRepairXp(raw), {});
+});
+
+test('the desk source draws the stamp from the stuck state, scrolls to the missions and sends nothing until the slide is done', () => {
+  const src = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(ctx\.stuckNow\) marks\.append\(button\('dk-stamp', 'STUCK', \(\) => goToMissions\(c, item\.id\)\)\);/);
+  assert.match(src, /openStuckSheet\(item, text\(\)\);/);
+  const stuckClick = src.slice(src.indexOf("row.append(button('dk-act', 'Stuck'"), src.indexOf('box.append(row);'));
+  assert.doesNotMatch(stuckClick, /answer\(item\.id, 'stuck'/);
+  assert.match(src, /const sheet = stuckSheet\(why, \(\) => \{ sheet\.remove\(\); answer\(item\.id, 'stuck', \{ why \}\); \}/);
 });

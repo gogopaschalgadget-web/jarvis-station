@@ -59,6 +59,37 @@ export function stuckStatus(meta, now, hasKids) {
   return { kind: 'waiting', working: true, line: 'Cas has been asked. Nothing has come back yet.' };
 }
 
+export const SLIDE_CONFIRM = 0.9;
+
+/** How far a drag has gone, from 0 to 1: a bad number or a zero travel is 0. */
+export function slideFraction(dx, travel) {
+  if (!finite(dx) || !finite(travel) || travel <= 0) return 0;
+  return Math.max(0, Math.min(1, dx / travel));
+}
+
+export const slideDone = fraction => finite(fraction) && fraction >= SLIDE_CONFIRM;
+
+const SIZES = ['small', 'medium', 'large'];
+
+/** The server's `repair_xp` {mission id: {size, xp, earned}}, checked: a known size and whole numbers, else the row is dropped. */
+export function normalizeRepairXp(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  Object.keys(raw).slice(0, 200).forEach(id => {
+    const r = raw[id];
+    if (!r || typeof r !== 'object' || !SIZES.includes(r.size) || !Number.isInteger(r.xp) || r.xp < 0 || r.xp > 1000) return;
+    out[id] = { size: r.size, xp: r.xp, earned: Number.isInteger(r.earned) && r.earned >= 0 && r.earned <= 1000 ? r.earned : null };
+  });
+  return out;
+}
+
+/** The small line on a repair mission: its size and what it is worth, then what it paid once done. */
+export function repairChip(info) {
+  if (!info || !SIZES.includes(info.size)) return '';
+  const size = info.size[0].toUpperCase() + info.size.slice(1);
+  return info.earned == null ? `${size}, ${info.xp} XP` : `${size}, ${info.earned} XP earned`;
+}
+
 export const UNSTUCK_NOTE = 'Unstuck takes the card off Stuck. Cas stops working on it.';
 export const SEND_NOTE = 'Send to Cas adds your words on top of what Cas already has.';
 

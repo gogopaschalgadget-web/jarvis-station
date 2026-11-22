@@ -4,7 +4,7 @@ import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, re
 import { syncLook } from './cas-themes.js?v=cas104';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas104';
-import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas105';
+import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas106';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas104';
@@ -13,7 +13,7 @@ import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfter
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas97';
 
-export { rankItems, actions };
+export { rankItems, actions, stuckSheet };
 
 const FRESH_MS = 60_000;
 const OLD_FEED_S = 6 * 3600;
@@ -359,21 +359,67 @@ function stuckNoteBox(b) {
   return box;
 }
 
-function actions(item, stuckNow) {
+function stuckSheet(question, onConfirm, onCancel) {
+  const wrap = el('div', 'dk-sheetwrap');
+  const scrim = el('div', 'dk-scrim');
+  scrim.addEventListener('click', onCancel);
+  const sheet = el('div', 'dk-sheet');
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-label', 'Send this to Cas');
+  const track = el('div', 'dk-slide');
+  track.setAttribute('role', 'slider');
+  track.setAttribute('aria-label', 'Slide to send to Cas');
+  track.setAttribute('aria-valuemin', '0');
+  track.setAttribute('aria-valuemax', '100');
+  track.setAttribute('aria-valuenow', '0');
+  track.tabIndex = 0;
+  const knob = el('div', 'dk-knob', '\u2192');
+  track.append(knob, el('span', 'dk-slidelabel', 'Slide to send to Cas'));
+  let sent = false;
+  let startX = null;
+  const travel = () => Math.max(1, track.clientWidth - knob.clientWidth - 8);
+  const place = f => { knob.style.transform = `translateX(${Math.round(f * travel())}px)`; track.setAttribute('aria-valuenow', String(Math.round(f * 100))); };
+  const finish = fraction => {
+    if (sent) return;
+    if (slideDone(fraction)) { sent = true; place(1); onConfirm(); } else place(0);
+  };
+  knob.addEventListener('pointerdown', e => { startX = e.clientX; if (knob.setPointerCapture) knob.setPointerCapture(e.pointerId); e.preventDefault(); });
+  knob.addEventListener('pointermove', e => { if (startX != null) place(slideFraction(e.clientX - startX, travel())); });
+  knob.addEventListener('pointerup', e => { if (startX == null) return; const f = slideFraction(e.clientX - startX, travel()); startX = null; finish(f); });
+  knob.addEventListener('pointercancel', () => { startX = null; place(0); });
+  track.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === 'ArrowRight') { e.preventDefault(); finish(1); } });
+  sheet.append(el('div', 'dk-grab'), el('h4', 'dk-sheeth', 'Send this to Cas?'), el('p', 'dk-sheetq', '\u201c' + question + '\u201d'),
+    el('p', 'dk-sheetnote', 'Cas will write repair missions for this card. Cas never spends money; a question about cost only gets an explanation.'),
+    track, button('dk-link dk-sheetcancel', 'Cancel', onCancel));
+  wrap.append(scrim, sheet);
+  wrap.slide = finish;
+  return wrap;
+}
+
+function openStuckSheet(item, why) {
+  const sheet = stuckSheet(why, () => { sheet.remove(); answer(item.id, 'stuck', { why }); }, () => sheet.remove());
+  document.body.append(sheet);
+}
+
+function goToMissions(c, id) {
+  c.open = true;
+  _open.add(id);
+  const target = c.querySelector('.dk-kids') || c.querySelector('.dk-acts');
+  if (target && target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+function actions(item, stuckNow, kidsNode) {
   const box = el('div', 'dk-acts');
   const text = () => (_whys.get(item.id) || '').trim();
   if (stuckNow) {
     const st = stuckNow.status || stuckStatus(null, null, !!stuckNow.hasKids);
     const said = stuckNow.why ? 'You said: ' + stuckNow.why : '';
     const noteBox = st.box ? stuckNoteBox(st.box) : null;
-    const missionsLine = st.kind === 'missions' ? 'Repair missions are listed above.' : '';
-    const boxLine = [st.kind === 'left' ? st.next : '', said];
-    const plainLine = [st.line || missionsLine, st.next, said];
-    const line = (noteBox ? boxLine : plainLine).filter(Boolean).join(' ');
+    const missionsLine = st.kind === 'missions' ? 'Repair missions are below.' : '';
+    const statusLine = (noteBox ? (st.kind === 'left' ? st.next : '') : [st.line || missionsLine, st.next].filter(Boolean).join(' '));
     const heldShown = stuckNow.held && !(st.box && heldRepeated(st.box.note, stuckNow.held));
-    if (noteBox) box.append(noteBox);
-    if (line) box.append(el('p', 'dk-stuckline ' + st.kind, line));
-    if (heldShown) box.append(el('p', 'dk-heldline', stuckNow.held));
+    [said && el('p', 'dk-stuckline said', said), noteBox, statusLine && el('p', 'dk-stuckline ' + st.kind, statusLine),
+      heldShown && el('p', 'dk-heldline', stuckNow.held), kidsNode].filter(Boolean).forEach(part => box.append(part));   // reads in the order it happened: what you said, what Cas did, the missions
     box.append(button('dk-act', 'Unstuck', () => answer(item.id, 'unstuck')), el('p', 'dk-note dk-actnote', UNSTUCK_NOTE));
     return box;
   }
@@ -389,7 +435,7 @@ function actions(item, stuckNow) {
   if (!hasChoices) row.append(button('dk-act done', 'Done', () => answer(item.id, 'done', { why: text() })));
   row.append(button('dk-act', 'Stuck', () => {
     if (!text()) { _need.add(item.id); draw(); const n = _panel.querySelector(`[data-id="${CSS.escape(item.id)}"] .dk-whyin`); if (n) n.focus(); return; }
-    answer(item.id, 'stuck', { why: text() });
+    openStuckSheet(item, text());
   }));
   box.append(row);
   return box;
@@ -410,11 +456,12 @@ async function sendToCas(kid, parent, why) {
 
 let _kidOpen = null;
 
-function kidCard(item, done, stuckNow, parent, why) {
+function kidCard(item, done, stuckNow, parent, why, chip) {
   const k = el('details', 'dk-kid' + (done ? ' finished' : ''));
   k.dataset.id = item.id;
   const head = el('summary', 'dk-kidhead');
   head.append(titleNode(item));
+  if (chip) head.append(el('span', 'dk-xp', chip));
   if (item.minutes != null) head.append(el('span', 'dk-min', item.minutes + ' min'));
   k.append(head);
   if (done) { k.append(el('p', 'dk-sum', 'Done.')); return k; }
@@ -726,6 +773,7 @@ function card(item, n, ctx) {
   else if (ctx.stuckNow && ctx.stuckNow.status && ctx.stuckNow.status.kind === 'timeout') marks.append(el('span', 'dk-mark warn', 'Cas has not answered'));
   else if (ctx.stuckNow && ctx.stuckNow.status && ctx.stuckNow.status.kind === 'left') marks.append(el('span', 'dk-mark warn', 'No repair missions'));
   if (ctx.snoozed) marks.append(el('span', 'dk-mark', 'Not today'), button('dk-rel', 'Bring back', () => answer(item.id, 'undo')));
+  if (ctx.stuckNow) marks.append(button('dk-stamp', 'STUCK', () => goToMissions(c, item.id)));
   if (marks.childNodes.length) top.append(marks);
   top.append(grip(item, ctx));
   c.append(top);
@@ -749,13 +797,14 @@ function card(item, n, ctx) {
   if (row) body.append(row);
   if (ctx.hint) { const u = el('p', 'dk-unl'); u.append(el('b', '', 'Doing this unlocks: '), document.createTextNode(ctx.hint)); body.append(u); }
   if (item.unblocks) { const u = el('p', 'dk-unb'); u.append(el('b', '', 'Unblocks: '), document.createTextNode(item.unblocks)); body.append(u); }
+  let kidsNode = null;
   if (ctx.kids.length) {
-    const kids = el('div', 'dk-kids');
-    kids.append(el('p', 'dk-kidsh', 'Missions to get you unstuck'));
-    ctx.kids.forEach(k => { if (ctx.items.has(k.id)) kids.append(kidCard(ctx.items.get(k.id), k.done, ctx.stuckMap[k.id] !== undefined ? { why: ctx.stuckMap[k.id] } : null, item, ctx.stuckNow && ctx.stuckNow.why)); });
-    body.append(kids);
+    kidsNode = el('div', 'dk-kids');
+    kidsNode.append(el('p', 'dk-kidsh', 'Missions to get you unstuck'));
+    ctx.kids.forEach(k => { if (ctx.items.has(k.id)) kidsNode.append(kidCard(ctx.items.get(k.id), k.done, ctx.stuckMap[k.id] !== undefined ? { why: ctx.stuckMap[k.id] } : null, item, ctx.stuckNow && ctx.stuckNow.why, repairChip(ctx.repairXp[k.id]))); });
+    if (!ctx.stuckNow) body.append(kidsNode);
   }
-  body.append(actions(item, ctx.stuckNow && { ...ctx.stuckNow, hasKids: ctx.kids.length > 0 }));
+  body.append(actions(item, ctx.stuckNow && { ...ctx.stuckNow, hasKids: ctx.kids.length > 0 }, ctx.stuckNow ? kidsNode : null));
   if (!ctx.snoozed && !ctx.stuckNow) body.append(button('dk-notoday', 'Not today', () => answer(item.id, 'notnow')));
   if (!ctx.snoozed) body.append(_holdFor === item.id ? holdSheet(item) : button('dk-notoday', 'Hold this card', () => { _holdFor = item.id; _holdPick = false; draw(); }));
   const sources = sourcesBlock(item);
@@ -915,6 +964,7 @@ function draw() {
   const snoozed = new Set(field('snoozed', []));
   const stuckMap = field('stuck', {});
   const stuckMeta = normalizeStuckMeta(_data.stuck_meta);
+  const repairXp = normalizeRepairXp(_data.repair_xp);
   const nowSecs = clockNow(_data, _loadedAt, Date.now());
   const kidsMap = field('children', {});
   const waitMap = field('waiting', {});
@@ -948,7 +998,7 @@ function draw() {
   const make = (id, n, drag) => {
     const item = items.get(id);
     const ctx = {
-      drag, items, stuckMap, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: heldLine(field('held', {})[id]), status: stuckStatus(stuckMeta[id], nowSecs, (kidsMap[id] || []).length > 0) } : null,
+      drag, items, stuckMap, repairXp, mine: mine.has(id), snoozed: snoozed.has(id), stuckNow: id in stuckMap ? { why: stuckMap[id], held: heldLine(field('held', {})[id]), status: stuckStatus(stuckMeta[id], nowSecs, (kidsMap[id] || []).length > 0) } : null,
       hint: hints[id], waiting: waitMap[id] || [], kids: visibleKids(kidsMap[id] || [], id in stuckMap),
     };
     try { return card(item, n, ctx); } catch (e) {
