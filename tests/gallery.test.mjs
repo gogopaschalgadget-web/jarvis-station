@@ -279,7 +279,7 @@ test('hardening: no HTML from the server is ever parsed (text nodes only), ids a
   assert.ok(!desk.includes('galleryEntryNode'), 'the Bulletin Board no longer carries the entry');
   const appSrc = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.match(appSrc, /try \{ const card = panel\.querySelector\('\.panel-card'\); if \(card\) card\.append\(galleryEntryNode\(\)\); \} catch/);
-  assert.match(appSrc, /import \{ stopGallery, galleryEntryNode \} from '\.\/cas-gallery\.js\?v=cas100'/);
+  assert.match(appSrc, /import \{ stopGallery, galleryEntryNode \} from '\.\/cas-gallery\.js\?v=cas104'/);
   assert.match(desk, /onChoice: \(\) => invalidateGallery\(\)/);
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.ok(sw.includes("'js/cas-gallery.js'") && sw.includes("'js/cas-gallery-logic.js'"));
@@ -305,4 +305,32 @@ test('signing out forgets the list and the thumbnails and lets a new sign-in ask
   g2.initGallery({ getToken: () => 'new' });
   await g2.loadGallery(true);
   assert.equal(s2.calls.length, 2, 'a fresh sign-in is asked for again');
+});
+
+test('every module changed in this stack carries the one new tag in every importer, and signing out forgets the rank memory (run, not matched)', async () => {
+  const { makeRankMemory } = await import('../js/cas-progress.js?t=' + Math.random());
+  const store = {};
+  const storage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+  const prog = i => ({ rank: { index: i, name: 'R' + i } });
+  const mem = makeRankMemory(storage);
+  assert.equal(mem.check(prog(2)), null, 'a first read is only a baseline');
+  mem.forget();
+  assert.deepEqual(store, {}, 'both keys are gone from storage');
+  assert.equal(mem.seen(), null);
+  assert.equal(mem.shown(), null);
+  assert.equal(mem.check(prog(6)), null, 'the next account, first read: a baseline, no card');
+  assert.equal(store['cas-rank-shown'], '6');
+  assert.deepEqual(mem.check(prog(7)), { index: 7, name: 'R7' }, 'a real later gain still plays');
+  assert.doesNotThrow(() => makeRankMemory({ getItem: () => null, setItem() {}, removeItem() { throw new Error('blocked'); } }).forget());
+
+  const changed = ['cas-gallery-logic', 'cas-gallery', 'cas-machines', 'cas-places', 'cas-progress', 'cas-rankup', 'cas-reveal', 'cas-theme-art', 'cas-themes', 'cas-trim', 'cas-desk'];
+  const files = ['app', ...changed, 'cas-places'].map(n => readFileSync(new URL('../js/' + n + '.js', import.meta.url), 'utf8')).join('\n') + readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const m of changed) {
+    const tags = [...files.matchAll(new RegExp('\\./' + m + '\\.js\\?v=(cas\\d+)', 'g'))].map(x => x[1]);
+    assert.ok(tags.length, m + ' is imported');
+    assert.ok(tags.every(t => t === 'cas104'), m + ' carries cas104 everywhere: ' + tags);
+  }
+  assert.match(files, /js\/app\.js\?v=cas104/);
+  const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+  assert.ok(/forgetRank\(\)/.test(app));
 });

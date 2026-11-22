@@ -1,4 +1,4 @@
-import { THEME_ART, DEFAULT_THEME, artFor } from './cas-theme-art.js?v=cas101';
+import { THEME_ART, DEFAULT_THEME, artFor } from './cas-theme-art.js?v=cas104';
 
 /** Desk id (from the server's progress) to its machine in the default theme; each theme's own table decides the real mapping. */
 export const MACHINES = THEME_ART[DEFAULT_THEME].machines.desks;

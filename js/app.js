@@ -6,10 +6,10 @@ import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPubl
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas75';
-import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress } from './cas-desk.js?v=cas103';
-import { renderThemeSettingsSafe, applyLook, bootLook } from './cas-themes.js?v=cas99';
-import { startTrim, applyTrim } from './cas-trim.js?v=cas98';
-import { stopGallery, galleryEntryNode } from './cas-gallery.js?v=cas100';
+import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress, forgetRank } from './cas-desk.js?v=cas104';
+import { renderThemeSettingsSafe, applyLook, bootLook } from './cas-themes.js?v=cas104';
+import { startTrim, applyTrim } from './cas-trim.js?v=cas104';
+import { stopGallery, galleryEntryNode } from './cas-gallery.js?v=cas104';
 applyLook(bootLook());
 try { startTrim(); } catch { /* the plain bar stays */ }
 import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas75';
@@ -115,6 +115,7 @@ function clearAuth({ userRequested = false } = {}) {
   localStorage.removeItem('station_device_token');
   localStorage.removeItem('station_device_id');
   try { stopGallery(); } catch { /* nothing to forget */ }
+  try { forgetRank(); } catch { /* the next account starts from a baseline */ }
   try { localStorage.removeItem('station-look-unlocked'); } catch { /* the mark only ever vouches for the account that earned it */ }
   showPairingUI(userRequested ? '' : SIGNED_OUT_MESSAGE);
   if (rejectedToken && !userRequested) explainSignOut(rejectedToken);

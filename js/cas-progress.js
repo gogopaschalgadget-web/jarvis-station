@@ -1,4 +1,4 @@
-import { pictureFrom } from './cas-theme-art.js?v=cas101';
+import { pictureFrom } from './cas-theme-art.js?v=cas104';
 const num = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
 const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const pctOf = (xp, from, to) => (to > from ? Math.max(0, Math.min(100, Math.round(((xp - from) / (to - from)) * 100))) : 100);
@@ -74,6 +74,10 @@ export function makeRankMemory(storage, key = 'cas-rank-seen', shownKey = 'cas-r
   return {
     seen: () => seen,
     shown: () => shown,
+    forget() {
+      seen = null; shown = null;
+      try { if (storage && storage.removeItem) { storage.removeItem(key); storage.removeItem(shownKey); } } catch { /* the in-memory copy is already cleared */ }
+    },
     check(progress) {
       const r = progress && progress.rank;
       if (!r || !Number.isInteger(r.index) || r.index < 1 || r.index > 99) return null;

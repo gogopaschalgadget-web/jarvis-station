@@ -1,4 +1,4 @@
-import { THEME_ART, DEFAULT_THEME } from './cas-theme-art.js?v=cas101';
+import { THEME_ART, DEFAULT_THEME } from './cas-theme-art.js?v=cas104';
 
 const STORE = 'station-look';
 const UNLOCKED = 'station-look-unlocked';
