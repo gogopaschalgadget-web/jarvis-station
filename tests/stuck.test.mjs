@@ -115,3 +115,128 @@ test('each desk read re-applies the look from its rank, so a later read with a l
   syncLook(null, alt);
   assert.equal(document.documentElement.dataset.theme, DEFAULT_LOOK.theme);
 });
+
+import { noteBox } from '../js/cas-stuck.js';
+
+test('the What Cas did box: the note, when Stuck was tapped and when the words last changed, only for a reported outcome with a note', () => {
+  const m = normalizeStuckMeta({ a: { at: NOW, outcome: 'missions', note: '2 repair missions added, 1 done.', updated_at: NOW + 60 } }).a;
+  const b = noteBox(m);
+  assert.equal(b.label, 'What Cas did');
+  assert.equal(b.note, '2 repair missions added, 1 done.');
+  assert.match(b.tapped, /\d/);
+  assert.match(b.changed, /\d/);
+  assert.notEqual(b.tapped, b.changed);
+  const unknown = noteBox(normalizeStuckMeta({ a: { at: NOW, outcome: 'left', note: 'Held.', updated_at: null } }).a);
+  assert.equal(unknown.changed, '');
+  assert.equal(noteBox(normalizeStuckMeta({ a: { at: NOW, outcome: null, note: null } }).a), null);
+  assert.equal(noteBox(normalizeStuckMeta({ a: { at: NOW, outcome: 'left', note: '' } }).a), null);
+  assert.equal(noteBox(undefined), null);
+  assert.equal(noteBox('x'), null);
+});
+
+test('the status carries the box for missions, left and answered, never while waiting or after a timeout', () => {
+  const meta = o => normalizeStuckMeta({ a: { at: NOW, note: 'Note.', ...o } }).a;
+  assert.equal(stuckStatus(meta({ outcome: 'missions' }), NOW, true).box.note, 'Note.');
+  assert.equal(stuckStatus(meta({ outcome: 'left' }), NOW, false).box.note, 'Note.');
+  assert.equal(stuckStatus(meta({ outcome: 'answered' }), NOW, true).box.note, 'Note.');
+  assert.equal(stuckStatus(meta({ outcome: null, note: null }), NOW, false).box, undefined);
+  assert.equal(stuckStatus(meta({ outcome: null, note: null }), NOW + WAIT_SECONDS + 1, false).box, undefined);
+  assert.equal(stuckStatus(undefined, NOW, true).box, undefined);
+});
+
+test('every changed module carries the new tag and the service worker the new version', () => {
+  const idx = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+  const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
+  assert.match(idx, /js\/app\.js\?v=cas105/);
+  assert.match(idx, /cas-desk\.css\?v=18/);
+  assert.match(app, /cas-desk\.js\?v=cas105/);
+  assert.match(desk, /cas-stuck\.js\?v=cas105/);
+});
+
+const fakeDocument = () => ({
+  documentElement: { dataset: {} },
+  createElement: tag => {
+    const node = { tag, className: '', textContent: '', children: [], type: '', addEventListener() {}, append(...kids) { kids.forEach(k => node.children.push(k)); } };
+    return node;
+  },
+});
+globalThis.document = fakeDocument();
+globalThis.localStorage = { getItem: () => null, setItem() {} };
+const { actions } = await import('../js/cas-desk.js');
+const { heldRepeated } = await import('../js/cas-stuck.js');
+const EVIL = '<img src=x onerror=alert(1)> Cas did it';
+const render = (meta, { hasKids = false, held = '', now = NOW } = {}) => {
+  globalThis.document = fakeDocument();
+  const normalized = normalizeStuckMeta(meta === undefined ? undefined : { c: meta }).c;
+  const status = stuckStatus(normalized, now, hasKids);
+  return actions({ id: 'c', choices: [] }, { why: 'W', held, status, hasKids });
+};
+const classes = box => box.children.map(c => c.className);
+const stuckLine = box => (box.children.find(c => c.className.startsWith('dk-stuckline')) || {}).textContent;
+
+for (const outcome of ['left', 'answered', 'missions']) {
+  test(`the real card for outcome ${outcome} shows one box with the note as plain text and none of the old lines`, () => {
+    const box = render({ at: NOW - 600, outcome, note: EVIL, updated_at: NOW - 60 }, { hasKids: outcome !== 'left' });
+    const boxes = box.children.filter(c => c.className === 'dk-casdid');
+    assert.equal(boxes.length, 1);
+    const note = boxes[0].children.find(c => c.className === 'dk-cdnote');
+    assert.equal(note.textContent, EVIL);
+    assert.equal(note.children.length, 0);
+    assert.equal(boxes[0].children.filter(c => c.className === 'dk-cdtime').length, 2);
+    const line = stuckLine(box) || '';
+    assert.doesNotMatch(line, /Card text updated|Cas answered|Repair missions are listed above|nothing passed the checks/);
+    assert.match(line, /You said: W/);
+  });
+}
+
+const OLD = [
+  ['key absent', undefined, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
+  ['empty meta entry', {}, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
+  ['all-null entry', { at: null, outcome: null, note: null, updated_at: null }, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
+  ['outcome without a note (left)', { at: NOW - 600, outcome: 'left', note: '' }, {}, 'Cas answered, but nothing passed the checks, so there are no repair missions. Your question also went to the orchestrator. Unstuck puts the card back to normal. You said: W', 'dk-stuckline left'],
+  ['outcome without a note (missions)', { at: NOW - 600, outcome: 'missions', note: '' }, { hasKids: true }, 'Repair missions are listed above. You said: W', 'dk-stuckline missions'],
+  ['note without an outcome', { at: NOW - 10, outcome: null, note: 'A note' }, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
+  ['waiting', { at: NOW - 10 }, {}, 'Cas has been asked. Nothing has come back yet. You said: W', 'dk-stuckline waiting'],
+  ['timeout', { at: NOW - WAIT_SECONDS - 5 }, {}, 'Cas has not answered yet. Your question also went to the orchestrator. You said: W', 'dk-stuckline timeout'],
+];
+for (const [name, meta, opts, line, cls] of OLD) {
+  test(`unchanged card: ${name}`, () => {
+    const box = render(meta, opts);
+    assert.deepEqual(classes(box), [cls, 'dk-act', 'dk-note dk-actnote']);
+    assert.equal(stuckLine(box), line);
+    assert.equal(box.children.some(c => c.className === 'dk-casdid'), false);
+  });
+}
+
+test('a huge or odd time never prints Invalid Date: the row is left out', () => {
+  for (const bad of [0, -5, '1800000000', Infinity, 1e20]) {
+    for (const outcome of ['left', 'answered', 'missions']) {
+      const meta = normalizeStuckMeta({ a: { at: bad, outcome, note: 'Note.', updated_at: bad } }).a;
+      const everything = JSON.stringify([noteBox(meta), stuckStatus(meta, NOW, false)]);
+      assert.doesNotMatch(everything, /Invalid/);
+    }
+  }
+  const m = normalizeStuckMeta({ a: { at: 1e20, outcome: 'missions', note: 'Note.', updated_at: 1e20 } }).a;
+  assert.equal(noteBox(m).tapped, '');
+  assert.equal(noteBox(m).changed, '');
+  const answered = stuckStatus(normalizeStuckMeta({ a: { at: NOW, outcome: 'answered', updated_at: 1e20 } }).a, NOW, false);
+  assert.equal(answered.line, 'Cas answered.');
+  const noOutcome = stuckStatus(normalizeStuckMeta({ a: { at: NOW, updated_at: 1e20 } }).a, NOW, false);
+  assert.equal(noOutcome.kind, 'waiting');
+});
+
+test('a held line is hidden only when the box already says it: equal text, or a long held line the note ends with', () => {
+  const held = 'Cas held back 1 step (it involved money or a payment). The orchestrator is finishing it.';
+  assert.equal(heldRepeated(held, '  ' + held + ' '), true);
+  assert.equal(heldRepeated('2 repair missions added, 1 done. ' + held, held), true);
+  assert.equal(heldRepeated('Done.', held), false);
+  assert.equal(heldRepeated('A very short note', 'short'), false);
+  assert.equal(heldRepeated('Held. Held.', 'Held.'), false);
+  assert.equal(heldRepeated('note', ''), false);
+  assert.equal(heldRepeated(null, held), false);
+  const box = render({ at: NOW - 600, outcome: 'left', note: held }, { held });
+  assert.equal(box.children.some(c => c.className === 'dk-heldline'), false);
+  const other = render({ at: NOW - 600, outcome: 'left', note: 'Short.' }, { held });
+  assert.equal(other.children.some(c => c.className === 'dk-heldline'), true);
+});

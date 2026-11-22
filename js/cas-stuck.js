@@ -15,7 +15,26 @@ export function normalizeStuckMeta(raw) {
   return out;
 }
 
-const clock = epoch => new Date(epoch * 1000).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const clock = epoch => {
+  const date = new Date(epoch * 1000);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
+const HELD_MIN_MATCH = 20;
+
+/** True when the box note already says the held line: the same text, or ending with it when it is long enough not to match by accident. */
+export function heldRepeated(note, held) {
+  const n = typeof note === 'string' ? note.trim() : '';
+  const h = typeof held === 'string' ? held.trim() : '';
+  return !!h && (n === h || (h.length >= HELD_MIN_MATCH && n.endsWith(h)));
+}
+
+/** The "What Cas did" box for a stuck card: the server's note, when Stuck was tapped and when the card's words last changed. Null unless the server reported an outcome with a note. */
+export function noteBox(meta) {
+  const m = meta && typeof meta === 'object' ? meta : null;
+  if (!m || !OUTCOMES.includes(m.outcome) || !m.note) return null;
+  return { label: 'What Cas did', note: m.note, tapped: m.at ? clock(m.at) : '', changed: m.updatedAt ? clock(m.updatedAt) : '' };
+}
 
 /**
  * What the stuck line says, from the server's report only.
@@ -25,14 +44,15 @@ export function stuckStatus(meta, now, hasKids) {
   const m = meta && typeof meta === 'object' ? meta : null;
   if (!m) return { kind: hasKids ? 'missions' : 'waiting', working: !hasKids, line: hasKids ? '' : 'Cas has been asked. Nothing has come back yet.' };
   if (m.outcome === 'left') {
-    return { kind: 'left', working: false, line: m.note || 'Cas answered, but nothing passed the checks, so there are no repair missions.', next: 'Your question also went to the orchestrator. Unstuck puts the card back to normal.' };
+    return { kind: 'left', box: noteBox(m), working: false, line: m.note || 'Cas answered, but nothing passed the checks, so there are no repair missions.', next: 'Your question also went to the orchestrator. Unstuck puts the card back to normal.' };
   }
   if (m.outcome === 'answered') {
-    const when = m.updatedAt && (!m.at || m.updatedAt >= m.at) ? 'Card text updated ' + clock(m.updatedAt) + (m.at ? ' after you asked.' : '.') : 'Cas answered.';
-    return { kind: 'answered', working: false, line: when, next: m.note || '' };
+    const updated = m.updatedAt && (!m.at || m.updatedAt >= m.at) ? clock(m.updatedAt) : '';
+    const when = updated ? 'Card text updated ' + updated + (m.at ? ' after you asked.' : '.') : 'Cas answered.';
+    return { kind: 'answered', box: noteBox(m), working: false, line: when, next: m.note || '' };
   }
-  if (m.outcome === 'missions' || hasKids) return { kind: 'missions', working: false, line: '' };
-  if (m.updatedAt && m.at && m.updatedAt >= m.at) return { kind: 'answered', working: false, line: 'Card text updated ' + clock(m.updatedAt) + ' after you asked.', next: '' };
+  if (m.outcome === 'missions' || hasKids) return { kind: 'missions', box: noteBox(m), working: false, line: '' };
+  if (m.updatedAt && m.at && m.updatedAt >= m.at && clock(m.updatedAt)) return { kind: 'answered', working: false, line: 'Card text updated ' + clock(m.updatedAt) + ' after you asked.', next: '' };
   if (m.at && now != null && now - m.at >= WAIT_SECONDS) {
     return { kind: 'timeout', working: false, line: 'Cas has not answered yet.', next: 'Your question also went to the orchestrator.' };
   }

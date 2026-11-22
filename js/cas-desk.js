@@ -4,7 +4,7 @@ import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, re
 import { syncLook } from './cas-themes.js?v=cas104';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas104';
-import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas93';
+import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas105';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas104';
@@ -13,7 +13,7 @@ import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfter
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas97';
 
-export { rankItems };
+export { rankItems, actions };
 
 const FRESH_MS = 60_000;
 const OLD_FEED_S = 6 * 3600;
@@ -351,15 +351,29 @@ function whyInput(id, placeholder) {
   return input;
 }
 
+function stuckNoteBox(b) {
+  const box = el('div', 'dk-casdid');
+  box.append(el('small', 'dk-cdh', b.label), el('p', 'dk-cdnote', b.note));
+  if (b.tapped) box.append(el('p', 'dk-cdtime', 'Stuck tapped: ' + b.tapped));
+  if (b.changed) box.append(el('p', 'dk-cdtime', "Card's words last changed: " + b.changed));
+  return box;
+}
+
 function actions(item, stuckNow) {
   const box = el('div', 'dk-acts');
   const text = () => (_whys.get(item.id) || '').trim();
   if (stuckNow) {
     const st = stuckNow.status || stuckStatus(null, null, !!stuckNow.hasKids);
     const said = stuckNow.why ? 'You said: ' + stuckNow.why : '';
-    const line = [st.line || (st.kind === 'missions' ? 'Repair missions are listed above.' : ''), st.next, said].filter(Boolean).join(' ');
+    const noteBox = st.box ? stuckNoteBox(st.box) : null;
+    const missionsLine = st.kind === 'missions' ? 'Repair missions are listed above.' : '';
+    const boxLine = [st.kind === 'left' ? st.next : '', said];
+    const plainLine = [st.line || missionsLine, st.next, said];
+    const line = (noteBox ? boxLine : plainLine).filter(Boolean).join(' ');
+    const heldShown = stuckNow.held && !(st.box && heldRepeated(st.box.note, stuckNow.held));
+    if (noteBox) box.append(noteBox);
     if (line) box.append(el('p', 'dk-stuckline ' + st.kind, line));
-    if (stuckNow.held) box.append(el('p', 'dk-heldline', stuckNow.held));
+    if (heldShown) box.append(el('p', 'dk-heldline', stuckNow.held));
     box.append(button('dk-act', 'Unstuck', () => answer(item.id, 'unstuck')), el('p', 'dk-note dk-actnote', UNSTUCK_NOTE));
     return box;
   }
