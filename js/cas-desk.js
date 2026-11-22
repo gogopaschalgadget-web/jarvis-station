@@ -7,7 +7,7 @@ import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } 
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas93';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas98';
 import { showRankUp } from './cas-rankup.js?v=cas98';
-import { stillFor, startPicture, watchMachines } from './cas-machines.js?v=cas98';
+import { stillFor, startPicture, watchMachines, machineName } from './cas-machines.js?v=cas101';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas98';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas97';
@@ -537,7 +537,7 @@ function progressBlock(p) {
         pic.addEventListener('error', () => { if (pic.getAttribute('src') !== still) { pic.dataset.failed = '1'; pic.setAttribute('src', still); } else pic.remove(); });
         c.append(pic);
       }
-      c.append(el('b', '', d.name), el('small', '', [d.machine, d.tier].filter(Boolean).join(' · ') || 'Not reported'));
+      c.append(el('b', '', d.name), el('small', '', [machineName(d), d.tier].filter(Boolean).join(' · ') || 'Not reported'));
       if (d.placeholder) c.append(el('em', '', 'Placeholder: Chris does this by hand now, automation later'));
       else if (d.xp != null) c.append(barNode('desk:' + d.id, d.pct), el('span', '', d.nextAt == null ? d.xp + ' XP' : d.xp + ' / ' + d.nextAt + ' XP'));
       if (d.legendary) c.append(el('em', '', d.legendary));

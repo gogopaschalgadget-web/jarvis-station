@@ -4,7 +4,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { THEME_ART, DEFAULT_THEME, artFor, activeThemeId, pictureFrom } from '../js/cas-theme-art.js';
 import { THEMES, applyLook, paintColors, renderThemeSettings, effectiveLook, saveLook, loadLook, bootLook, syncLook } from '../js/cas-themes.js';
 import { plateFor, rankUpScene, nextPlate } from '../js/cas-progress.js';
-import { stillFor, loopFor, pictureNow } from '../js/cas-machines.js';
+import { stillFor, loopFor, pictureNow, machineName } from '../js/cas-machines.js';
 import { tileArt, PLACES, BENCH } from '../js/cas-places.js';
 import { applyTrim } from '../js/cas-trim.js';
 
@@ -200,4 +200,20 @@ test('signing out forgets the unlock mark, so another account on the phone never
   const body = clear.slice(0, clear.indexOf('\n}\n'));
   assert.ok(body.includes("localStorage.removeItem('station_device_id');"));
   assert.ok(body.includes("try { localStorage.removeItem('station-look-unlocked'); }"));
+});
+
+test('a machine is called by the active theme name when its table has one, else by the word the server sent', () => {
+  use('forge-and-brass');
+  assert.equal(machineName({ id: 'operations', machine: 'Forge' }), 'Forge');
+  assert.equal(machineName({ id: 'sales', machine: 'Coin Press' }), 'Coin Press');
+  use('counting-house');
+  assert.deepEqual(['operations', 'sales', 'marketing', 'money', 'customer_experience'].map(id => machineName({ id, machine: 'Forge' })), ['Operations Board', 'Order Book', 'Notice Press', 'Accounts Ledger', 'Enquiries Desk']);
+  assert.equal(machineName({ id: 'unknown_desk', machine: 'Lathe' }), 'Lathe', 'a desk the theme does not name keeps the server word');
+  assert.equal(machineName({ id: '__proto__', machine: 'X' }), 'X');
+  assert.equal(machineName({ id: 'operations' }), 'Operations Board');
+  assert.equal(machineName({ id: 'nope' }), '');
+  assert.equal(machineName(null), '');
+  use('forge-and-brass');
+  const src = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('[machineName(d), d.tier]'), 'the desk card uses the theme name');
 });

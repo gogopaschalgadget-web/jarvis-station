@@ -36,6 +36,7 @@ export const THEME_ART = {
     rankup: { 4: `${CH}rankup/rankup_04_technician.jpg` },
     machines: {
       desks: { operations: 'ops', sales: 'sales', marketing: 'marketing', money: 'money', customer_experience: 'customer' },
+      names: { operations: 'Operations Board', sales: 'Order Book', marketing: 'Notice Press', money: 'Accounts Ledger', customer_experience: 'Enquiries Desk' },
       stills: Object.fromEntries(['ops', 'sales', 'marketing', 'money', 'customer'].map(m => [m, Object.fromEntries(TIERS.map((t, i) => [t, `${CH}machines/${m}_${['basic', 'enh', 'adv', 'leg'][i]}.webp`]))])),
       loops: {},
     },

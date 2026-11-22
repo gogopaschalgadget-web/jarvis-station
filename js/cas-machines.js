@@ -8,6 +8,13 @@ export const TIERS = ['basic', 'enhanced', 'advanced', 'legendary'];
 
 const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
 
+/** The machine's name for a desk: the active theme's own name when its table has one (Counting House calls them boards and ledgers), else the word the server sent. */
+export function machineName(desk) {
+  if (!desk) return '';
+  const names = artFor().machines.names;
+  return names && own(names, desk.id) ? names[desk.id] : (typeof desk.machine === 'string' ? desk.machine : '');
+}
+
 /** The tier word as a key ('Enhanced' to 'enhanced'); an unknown or missing word is the first tier. */
 export function tierKey(tier) {
   const k = typeof tier === 'string' ? tier.trim().toLowerCase() : '';
