@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { TRIMS, FX_KINDS, trimFor, fxWanted, applyTrim, buildFx, dimFor } from '../js/cas-trim.js';
+import { TRIMS, FX_KINDS, trimFor, fxWanted, applyTrim, buildFx, dimFor, fadeFor } from '../js/cas-trim.js';
 
 const css = readFileSync(new URL('../css/station-theme.css', import.meta.url), 'utf8');
 const trimCss = css.slice(css.indexOf('/* Monthly trim:'));
@@ -31,18 +31,29 @@ test('a month picks its strip; a month with no entry, or a bad month, falls back
   assert.equal(trimFor('constructor', {}), null);
 });
 
-test('every strip in the table exists in the repo, is under 100 KB and is in the offline precache; the toast is gone', () => {
+test('every file in the table exists in the repo, strips under 100 KB, sprites and glows under 150 KB, all in the offline precache; the toast is gone', () => {
+  const size = f => statSync(new URL('../' + f, import.meta.url)).size;
+  const files = [];
   Object.values(TRIMS).forEach(t => {
     assert.ok(existsSync(new URL('../' + t.file, import.meta.url)), t.file);
-    assert.ok(statSync(new URL('../' + t.file, import.meta.url)).size < 100 * 1024, t.file + ' stays under 100 KB');
+    assert.ok(size(t.file) < 100 * 1024, t.file + ' stays under 100 KB');
     assert.ok(sw.includes(`'${t.file}'`), t.file + ' is precached');
+    files.push(t.file);
     for (const sp of (t.fx && t.fx.sprites) || []) {
-      assert.ok(existsSync(new URL('../' + sp.file, import.meta.url)) && statSync(new URL('../' + sp.file, import.meta.url)).size < 100 * 1024, sp.file);
+      assert.ok(existsSync(new URL('../' + sp.file, import.meta.url)) && size(sp.file) < 150 * 1024, sp.file);
       assert.ok(sw.includes(`'${sp.file}'`), sp.file + ' is precached');
+      files.push(sp.file);
     }
   });
+  for (const g of ['glow-flame.png', 'glow-lamp.png']) {
+    const f = 'assets/themes/forge-and-brass/trim/november/' + g;
+    assert.ok(existsSync(new URL('../' + f, import.meta.url)) && size(f) < 20 * 1024 && sw.includes(`'${f}'`) && trimCss.includes(g), g);
+    files.push(f);
+  }
   assert.ok(existsSync(new URL('../assets/theme/sleigh.png', import.meta.url)));
   assert.ok(sw.includes("'assets/theme/sleigh.png'"));
+  files.push('assets/theme/sleigh.png');
+  assert.ok(files.reduce((n, f) => n + size(f), 0) < 450 * 1024, 'all trim pictures together stay small');
   assert.ok(!/toast|cheers/i.test(sw + trimCss + readFileSync(new URL('../js/cas-trim.js', import.meta.url), 'utf8')), 'nothing of the toast stays in the build');
   assert.ok(!existsSync(new URL('../assets/themes/forge-and-brass/trim/november/the-toast.jpg', import.meta.url)));
 });
@@ -50,48 +61,56 @@ test('every strip in the table exists in the repo, is under 100 KB and is in the
 test('effects play only in a month that lists some, in game mode, without reduced motion; a month can carry several at once', () => {
   assert.ok(fxWanted({ month: 12, mode: 'game', reduced: false }).sleigh);
   const nov = fxWanted({ month: 11, mode: 'game', reduced: false });
-  assert.ok(nov.flames.length >= 3 && nov.shadow === true, 'November carries flames and shadows together');
+  assert.ok(nov.lights.length === 8 && nov.shadows.length === 3 && nov.sprites.length === 2, 'November carries lights, shadows and servers together');
   assert.ok(fxWanted({ month: 11, mode: 'professional', reduced: false }), 'the stylesheet hides it');
   assert.equal(fxWanted({ month: 11, mode: 'game', reduced: true }), null);
   assert.equal(fxWanted({ month: 12, mode: 'game', reduced: true }), null);
   assert.ok(fxWanted({ month: 12, mode: undefined, reduced: false }));
   assert.equal(fxWanted({ month: 6, mode: 'game', reduced: false }), null);
   assert.equal(fxWanted({ month: 11, mode: 'game', reduced: false }, { 11: { file: 'n.jpg' } }), null, 'a strip with no effects');
-  assert.equal(fxWanted({ month: 11, mode: 'game', reduced: false }, { 11: { file: 'n.jpg', fx: { confetti: true, flames: [] } } }), null, 'an unknown kind or an empty list draws nothing');
-  assert.deepEqual(FX_KINDS, ['flames', 'shadow', 'sprites', 'sleigh']);
+  assert.equal(fxWanted({ month: 11, mode: 'game', reduced: false }, { 11: { file: 'n.jpg', fx: { confetti: true, lights: [] } } }), null, 'an unknown kind or an empty list draws nothing');
+  assert.deepEqual(FX_KINDS, ['lights', 'shadows', 'sprites', 'sleigh']);
 });
 
-test('the overlay value: November 0.12 and December 0.15, only a number from above 0 to 1 counts', () => {
-  assert.equal(dimFor(trimFor(11)), 0.12);
-  assert.equal(dimFor(trimFor(12)), 0.15);
+test('the overlay values: November 0.15, December 0.45 with a 0.6 fade under the labels; only a number from above 0 to 1 counts', () => {
+  assert.equal(dimFor(trimFor(11)), 0.15);
+  assert.equal(dimFor(trimFor(12)), 0.45);
+  assert.equal(fadeFor(trimFor(12)), 0.6);
+  assert.equal(fadeFor(trimFor(11)), 0);
   for (const bad of [null, {}, { dim: 0 }, { dim: -1 }, { dim: 2 }, { dim: '0.4' }]) assert.equal(dimFor(bad), 0);
+  for (const bad of [null, {}, { fade: 0 }, { fade: 1.5 }, { fade: '1' }]) assert.equal(fadeFor(bad), 0);
 });
 
-test('November draws one glow per flame and the shadow layer; December draws the sleigh; switching month swaps the layer; twice adds one', () => {
+test('November draws a glow per light, the shadows and both servers; December draws the sleigh; switching month swaps the layer; twice adds one', () => {
   const d = fakeDoc();
   const r = applyTrim(new Date(2026, 10, 20), d.doc);
   assert.equal(r.fx, '11');
   assert.equal(d.kids.length, 1);
   const c = classes(d.kids[0]);
-  assert.equal(c.filter(x => x === 'fx-flame').length, TRIMS[11].fx.flames.length);
-  assert.equal(c.filter(x => x === 'fx-shadow').length, 1);
+  assert.equal(c.filter(x => x === 'fx-light flame').length, 4);
+  assert.equal(c.filter(x => x === 'fx-light lamp').length, 4);
+  assert.equal(c.filter(x => x === 'fx-shadow').length, 3);
+  assert.equal(c.filter(x => x === 'fx-sprite').length, 2);
   assert.equal(d.kids[0].attrs['aria-hidden'], 'true');
+  assert.equal(d.style['--trim-fade'], '0');
   applyTrim(new Date(2026, 10, 21), d.doc);
   assert.equal(d.kids.length, 1, 'applying twice adds one layer');
   applyTrim(new Date(2026, 11, 20), d.doc);
   assert.equal(d.kids.length, 1, 'one layer at a time');
   assert.deepEqual(classes(d.kids[0]), ['fx-sleigh']);
   assert.equal(d.kids[0].kids[0].kids[0].className, 'fx-bob');
+  assert.equal(d.style['--trim-fade'], '0.6');
   applyTrim(new Date(2026, 5, 20), d.doc);
   assert.equal(d.kids.length, 0, 'a month with no effects removes the layer');
   assert.equal(d.style['--trim-url'], undefined);
+  assert.equal(d.style['--trim-fade'], undefined);
 });
 
 test('December applies the strip URL; professional mode keeps the strip and the layer, which the stylesheet hides (so switching to game mode needs no redraw)', () => {
   const dec = fakeDoc();
   applyTrim(new Date(2026, 11, 5), dec.doc);
   assert.match(dec.style['--trim-url'], /^url\("https:\/\/station\.test\/app\/assets\/themes\/forge-and-brass\/trim\/december\/frost-on-iron\.jpg"\)$/);
-  assert.equal(dec.style['--trim-dim'], '0.15');
+  assert.equal(dec.style['--trim-dim'], '0.45');
   const pro = fakeDoc('professional');
   const r = applyTrim(new Date(2026, 10, 5), pro.doc);
   assert.equal(r.fx, '11');
@@ -99,30 +118,46 @@ test('December applies the strip URL; professional mode keeps the strip and the 
   assert.match(pro.style['--trim-url'], /black-iron-hall\.jpg/);
 });
 
-test('flames: every value is range checked, each flame gets its own rhythm', () => {
+test('lights and shadows: every value is range checked; the table follows the art manifest (8 lights, glow boxes in percent, flames faster than lamps)', () => {
   const d = fakeDoc();
-  const out = buildFx(d.doc, { flames: [{ x: 10, y: 20, r: 18, t: 2.5, d: -1 }, { x: 'bad', y: 500, r: -3, t: 0, d: 99 }] }, 'https://s.test/');
-  assert.equal(out.length, 2);
-  assert.deepEqual(out[0].style.vars, { '--x': '10%', '--y': '20%', '--r': '18px', '--t': '2.5s', '--d': '-1s' });
-  assert.deepEqual(out[1].style.vars, { '--x': '50%', '--y': '50%', '--r': '16px', '--t': '3s', '--d': '0s' }, 'bad values fall back');
-  const t = TRIMS[11].fx.flames.map(f => f.t);
-  assert.ok(new Set(t).size === t.length, 'no two flames share a flicker time');
+  const out = buildFx(d.doc, { lights: [{ kind: 'lamp', x: 10, y: 20, w: 8, h: 40, t: 9, lo: 0.7, hi: 1 }, { kind: 'x', x: 'bad', y: 500, w: -3, h: 0, t: 0, lo: 2, hi: -1 }], shadows: [{ x: 0, y: 5, w: 20, h: 95, t: 9, d: 0 }, { t: 1 }] }, 'https://s.test/');
+  assert.equal(out.length, 4);
+  assert.equal(out[0].className, 'fx-light lamp');
+  assert.deepEqual(out[0].style.vars, { '--x': '10%', '--y': '20%', '--w': '8%', '--h': '40%', '--t': '9s', '--lo': '0.7', '--span': '0.3' });
+  assert.equal(out[1].className, 'fx-light flame', 'an unknown kind is a flame');
+  assert.deepEqual(out[1].style.vars, { '--x': '0%', '--y': '0%', '--w': '10%', '--h': '30%', '--t': '3s', '--lo': '0.5', '--span': '0.5' }, 'bad values fall back');
+  assert.equal(out[3].style.vars['--t'], '9s');
+  const lights = TRIMS[11].fx.lights;
+  const flames = lights.filter(l => l.kind === 'flame'), lamps = lights.filter(l => l.kind === 'lamp');
+  assert.ok(flames.every(f => f.t <= 3) && lamps.every(l => l.t >= 8), 'flames flicker fast, lamps slowly');
+  assert.ok(new Set(flames.map(f => f.t)).size === flames.length, 'no two flames share a rhythm');
+  assert.ok(flames.every(f => f.lo === 0.35 && f.hi === 1) && lamps.every(l => l.lo === 0.7 && l.hi === 1), 'ranges from the art manifest');
+  assert.deepEqual(TRIMS[11].fx.shadows.map(s => [s.x, s.w]), [[0, 20], [80, 20], [38, 24]], 'the three wall zones from the manifest');
 });
 
-test('sprites: a sheet plays once every 15 to 25 seconds from a manifest-style entry; bad entries draw nothing; the table allows several', () => {
+test('sprites: a one-row sheet plays once every 15 to 25 seconds; bad entries draw nothing; the two servers never play at the same moment', () => {
   const d = fakeDoc();
-  const entry = { file: 'a.webp', x: 10, y: 20, w: 12, h: 50, frames: 8, every: 17 };
+  const entry = { file: 'a.webp', x: 10, y: 20, w: 12, h: 50, frames: 8, every: 17, delay: 3 };
   const out = buildFx(d.doc, { sprites: [entry, { ...entry, every: 23, x: 60 }, { file: 'b.webp', frames: 1 }, { frames: 6 }] }, 'https://s.test/app/');
   assert.equal(out.length, 2, 'the entry without a valid frame count or file is skipped');
   assert.equal(out[0].className, 'fx-sprite');
   assert.equal(out[0].style.vars['--every'], '17s');
+  assert.equal(out[0].style.vars['--delay'], '3s');
   assert.equal(out[1].style.vars['--every'], '23s');
   assert.equal(out[0].style.vars['--s'], '7', 'steps between 8 frames');
   assert.equal(out[0].style.vars['--end'], '-87.5000%');
   assert.equal(out[0].kids[0].style.vars['--wide'], '800%');
   assert.equal(out[0].kids[0].style.vars['--sheet'], 'url("https://s.test/app/a.webp")');
-  const clamped = buildFx(d.doc, { sprites: [{ ...entry, every: 3 }] }, 'https://s.test/');
-  assert.equal(clamped[0].style.vars['--every'], '20s', 'a period outside 15 to 25 falls back');
+  assert.equal(buildFx(d.doc, { sprites: [{ ...entry, every: 3, delay: 99 }] }, 'https://s.test/')[0].style.vars['--every'], '20s', 'a period outside 15 to 25 falls back');
+  assert.equal(buildFx(d.doc, { sprites: [{ ...entry, delay: 99 }] }, 'https://s.test/')[0].style.vars['--delay'], '0s');
+  const [a, b] = TRIMS[11].fx.sprites;
+  assert.equal(a.frames, 24);
+  assert.equal(b.frames, 24);
+  const plays = x => Array.from({ length: 40 }, (_, k) => [x.delay + k * x.every, x.delay + k * x.every + x.every / 10]);
+  for (const [s1, e1] of plays(a)) for (const [s2, e2] of plays(b)) assert.ok(e1 <= s2 || e2 <= s1, 'plays do not overlap');
+  assert.ok([a, b].every(x => x.every >= 15 && x.every <= 25 && x.every / 10 === 2), 'each play is the 2 seconds the art was made for');
+  assert.deepEqual([a.x, a.y, a.w, a.h], [40.18, 31.94, 10.42, 43.06]);
+  assert.deepEqual([b.x, b.y, b.w, b.h], [49.7, 38.89, 7.74, 45.83]);
 });
 
 test('the stylesheet: no taps, behind the labels, only opacity and transform move, nothing in professional mode, reduced motion or on the rail, paused when hidden', () => {
@@ -141,14 +176,18 @@ test('the stylesheet: no taps, behind the labels, only opacity and transform mov
   }
 });
 
-test('flicker and shadow are irregular and slow; the sleigh has three paths with easing, a bob and a tilt', () => {
+test('flicker is irregular and never brighter than the gain allows; shadows are slow and faint; the sleigh has three paths with easing, a bob and a tilt', () => {
   const flick = trimCss.match(/@keyframes trim-flick \{([\s\S]*?)\n\}/)[1];
-  const opac = [...flick.matchAll(/opacity:\s*([\d.]+)/g)].map(m => +m[1]);
-  assert.ok(opac.length >= 8 && Math.max(...opac) <= 0.95, 'glow never fully opaque');
-  const steps = opac.slice(1).map((v, i) => Math.sign(v - opac[i]));
-  assert.ok(steps.some((s, i) => i && s !== steps[i - 1]), 'it rises and falls unevenly, not a smooth ramp');
-  assert.match(trimCss, /\.fx-shadow\s*\{[^}]*opacity:\s*\.22/);
-  assert.match(trimCss, /\.fx-shadow\s*\{[^}]*animation:\s*trim-shadow 9s ease-in-out infinite alternate/);
+  const mult = [...flick.matchAll(/--span\) \* (\.?\d+(?:\.\d+)?)\)/g)].map(m => +m[1]);
+  assert.ok(mult.length >= 9 && Math.max(...mult) <= 1 && Math.min(...mult) >= 0, 'a pattern of at least 8 steps within lo to hi');
+  const steps = mult.slice(1).map((v, i) => Math.sign(v - mult[i]));
+  assert.ok(steps.some((s, i) => i && s !== steps[i - 1]) && new Set(mult).size >= 7, 'it rises and falls unevenly, not a smooth ramp');
+  assert.match(trimCss, /\.fx-light\.flame \{[^}]*--gain: \.75/);
+  assert.match(trimCss, /\.fx-light\.lamp \{[^}]*--gain: \.85/);
+  assert.match(trimCss, /mix-blend-mode: screen/);
+  const sh = trimCss.match(/@keyframes trim-shadow \{([\s\S]*?)\n\}/)[1];
+  assert.ok(Math.max(...[...sh.matchAll(/opacity:\s*([\d.]+)/g)].map(m => +m[1])) <= 0.22, 'shadows stay at 0.22 or less');
+  assert.match(trimCss, /\.fx-shadow \{[^}]*animation: trim-shadow var\(--t\) ease-in-out var\(--d\) infinite alternate/);
   const y = trimCss.match(/@keyframes trim-fly-y \{([\s\S]*?)\n\}/)[1];
   assert.ok(/rotate\(-?\d+deg\)/.test(y), 'tilt');
   const ys = new Set([...y.matchAll(/translate3d\(0, calc\((-?\d+)px/g)].map(m => m[1]));
@@ -157,6 +196,7 @@ test('flicker and shadow are irregular and slow; the sleigh has three paths with
   assert.match(trimCss, /html\.ios-short \.trim-fx\s*\{\s*--k:/, 'shallower flight on the short bar');
   assert.match(trimCss, /\.fx-bob\s*\{[^}]*animation:\s*trim-fly-y 45s cubic-bezier/);
   assert.match(trimCss, /trim-bob 1\.3s ease-in-out infinite alternate/);
+  assert.match(trimCss, /\.fx-sprite::after \{[^}]*rgb\(0 0 0 \/ var\(--trim-dim, 0\)\)/, 'a sprite is dimmed like the strip, so there is no seam');
 });
 
 test('the layer is put back after the bar is drawn (the bar redraw would wipe it)', () => {

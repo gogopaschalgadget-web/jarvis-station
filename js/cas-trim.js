@@ -3,33 +3,53 @@ const DIR = 'assets/themes/forge-and-brass/trim/';
 /**
  * Monthly trim for the bottom bar: month number (1 to 12) to a strip file. No entry means today's plain trim.
  * To add a month: put the picture in the folder above and add one line here. `dim` (0 to 1) lays a dark overlay over a busy strip so the
- * icons and labels keep their contrast. `fx` lists the small CSS-only effects drawn over the strip (all positions are percent of the bar):
- *   flames:  [{ x, y, r, t, d }]  a soft glow over a flame at x,y (r = glow size in px, t = flicker seconds, d = start offset seconds)
- *   shadow:  true                 one slow, low-contrast shadow layer that drifts
- *   sprites: [{ file, x, y, w, h, frames, every }]  a one-row sheet of `frames` frames played once every `every` seconds (15 to 25), hidden between
- *   sleigh:  true                 the December sleigh flight (three different paths in turn)
+ * icons and labels keep their contrast; `fade` (0 to 1) darkens the lower part of the bar, under the labels, only where a strip is bright there. `fx` lists the small CSS-only effects drawn over the strip; every x, y, w, h is a percent of the bar:
+ *   lights:  [{ kind, x, y, w, h, t, lo, hi }]  a soft glow picture in the box (kind 'flame' or 'lamp'); it flickers between lo and hi opacity in an
+ *            uneven pattern that repeats every t seconds
+ *   shadows: [{ x, y, w, h, t, d }]             a soft dark patch that drifts sideways (t seconds a swing, d start offset)
+ *   sprites: [{ file, x, y, w, h, frames, every, delay }]  a one-row sheet of `frames` frames played in the first tenth of every `every` seconds
+ *            (15 to 25; 20 gives a 2 second play), first run after `delay` seconds, hidden between plays
+ *   sleigh:  true                                the December sleigh flight (three different paths in turn)
  */
 export const TRIMS = {
   11: {
-    file: DIR + 'november/black-iron-hall.jpg', dim: 0.12,
+    file: DIR + 'november/black-iron-hall.jpg', dim: 0.15,
     fx: {
-      flames: [
-        { x: 39.3, y: 53, r: 26, t: 2.7, d: 0 }, { x: 43.3, y: 55, r: 16, t: 3.3, d: -1.1 }, { x: 45, y: 55, r: 16, t: 2.3, d: -0.4 },
-        { x: 46.1, y: 56, r: 16, t: 3.7, d: -2.2 }, { x: 54.4, y: 56, r: 18, t: 3.1, d: -1.7 }, { x: 57, y: 57, r: 18, t: 2.5, d: -0.8 },
+      lights: [
+        { kind: 'lamp', x: 3.87, y: -3.47, w: 10.42, h: 48.61, t: 9, lo: 0.7, hi: 1 },
+        { kind: 'lamp', x: 27.08, y: 10.42, w: 8.93, h: 41.67, t: 12, lo: 0.7, hi: 1 },
+        { kind: 'lamp', x: 65.48, y: 15.62, w: 8.93, h: 41.67, t: 15, lo: 0.7, hi: 1 },
+        { kind: 'lamp', x: 81.47, y: -2.78, w: 10.42, h: 48.61, t: 11, lo: 0.7, hi: 1 },
+        { kind: 'flame', x: 47.54, y: 49.65, w: 6.25, h: 29.17, t: 2.2, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 47.4, y: 59.72, w: 4.17, h: 19.44, t: 1.6, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 49.63, y: 61.11, w: 4.17, h: 19.44, t: 2.9, lo: 0.35, hi: 1 },
+        { kind: 'flame', x: 33.63, y: 59.38, w: 3.57, h: 16.67, t: 2.4, lo: 0.35, hi: 1 },
       ],
-      shadow: true,
-      sprites: [],
+      shadows: [
+        { x: 0, y: 5, w: 20, h: 95, t: 9, d: 0 },
+        { x: 80, y: 5, w: 20, h: 95, t: 13, d: -4 },
+        { x: 38, y: 5, w: 24, h: 50, t: 7, d: -2 },
+      ],
+      sprites: [
+        { file: DIR + 'november/serve-plate-row.webp', x: 40.18, y: 31.94, w: 10.42, h: 43.06, frames: 24, every: 20, delay: 6 },
+        { file: DIR + 'november/pour-drink-row.webp', x: 49.7, y: 38.89, w: 7.74, h: 45.83, frames: 24, every: 20, delay: 15 },
+      ],
     },
   },
-  12: { file: DIR + 'december/frost-on-iron.jpg', dim: 0.15, fx: { sleigh: true } },
+  12: { file: DIR + 'december/frost-on-iron.jpg', dim: 0.45, fade: 0.6, fx: { sleigh: true } },
 };
 
 /** The effect kinds the stylesheet knows. Anything else in a table entry is ignored. */
-export const FX_KINDS = ['flames', 'shadow', 'sprites', 'sleigh'];
+export const FX_KINDS = ['lights', 'shadows', 'sprites', 'sleigh'];
 
 /** The overlay strength for a trim: 0 to 1, else none. */
 export function dimFor(trim) {
   return trim && typeof trim.dim === 'number' && trim.dim > 0 && trim.dim <= 1 ? trim.dim : 0;
+}
+
+/** The dark fade under the labels for a trim: 0 to 1, else none. Used where a strip is bright right behind the labels. */
+export function fadeFor(trim) {
+  return trim && typeof trim.fade === 'number' && trim.fade > 0 && trim.fade <= 1 ? trim.fade : 0;
 }
 
 /** The trim for a month, or null (plain trim) when none is listed or the month is not 1 to 12. */
@@ -58,25 +78,27 @@ function el(doc, cls, vars) {
   return e;
 }
 
+const area = o => ({ '--x': num(o.x, -50, 150, 0) + '%', '--y': num(o.y, -50, 150, 0) + '%', '--w': num(o.w, 0.5, 100, 10) + '%', '--h': num(o.h, 0.5, 100, 30) + '%' });
+
 /** Builds the effect elements for one month's `fx` entry. Every value is range-checked, so a bad table line draws nothing odd. */
 export function buildFx(doc, fx, baseHref) {
   const out = [];
-  if (Array.isArray(fx.flames)) for (const f of fx.flames) {
-    out.push(el(doc, 'fx-flame', { '--x': num(f.x, 0, 100, 50) + '%', '--y': num(f.y, 0, 100, 50) + '%', '--r': num(f.r, 4, 80, 16) + 'px', '--t': num(f.t, 1, 10, 3) + 's', '--d': num(f.d, -20, 20, 0) + 's' }));
+  if (Array.isArray(fx.lights)) for (const l of fx.lights) {
+    const lo = num(l.lo, 0, 1, 0.5);
+    const hi = Math.max(lo, num(l.hi, 0, 1, 1));
+    out.push(el(doc, 'fx-light ' + (l.kind === 'lamp' ? 'lamp' : 'flame'), { ...area(l), '--t': num(l.t, 0.5, 30, 3) + 's', '--lo': lo, '--span': +(hi - lo).toFixed(3) }));
   }
-  if (fx.shadow === true) out.push(el(doc, 'fx-shadow'));
+  if (Array.isArray(fx.shadows)) for (const s of fx.shadows) out.push(el(doc, 'fx-shadow', { ...area(s), '--t': num(s.t, 4, 20, 9) + 's', '--d': num(s.d, -20, 20, 0) + 's' }));
   if (Array.isArray(fx.sprites)) for (const s of fx.sprites) {
     const frames = Math.round(num(s.frames, 2, 60, 0));
     if (!frames || typeof s.file !== 'string') continue;
     let href = s.file;
     try { href = new URL(s.file, baseHref).href; } catch { /* keep the relative path */ }
-    const box = el(doc, 'fx-sprite', {
-      '--x': num(s.x, 0, 100, 0) + '%', '--y': num(s.y, 0, 100, 0) + '%', '--w': num(s.w, 1, 100, 10) + '%', '--h': num(s.h, 1, 100, 30) + '%',
-      '--s': frames - 1, '--end': (-100 * (frames - 1) / frames).toFixed(4) + '%', '--every': num(s.every, 15, 25, 20) + 's',
+    const sprite = el(doc, 'fx-sprite', {
+      ...area(s), '--s': frames - 1, '--end': (-100 * (frames - 1) / frames).toFixed(4) + '%', '--every': num(s.every, 15, 25, 20) + 's', '--delay': num(s.delay, 0, 30, 0) + 's',
     });
-    const sheet = el(doc, 'fx-sheet', { '--sheet': `url("${href}")`, '--wide': frames * 100 + '%' });
-    box.append(sheet);
-    out.push(box);
+    sprite.append(el(doc, 'fx-sheet', { '--sheet': `url("${href}")`, '--wide': frames * 100 + '%' }));
+    out.push(sprite);
   }
   if (fx.sleigh === true) {
     const sleigh = el(doc, 'fx-sleigh');
@@ -98,10 +120,12 @@ export function applyTrim(date = new Date(), doc = typeof document === 'undefine
     try { href = new URL(trim.file, doc.baseURI).href; } catch { /* keep the relative path */ }
     root.style.setProperty('--trim-url', `url("${href}")`);
     root.style.setProperty('--trim-dim', String(dimFor(trim)));
+    root.style.setProperty('--trim-fade', String(fadeFor(trim)));
     root.dataset.trim = String(month);
   } else {
     root.style.removeProperty('--trim-url');
     root.style.removeProperty('--trim-dim');
+    root.style.removeProperty('--trim-fade');
     delete root.dataset.trim;
   }
   const layer = doc.getElementById ? doc.getElementById(FX_ID) : null;
@@ -109,13 +133,13 @@ export function applyTrim(date = new Date(), doc = typeof document === 'undefine
   const sig = fx ? String(month) : '';
   if (layer && layer.dataset.fx !== sig) layer.remove();
   if (fx && nav && (!layer || layer.dataset.fx !== sig)) {
-    const box = doc.createElement('div');
-    box.id = FX_ID;
-    box.className = 'trim-fx';
-    box.dataset.fx = sig;
-    box.setAttribute('aria-hidden', 'true');
-    for (const c of buildFx(doc, fx, doc.baseURI)) box.append(c);
-    nav.append(box);
+    const holder = doc.createElement('div');
+    holder.id = FX_ID;
+    holder.className = 'trim-fx';
+    holder.dataset.fx = sig;
+    holder.setAttribute('aria-hidden', 'true');
+    for (const c of buildFx(doc, fx, doc.baseURI)) holder.append(c);
+    nav.append(holder);
   }
   return { month, trim, fx: fx ? sig : null };
 }
