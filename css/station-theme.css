@@ -109,52 +109,66 @@ body { background: #241917; }
   body:has(.metrics-bar:not([hidden]))::before { content: ""; position: fixed; left: 0; right: 0; top: var(--mark-top); height: var(--metrics-height); background: #100c07; pointer-events: none; }
 }
 
-/* Monthly trim: the strip comes from cas-trim.js (--trim-url). December adds a faint sleigh shadow that crosses the bar about every 15 seconds. */
+/* Monthly trim: the strip comes from cas-trim.js (--trim-url); the effects layer sits over it. Every effect moves only opacity or transform (no layout). */
 .trim-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; border-radius: inherit; } /* behind the icons and labels, above the bar's own picture */
-.trim-fx[data-anim="sleigh"] i { position: absolute; top: 76%; left: 0; width: 96px; height: 41px; margin-top: -20px; pointer-events: none;
-  background: url('../assets/theme/sleigh.png') center / contain no-repeat; opacity: .55; filter: drop-shadow(0 0 2px #cfe4ff66);
-  transform: translateX(-140px); animation: trim-sleigh 15s linear infinite; will-change: transform; }
-@keyframes trim-sleigh {
-  0% { transform: translateX(-140px); }
-  26% { transform: translateX(calc(100vw + 20px)); }
-  100% { transform: translateX(calc(100vw + 20px)); }
-}
-html[data-hidden="1"] .trim-fx i, html[data-hidden="1"] .trim-fx b { animation-play-state: paused; }
+.trim-fx i { display: block; pointer-events: none; }
+html[data-hidden="1"] .trim-fx i, html[data-hidden="1"] .trim-fx i::before { animation-play-state: paused; }
 html[data-mode="professional"] .trim-fx { display: none; }
 @media (prefers-reduced-motion: reduce) { .trim-fx { display: none; } }
 @media (min-width: 960px) { .trim-fx { display: none; } }
 
-/* November: the toast. A sprite (24 frames, 6 by 4) laid over the tankards on the strip, played for 2 seconds about every 18 seconds. */
-.trim-fx[data-anim="cheers"] b { position: absolute; left: 41.29%; top: 10.42%; width: 17.86%; height: 55.56%; pointer-events: none; opacity: 0;
-  background-image: linear-gradient(rgb(0 0 0 / var(--trim-dim, 0)), rgb(0 0 0 / var(--trim-dim, 0))), url('../assets/themes/forge-and-brass/trim/november/toast-sprite.webp');
-  background-size: 100% 100%, 600% 400%; background-repeat: no-repeat; background-position: 0 0, 0 0;
-  animation: trim-cheers 18s steps(1) 4s infinite; }
-@keyframes trim-cheers {
-  0.000% { opacity: 1; background-position: 0 0, 0.0% 0.000%; }
-  0.463% { opacity: 1; background-position: 0 0, 20.0% 0.000%; }
-  0.926% { opacity: 1; background-position: 0 0, 40.0% 0.000%; }
-  1.389% { opacity: 1; background-position: 0 0, 60.0% 0.000%; }
-  1.852% { opacity: 1; background-position: 0 0, 80.0% 0.000%; }
-  2.315% { opacity: 1; background-position: 0 0, 100.0% 0.000%; }
-  2.778% { opacity: 1; background-position: 0 0, 0.0% 33.333%; }
-  3.241% { opacity: 1; background-position: 0 0, 20.0% 33.333%; }
-  3.704% { opacity: 1; background-position: 0 0, 40.0% 33.333%; }
-  4.167% { opacity: 1; background-position: 0 0, 60.0% 33.333%; }
-  4.630% { opacity: 1; background-position: 0 0, 80.0% 33.333%; }
-  5.093% { opacity: 1; background-position: 0 0, 100.0% 33.333%; }
-  5.556% { opacity: 1; background-position: 0 0, 0.0% 66.667%; }
-  6.019% { opacity: 1; background-position: 0 0, 20.0% 66.667%; }
-  6.481% { opacity: 1; background-position: 0 0, 40.0% 66.667%; }
-  6.944% { opacity: 1; background-position: 0 0, 60.0% 66.667%; }
-  7.407% { opacity: 1; background-position: 0 0, 80.0% 66.667%; }
-  7.870% { opacity: 1; background-position: 0 0, 100.0% 66.667%; }
-  8.333% { opacity: 1; background-position: 0 0, 0.0% 100.000%; }
-  8.796% { opacity: 1; background-position: 0 0, 20.0% 100.000%; }
-  9.259% { opacity: 1; background-position: 0 0, 40.0% 100.000%; }
-  9.722% { opacity: 1; background-position: 0 0, 60.0% 100.000%; }
-  10.185% { opacity: 1; background-position: 0 0, 80.0% 100.000%; }
-  10.648% { opacity: 1; background-position: 0 0, 100.0% 100.000%; }
-  11.111% { opacity: 1; background-position: 0 0, 100% 100%; }
-  11.911% { opacity: 0; background-position: 0 0, 100% 100%; }
-  100% { opacity: 0; background-position: 0 0, 0% 0%; }
+/* Flames: a soft warm glow over each flame, irregular opacity and size, a different rhythm for each. */
+.fx-flame { position: absolute; left: var(--x); top: var(--y); width: var(--r); height: var(--r); margin: calc(var(--r) / -2) 0 0 calc(var(--r) / -2);
+  background: radial-gradient(circle, #ffc46aa8 0, #ff9a3c55 38%, #ff9a3c00 70%); opacity: .25; will-change: opacity, transform;
+  animation: trim-flick var(--t) linear var(--d) infinite; }
+@keyframes trim-flick {
+  0% { opacity: 0.25; transform: scale(1); }
+  11% { opacity: 0.42; transform: scale(1.12); }
+  23% { opacity: 0.23; transform: scale(.93); }
+  36% { opacity: 0.47; transform: scale(1.16); }
+  47% { opacity: 0.30; transform: scale(.98); }
+  61% { opacity: 0.40; transform: scale(1.08); }
+  74% { opacity: 0.21; transform: scale(.92); }
+  88% { opacity: 0.38; transform: scale(1.05); }
+  100% { opacity: 0.25; transform: scale(1); }
 }
+
+/* Dancing shadows: one slow, low-contrast layer of soft dark bands that drifts and breathes, loosely in step with the flames. */
+.fx-shadow { position: absolute; top: 0; bottom: 0; left: -12%; width: 124%; opacity: .22; will-change: opacity, transform;
+  background: linear-gradient(90deg, #0000 0, #000b 5%, #0000 12%, #0000 22%, #000a 29%, #0000 38%, #0000 49%, #000b 57%, #0000 66%, #0000 76%, #000a 84%, #0000 93%);
+  animation: trim-shadow 9s ease-in-out infinite alternate; }
+@keyframes trim-shadow {
+  0% { opacity: .14; transform: translateX(-3%); }
+  35% { opacity: .30; transform: translateX(1%); }
+  62% { opacity: .18; transform: translateX(3%); }
+  100% { opacity: .28; transform: translateX(-1.5%); }
+}
+
+/* Servers' sprites: a one-row sheet stepped through its frames in the first tenth of a 15 to 25 second period, hidden the rest of the time. */
+.fx-sprite { position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h); overflow: hidden; opacity: 0;
+  animation: trim-sprite-show var(--every) steps(1, end) infinite; }
+.fx-sheet { width: var(--wide); height: 100%; background: var(--sheet) 0 0 / 100% 100% no-repeat; will-change: transform;
+  animation: trim-sprite-play var(--every) steps(var(--s), end) infinite; }
+@keyframes trim-sprite-show { 0% { opacity: 1; } 10% { opacity: 1; } 10.01% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes trim-sprite-play { 0% { transform: translateX(0); } 10% { transform: translateX(var(--end)); } 100% { transform: translateX(var(--end)); } }
+
+/* December: the sleigh flies three different paths in turn (a high swoop, a dive and climb, a long high arc), about 4 seconds each, one every 15 seconds.
+   Three nested parts so each eases on its own: across the bar (--sleigh), up and down with a tilt (--path), and a small bob. */
+.fx-sleigh { position: absolute; top: 62%; left: 0; width: 96px; height: 41px; margin-top: -20px; will-change: transform;
+  transform: translate3d(-140px, 0, 0); animation: trim-fly-x 45s cubic-bezier(.35, 0, .55, 1) infinite; }
+.fx-bob { width: 100%; height: 100%; will-change: transform; animation: trim-fly-y 45s cubic-bezier(.45, 0, .55, 1) infinite; }
+.fx-bob::before { content: ""; display: block; width: 100%; height: 100%; opacity: .55; filter: drop-shadow(0 0 2px #cfe4ff66);
+  background: url('../assets/theme/sleigh.png') center / contain no-repeat; will-change: transform; animation: trim-bob 1.3s ease-in-out infinite alternate; }
+@keyframes trim-fly-x {
+  0% { transform: translate3d(-140px, 0, 0); } 9% { transform: translate3d(calc(100vw + 20px), 0, 0); }
+  9.01% { transform: translate3d(-140px, 0, 0); } 33.33% { transform: translate3d(-140px, 0, 0); } 42.33% { transform: translate3d(calc(100vw + 20px), 0, 0); }
+  42.34% { transform: translate3d(-140px, 0, 0); } 66.67% { transform: translate3d(-140px, 0, 0); } 75.67% { transform: translate3d(calc(100vw + 20px), 0, 0); }
+  75.68%, 100% { transform: translate3d(-140px, 0, 0); }
+}
+@keyframes trim-fly-y {
+  0% { transform: translate3d(0, 0, 0) rotate(-6deg); } 4.5% { transform: translate3d(0, -26px, 0) rotate(0deg); } 9% { transform: translate3d(0, 4px, 0) rotate(7deg); }
+  33.33% { transform: translate3d(0, -4px, 0) rotate(5deg); } 37.8% { transform: translate3d(0, 14px, 0) rotate(-4deg); } 42.33% { transform: translate3d(0, -22px, 0) rotate(-9deg); }
+  66.67% { transform: translate3d(0, -30px, 0) rotate(-10deg); } 71.2% { transform: translate3d(0, -38px, 0) rotate(0deg); } 75.67% { transform: translate3d(0, -8px, 0) rotate(8deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+}
+@keyframes trim-bob { from { transform: translateY(-2px) rotate(-2deg); } to { transform: translateY(2px) rotate(2deg); } }
