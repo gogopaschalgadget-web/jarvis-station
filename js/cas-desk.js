@@ -5,12 +5,12 @@ import { syncLook } from './cas-themes.js?v=cas93';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas93';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas93';
-import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas95';
-import { showRankUp } from './cas-rankup.js?v=cas95';
-import { stillFor, startPicture, watchMachines } from './cas-machines.js?v=cas96';
+import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas97';
+import { showRankUp } from './cas-rankup.js?v=cas97';
+import { stillFor, startPicture, watchMachines } from './cas-machines.js?v=cas97';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas93';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas95';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas97';
 
 export { rankItems };
 
@@ -533,7 +533,7 @@ function progressBlock(p) {
         const pic = el('img', 'bb-machine');
         pic.alt = ''; pic.loading = 'lazy'; pic.decoding = 'async'; pic.src = startPicture(d);
         pic.dataset.still = still; pic.dataset.desk = d.id; pic.dataset.tier = d.tier || ''; pic.dataset.xp = String(d.xp == null ? 0 : d.xp); pic.dataset.placeholder = d.placeholder ? '1' : '0';
-        pic.addEventListener('error', () => { if (pic.getAttribute('src') !== still) pic.setAttribute('src', still); else pic.remove(); });
+        pic.addEventListener('error', () => { if (pic.getAttribute('src') !== still) { pic.dataset.failed = '1'; pic.setAttribute('src', still); } else pic.remove(); });
         c.append(pic);
       }
       c.append(el('b', '', d.name), el('small', '', [d.machine, d.tier].filter(Boolean).join(' · ') || 'Not reported'));

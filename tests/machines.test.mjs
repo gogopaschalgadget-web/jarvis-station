@@ -117,7 +117,7 @@ test('the Desk draws a lazy picture in each desk card from the server progress, 
   const src = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
   assert.match(src, /const still = stillFor\(d\);/);
   assert.match(src, /pic\.loading = 'lazy'/);
-  assert.match(src, /pic\.addEventListener\('error', \(\) => \{ if \(pic\.getAttribute\('src'\) !== still\) pic\.setAttribute\('src', still\); else pic\.remove\(\); \}\);/, 'a failed loop falls back to the still; only a failed still removes the picture');
+  assert.match(src, /pic\.addEventListener\('error', \(\) => \{ if \(pic\.getAttribute\('src'\) !== still\) \{ pic\.dataset\.failed = '1'; pic\.setAttribute\('src', still\); \} else pic\.remove\(\); \}\);/, 'a failed loop falls back to the still; only a failed still removes the picture');
   assert.match(src, /pic\.src = startPicture\(d\)/);
   assert.match(src, /try \{ _stopMachines = watchMachines\(wrap\); \} catch/);
   assert.match(src, /panel\.replaceChildren\(\);\s*\n\s*_stopMachines\(\);/);
@@ -146,4 +146,17 @@ test('a redraw starts a running machine on its loop instead of flashing the stil
   stop();
   assert.equal(handlers.change, undefined, 'the listener is removed');
   assert.equal(startPicture({ id: 'customer_experience', tier: 'Basic', xp: 0, placeholder: true }), DIR + 'switch-basic.webp');
+});
+
+test('a loop that failed to load is not requested again on every scroll or refocus', () => {
+  const img = fakeImg('operations', 'Advanced', 900);
+  let cb = null;
+  class IO { constructor(f) { cb = f; } observe() {} disconnect() {} }
+  const doc = { visibilityState: 'visible', documentElement: { dataset: {} }, addEventListener() {}, removeEventListener() {} };
+  watchMachines({ querySelectorAll: () => [img] }, { doc, win: { IntersectionObserver: IO, matchMedia: () => ({ matches: false }) }, mode: () => 'game' });
+  cb([{ target: img, isIntersecting: true }]);
+  assert.equal(img.attrs.src, DIR + 'forge-loop.webp');
+  img.dataset.failed = '1'; img.setAttribute('src', DIR + 'forge-advanced.webp');
+  cb([{ target: img, isIntersecting: false }]); cb([{ target: img, isIntersecting: true }]);
+  assert.equal(img.attrs.src, DIR + 'forge-advanced.webp', 'stays on the still');
 });

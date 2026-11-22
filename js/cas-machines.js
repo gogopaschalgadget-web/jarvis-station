@@ -65,7 +65,7 @@ export function watchMachines(root, { doc = document, win = window, mode = () =>
   const reducedQ = (() => { try { return win.matchMedia('(prefers-reduced-motion: reduce)'); } catch { return null; } })();
   const seen = new Map();
   const apply = img => {
-    const want = pictureNow({ id: img.dataset.desk, tier: img.dataset.tier, xp: Number(img.dataset.xp), placeholder: img.dataset.placeholder === '1' },
+    const want = pictureNow({ id: img.dataset.desk, tier: img.dataset.tier, xp: img.dataset.failed === '1' ? 0 : Number(img.dataset.xp), placeholder: img.dataset.placeholder === '1' },
       { visible: seen.get(img) === true, hidden: doc.visibilityState === 'hidden', reduced: !!(reducedQ && reducedQ.matches), mode: mode() });
     if (want && img.getAttribute('src') !== want) img.setAttribute('src', want);
     if (want && want === loopFor({ id: img.dataset.desk, xp: Number(img.dataset.xp), placeholder: img.dataset.placeholder === '1' })) playing.add(img.dataset.desk); else playing.delete(img.dataset.desk);
@@ -82,5 +82,6 @@ export function watchMachines(root, { doc = document, win = window, mode = () =>
     if (io) io.disconnect();
     doc.removeEventListener('visibilitychange', onVis);
     if (reducedQ && reducedQ.removeEventListener) reducedQ.removeEventListener('change', onVis);
+    imgs.forEach(i => playing.delete(i.dataset.desk));
   };
 }
