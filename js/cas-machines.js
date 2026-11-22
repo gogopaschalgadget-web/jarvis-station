@@ -40,6 +40,14 @@ export function loopFor(desk, set = HAS) {
   return DIR + m + '-loop.webp';
 }
 
+/** The desks whose loop was playing at the last look, so a redraw of the Desk starts a running machine on its loop instead of flashing the still first. */
+const playing = new Set();
+
+/** The picture a freshly drawn card starts with. */
+export function startPicture(desk) {
+  return desk && playing.has(desk.id) ? loopFor(desk) || stillFor(desk) : stillFor(desk);
+}
+
 /** The picture to show right now: the loop only when it should move, else the still. */
 export function pictureNow(desk, { visible, hidden, reduced, mode }) {
   const still = stillFor(desk);
@@ -60,6 +68,7 @@ export function watchMachines(root, { doc = document, win = window, mode = () =>
     const want = pictureNow({ id: img.dataset.desk, tier: img.dataset.tier, xp: Number(img.dataset.xp), placeholder: img.dataset.placeholder === '1' },
       { visible: seen.get(img) === true, hidden: doc.visibilityState === 'hidden', reduced: !!(reducedQ && reducedQ.matches), mode: mode() });
     if (want && img.getAttribute('src') !== want) img.setAttribute('src', want);
+    if (want && want === loopFor({ id: img.dataset.desk, xp: Number(img.dataset.xp), placeholder: img.dataset.placeholder === '1' })) playing.add(img.dataset.desk); else playing.delete(img.dataset.desk);
   };
   let io = null;
   if (typeof win.IntersectionObserver === 'function') {
@@ -68,5 +77,10 @@ export function watchMachines(root, { doc = document, win = window, mode = () =>
   }
   const onVis = () => imgs.forEach(apply);
   doc.addEventListener('visibilitychange', onVis);
-  return () => { if (io) io.disconnect(); doc.removeEventListener('visibilitychange', onVis); };
+  if (reducedQ && reducedQ.addEventListener) reducedQ.addEventListener('change', onVis);
+  return () => {
+    if (io) io.disconnect();
+    doc.removeEventListener('visibilitychange', onVis);
+    if (reducedQ && reducedQ.removeEventListener) reducedQ.removeEventListener('change', onVis);
+  };
 }

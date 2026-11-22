@@ -19,7 +19,7 @@ self.addEventListener('fetch', event => {
       const hit = await cache.match(canonical);
       if (hit) return hit;
       const response = await fetch(request);
-      if (response.ok) cache.put(canonical, response.clone());
+      if (response.ok && response.status === 200) event.waitUntil(cache.put(canonical, response.clone()).catch(() => {}));
       return response;
     }));
     return;

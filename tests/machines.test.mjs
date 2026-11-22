@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
-import { MACHINES, TIERS, tierKey, stillFor, loopFor, pictureNow, watchMachines } from '../js/cas-machines.js';
+import { MACHINES, TIERS, tierKey, stillFor, loopFor, pictureNow, watchMachines, startPicture } from '../js/cas-machines.js';
 
 const DIR = 'assets/themes/forge-and-brass/machines/';
 const size = f => statSync(new URL('../' + f, import.meta.url)).size;
@@ -109,6 +109,7 @@ test('every picture exists; each loop is under 250 KB, all five under 1.3 MB; no
   assert.equal(readdirSync(new URL('../' + DIR, import.meta.url)).length, 25, '5 loops and 20 stills, nothing else');
   assert.ok(!sw.includes("'" + DIR), 'not in the precache list');
   assert.match(sw, /url\.pathname\.includes\('\/assets\/themes\/forge-and-brass\/machines\/'\)/);
+  assert.match(sw, /event\.waitUntil\(cache\.put\(canonical, response\.clone\(\)\)\.catch\(\(\) => \{\}\)\)/, 'the write is waited for and can never become an unhandled rejection');
   assert.ok(sw.includes("'js/cas-machines.js'"));
 });
 
@@ -116,9 +117,33 @@ test('the Desk draws a lazy picture in each desk card from the server progress, 
   const src = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
   assert.match(src, /const still = stillFor\(d\);/);
   assert.match(src, /pic\.loading = 'lazy'/);
-  assert.match(src, /pic\.addEventListener\('error', \(\) => pic\.remove\(\)\)/);
+  assert.match(src, /pic\.addEventListener\('error', \(\) => \{ if \(pic\.getAttribute\('src'\) !== still\) pic\.setAttribute\('src', still\); else pic\.remove\(\); \}\);/, 'a failed loop falls back to the still; only a failed still removes the picture');
+  assert.match(src, /pic\.src = startPicture\(d\)/);
   assert.match(src, /try \{ _stopMachines = watchMachines\(wrap\); \} catch/);
   assert.match(src, /panel\.replaceChildren\(\);\s*\n\s*_stopMachines\(\);/);
   const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
   assert.match(css, /html\[data-mode="professional"\] \.bb-machine \{ display: none; \}/);
+});
+
+test('a redraw starts a running machine on its loop instead of flashing the still; a change of the reduced-motion setting stops a playing loop', () => {
+  const d = { id: 'money', tier: 'Legendary', xp: 5200 };
+  assert.equal(startPicture(d), DIR + 'gauge-legendary.webp', 'nothing was playing yet');
+  const img = fakeImg('money', 'Legendary', 5200);
+  const root = { querySelectorAll: () => [img] };
+  let cb = null;
+  class IO { constructor(f) { cb = f; } observe() {} disconnect() {} }
+  const handlers = {};
+  let reduced = false;
+  const mq = { get matches() { return reduced; }, addEventListener: (t, f) => { handlers[t] = f; }, removeEventListener: t => { delete handlers[t]; } };
+  const doc = { visibilityState: 'visible', documentElement: { dataset: {} }, addEventListener() {}, removeEventListener() {} };
+  const stop = watchMachines(root, { doc, win: { IntersectionObserver: IO, matchMedia: () => mq }, mode: () => 'game' });
+  cb([{ target: img, isIntersecting: true }]);
+  assert.equal(img.attrs.src, DIR + 'gauge-loop.webp');
+  assert.equal(startPicture(d), DIR + 'gauge-loop.webp', 'the next draw starts on the loop');
+  reduced = true; handlers.change();
+  assert.equal(img.attrs.src, DIR + 'gauge-legendary.webp', 'switching on reduced motion stops it at once');
+  assert.equal(startPicture(d), DIR + 'gauge-legendary.webp');
+  stop();
+  assert.equal(handlers.change, undefined, 'the listener is removed');
+  assert.equal(startPicture({ id: 'customer_experience', tier: 'Basic', xp: 0, placeholder: true }), DIR + 'switch-basic.webp');
 });
