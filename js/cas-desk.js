@@ -1024,7 +1024,7 @@ async function doLoad(force) {
     syncLook(prog);
     try {
       const up = _rankMemory.check(prog);
-      if (up) showRankUp(document, { ...up, mode: document.documentElement.dataset.mode, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches, say });
+      if (up) showRankUp(document, { ...up, mode: document.documentElement.dataset.mode, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches, say: t => { if (!_toast || !_toast.undo) say(t); } });
     } catch { /* the moment is a nicety; the Desk must load */ }
     if (!_doneOpen) _lookBase = lastLook();
     _state = data.feed && Array.isArray(data.feed.items) ? 'ready' : 'empty';

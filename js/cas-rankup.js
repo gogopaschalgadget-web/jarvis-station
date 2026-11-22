@@ -1,6 +1,7 @@
 import { plateFor, rankUpScene, rankUpMode } from './cas-progress.js?v=cas93';
 
-const AUTO_MS = 9000;
+const AUTO_MS = 12000;
+let current = null;
 const GUARD_MS = 700;
 
 /**
@@ -11,8 +12,7 @@ const GUARD_MS = 700;
 export function showRankUp(doc, { name, index, mode, reduced, say }) {
   const how = rankUpMode({ mode, reduced });
   if (how === 'line') { if (say) say('Rank up: ' + name + '.'); return null; }
-  const old = doc.getElementById('rankup');
-  if (old) old.remove();
+  if (current) current();
   const box = doc.createElement('div');
   box.id = 'rankup';
   box.className = 'rankup ' + how;
@@ -51,16 +51,23 @@ export function showRankUp(doc, { name, index, mode, reduced, say }) {
   box.append(shade, center);
   const opened = Date.now();
   let timer = 0;
+  const prevFocus = doc.activeElement;
+  const held = Array.from(doc.body && doc.body.children ? doc.body.children : []).filter(c => c !== box && !c.inert);
   const close = () => {
     clearTimeout(timer);
     doc.removeEventListener('keydown', onKey);
+    held.forEach(c => { c.inert = false; });
     box.remove();
+    if (current === close) current = null;
+    try { if (prevFocus && prevFocus.focus) prevFocus.focus({ preventScroll: true }); } catch { /* no focus */ }
   };
-  const onKey = e => { if (e.key === 'Escape') close(); };
+  const onKey = e => { if (e.key === 'Escape') { if (e.stopPropagation) e.stopPropagation(); close(); } };
   box.addEventListener('click', () => { if (Date.now() - opened >= GUARD_MS) close(); });
   btn.addEventListener('click', e => { e.stopPropagation(); close(); });
   doc.addEventListener('keydown', onKey);
-  timer = setTimeout(close, how === 'animate' ? AUTO_MS : AUTO_MS * 2);
+  if (how === 'animate') timer = setTimeout(close, AUTO_MS);
+  current = close;
+  held.forEach(c => { c.inert = true; });
   (doc.body || doc.documentElement).append(box);
   try { btn.focus({ preventScroll: true }); } catch { /* no focus */ }
   return box;

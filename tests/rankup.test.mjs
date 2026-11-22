@@ -50,8 +50,9 @@ test('a higher rank than the phone last saw plays once, then never again for tha
   assert.equal(s['cas-rank-seen'], '4', 'remembered at once, before the animation runs');
   assert.equal(m.check(prog(4)), null, 'not again');
   assert.equal(makeRankMemory(storage).check(prog(4)), null, 'not after a reload either');
-  assert.equal(m.check(prog(3)), null, 'a lower rank from the server plays nothing and does not lower the memory');
-  assert.equal(m.seen(), 4);
+  assert.equal(m.check(prog(3)), null, 'a lower rank from the server plays nothing');
+  assert.equal(m.seen(), 3, 'and the memory follows it down, so re-earning rank 4 plays the moment again');
+  assert.deepEqual(m.check(prog(4)), { index: 4, name: 'R4' });
   assert.deepEqual(m.check(prog(6)), { index: 6, name: 'R6' }, 'a jump of several ranks plays once for the new rank');
 });
 
@@ -129,4 +130,27 @@ test('the Desk plays the moment only from the server progress, caught so it can 
   assert.ok(!/rankUpOf[\s\S]{0,80}showRankUp/.test(src), 'the done response never starts the animation');
   assert.match(src, /plateFor\(p\.rank\.index\)/);
   assert.match(src, /nextPlate\(p\)/);
+});
+
+test('the card makes the app behind it inert while open, gives focus back on close, Escape stops there, a second card closes the first, the still card never times out', () => {
+  const { doc, body, listeners } = fakeDoc();
+  const app = { inert: false, focused: 0 };
+  const prev = { focus() { app.focused++; } };
+  body.children = [app];
+  doc.activeElement = prev;
+  const box = showRankUp(doc, { name: 'Technician', index: 4, mode: 'game', reduced: false });
+  assert.equal(app.inert, true);
+  let stopped = false;
+  listeners.keydown({ key: 'Escape', stopPropagation() { stopped = true; } });
+  assert.equal(stopped, true);
+  assert.equal(app.inert, false, 'the app is live again');
+  assert.equal(app.focused, 1, 'focus went back where it was');
+  assert.equal(body.kids.length, 0);
+  const first = showRankUp(doc, { name: 'Technician', index: 4, mode: 'game', reduced: true });
+  const second = showRankUp(doc, { name: 'Manager', index: 6, mode: 'game', reduced: true });
+  assert.equal(body.kids.length, 1);
+  assert.equal(body.kids[0], second);
+  assert.notEqual(first, second);
+  assert.equal(app.inert, true);
+  second.ev.click();
 });

@@ -76,10 +76,11 @@ export function makeRankMemory(storage, key = 'cas-rank-seen') {
       const r = progress && progress.rank;
       if (!r || !Number.isInteger(r.index) || r.index < 1 || r.index > 99) return null;
       const first = seen == null;
-      if (!first && r.index <= seen) return null;
+      if (!first && r.index === seen) return null;
+      const higher = !first && r.index > seen;
       seen = r.index;
       try { if (storage) storage.setItem(key, String(r.index)); } catch { /* remembered for this session */ }
-      return first ? null : { index: r.index, name: r.name };
+      return higher ? { index: r.index, name: r.name } : null;
     },
   };
 }
