@@ -55,16 +55,16 @@ export function showRankUp(doc, { name, index, mode, reduced, say }) {
   const held = Array.from(doc.body && doc.body.children ? doc.body.children : []).filter(c => c !== box && !c.inert);
   const close = () => {
     clearTimeout(timer);
-    doc.removeEventListener('keydown', onKey);
+    doc.removeEventListener('keydown', onKey, true);
     held.forEach(c => { c.inert = false; });
     box.remove();
     if (current === close) current = null;
     try { if (prevFocus && prevFocus.focus) prevFocus.focus({ preventScroll: true }); } catch { /* no focus */ }
   };
-  const onKey = e => { if (e.key === 'Escape') { if (e.stopPropagation) e.stopPropagation(); close(); } };
+  const onKey = e => { if (e.key === 'Escape') { if (e.stopImmediatePropagation) e.stopImmediatePropagation(); else if (e.stopPropagation) e.stopPropagation(); close(); } };
   box.addEventListener('click', () => { if (Date.now() - opened >= GUARD_MS) close(); });
   btn.addEventListener('click', e => { e.stopPropagation(); close(); });
-  doc.addEventListener('keydown', onKey);
+  doc.addEventListener('keydown', onKey, true);
   if (how === 'animate') timer = setTimeout(close, AUTO_MS);
   current = close;
   held.forEach(c => { c.inert = true; });

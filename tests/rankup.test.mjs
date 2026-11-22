@@ -82,7 +82,7 @@ function fakeDoc() {
   const body = { kids: [], append(c) { this.kids.push(c); } };
   const listeners = {};
   const mk = tag => ({ tag, id: '', className: '', style: {}, attrs: {}, kids: [], ev: {}, textContent: '', src: '', alt: '', type: '', append(...c) { this.kids.push(...c); }, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ev[t] = f; }, remove() { const i = body.kids.indexOf(this); if (i >= 0) body.kids.splice(i, 1); }, focus() {} });
-  const doc = { body, documentElement: body, createElement: mk, getElementById: id => body.kids.find(k => k.id === id) || null, addEventListener: (t, f) => { listeners[t] = f; }, removeEventListener: t => { delete listeners[t]; } };
+  const doc = { body, documentElement: body, createElement: mk, getElementById: id => body.kids.find(k => k.id === id) || null, addEventListener: (t, f, c) => { if (t === 'keydown') assert.equal(c, true, 'Escape is caught first, in the capture phase'); listeners[t] = f; }, removeEventListener: (t, f, c) => { assert.equal(c, true, 'removed with the same capture flag'); delete listeners[t]; } };
   return { doc, body, listeners };
 }
 const all = e => [e, ...e.kids.flatMap(all)];
@@ -146,7 +146,7 @@ test('the card makes the app behind it inert while open, gives focus back on clo
   const box = showRankUp(doc, { name: 'Technician', index: 4, mode: 'game', reduced: false });
   assert.equal(app.inert, true);
   let stopped = false;
-  listeners.keydown({ key: 'Escape', stopPropagation() { stopped = true; } });
+  listeners.keydown({ key: 'Escape', stopImmediatePropagation() { stopped = true; } });
   assert.equal(stopped, true);
   assert.equal(app.inert, false, 'the app is live again');
   assert.equal(app.focused, 1, 'focus went back where it was');
