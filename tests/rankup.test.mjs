@@ -20,6 +20,11 @@ test('a plate for each of the 12 ranks, from fixed names; anything else has none
   const scene = rankUpScene(4);
   assert.ok(scene && existsSync(new URL('../' + scene, import.meta.url)) && statSync(new URL('../' + scene, import.meta.url)).size < 100 * 1024 && sw.includes(`'${scene}'`));
   assert.equal(rankUpScene(5), '', 'no scene painted yet for the other ranks');
+  for (let i = 1; i <= 12; i++) {
+    const sc = rankUpScene(i);
+    if (!sc) continue;
+    assert.ok(existsSync(new URL('../' + sc, import.meta.url)) && statSync(new URL('../' + sc, import.meta.url)).size < 100 * 1024 && sw.includes(`'${sc}'`), 'a scene in the table exists, is small and precached: ' + sc);
+  }
   assert.ok(sw.includes("'js/cas-rankup.js'"));
 });
 
