@@ -34,6 +34,7 @@ function el(tag, cls, text) {
 export function initGallery(options) {
   _o = { ..._o, ...options };
   _stopped = false;
+  _failedAt = 0;
 }
 
 async function call(path, body) {
@@ -66,13 +67,13 @@ export function loadGallery(force = false) {
       if (mine.epoch !== _epoch) return _list;
       if (mine.gen !== _gen) return await loadGallery(true);
       if (r.ok) {
-        try { _list = normalizeGallery(await r.res.json()); _state = 'ready'; _loadedAt = Date.now(); } catch { if (_state !== 'ready') _state = 'failed'; }
+        try { _list = normalizeGallery(await r.res.json()); _state = 'ready'; _loadedAt = Date.now(); } catch { if (_state !== 'ready') { _state = 'failed'; _failedAt = Date.now(); } }
       } else {
         if (failureAction(r.status) === 'stop') _stopped = true;
         if (_state !== 'ready') { _state = 'failed'; _failedAt = Date.now(); }
       }
     } catch (e) {
-      if (mine.epoch === _epoch && _state !== 'ready') _state = 'failed';
+      if (mine.epoch === _epoch && _state !== 'ready') { _state = 'failed'; _failedAt = Date.now(); }
       if (typeof console !== 'undefined') console.warn('[gallery]', e && e.message);
     } finally {
       if (_inflightToken === mine) { _inflight = null; _inflightToken = null; }
@@ -88,7 +89,7 @@ export function invalidateGallery() { _loadedAt = 0; _gen++; }
 /** Forget everything (sign-out): the list, every thumbnail, every open view; an answer still on its way from before is ignored. */
 export function stopGallery() {
   _epoch++; _gen++;
-  _list = []; _state = 'idle'; _loadedAt = 0; _stopped = false; _inflight = null; _inflightToken = null;
+  _list = []; _state = 'idle'; _loadedAt = 0; _failedAt = 0; _stopped = false; _inflight = null; _inflightToken = null;
   for (const u of _thumbs.values()) { try { URL.revokeObjectURL(u); } catch { /* gone */ } }
   _thumbs.clear(); _thumbPending.clear(); _thumbFail.clear(); _thumbWait.length = 0; _thumbPause = 0;
   closeAll();
@@ -294,6 +295,7 @@ function openPicture(id) {
   let closed = false;
   let busy = false;
   let shown = false;
+  let gone = false;
   const entry = overlay('Picture', () => { closed = true; if (url) { try { URL.revokeObjectURL(url); } catch { /* gone */ } url = ''; } });
   const card = el('div', 'gal-card gal-view');
   const x = el('button', 'gal-close', 'Close');
@@ -324,12 +326,13 @@ function openPicture(id) {
   const paint = () => {
     const p = current();
     if (!p) {
-      shown = false;
+      gone = true;
       status.textContent = 'This picture is no longer in the gallery.';
       row.replaceChildren();
       why.hidden = true;
       return false;
     }
+    if (gone) { gone = false; if (shown) status.textContent = ''; }
     if (!actionsFor(p.state).includes('reject')) why.hidden = true;
     img.alt = p.subject || 'Picture';
     title.textContent = (p.state === 'starred' ? '★ ' : '') + (p.subject || 'Picture');
@@ -354,8 +357,10 @@ function openPicture(id) {
     const body = galleryChoiceBody(p.state, choice, reason);
     if (!body) return;
     busy = true;
+    const ep = _epoch;
     const res = await call('/' + encodeURIComponent(id) + '/choice', body);
     busy = false;
+    if (ep !== _epoch) return;
     if (res.ok) {
       _list = afterChoice(_list, id, choice);
       _gen++;
