@@ -38,10 +38,10 @@ export function trimFor(month, table = TRIMS) {
   return Object.prototype.hasOwnProperty.call(table, month) ? table[month] : null;
 }
 
-/** The effects for a month: its `fx` entry only when the month has one, in game mode, and never under reduced motion; else null. */
-export function fxWanted({ month, mode, reduced }, table = TRIMS) {
+/** The effects for a month: its `fx` entry only when the month has one and never under reduced motion; else null. Professional mode keeps the layer but the stylesheet hides it, so switching mode needs no redraw. */
+export function fxWanted({ month, reduced }, table = TRIMS) {
   const t = trimFor(month, table);
-  if (!t || mode === 'professional' || reduced || !t.fx || typeof t.fx !== 'object') return null;
+  if (!t || reduced || !t.fx || typeof t.fx !== 'object') return null;
   const has = FX_KINDS.some(k => (Array.isArray(t.fx[k]) ? t.fx[k].length : t.fx[k] === true));
   return has ? t.fx : null;
 }
@@ -105,7 +105,7 @@ export function applyTrim(date = new Date(), doc = typeof document === 'undefine
     delete root.dataset.trim;
   }
   const layer = doc.getElementById ? doc.getElementById(FX_ID) : null;
-  const fx = fxWanted({ month, mode: root.dataset.mode, reduced: reducedMotion() });
+  const fx = fxWanted({ month, reduced: reducedMotion() });
   const sig = fx ? String(month) : '';
   if (layer && layer.dataset.fx !== sig) layer.remove();
   if (fx && nav && (!layer || layer.dataset.fx !== sig)) {

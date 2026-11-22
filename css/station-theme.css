@@ -166,9 +166,12 @@ html[data-mode="professional"] .trim-fx { display: none; }
   75.68%, 100% { transform: translate3d(-140px, 0, 0); }
 }
 @keyframes trim-fly-y {
-  0% { transform: translate3d(0, 0, 0) rotate(-6deg); } 4.5% { transform: translate3d(0, -26px, 0) rotate(0deg); } 9% { transform: translate3d(0, 4px, 0) rotate(7deg); }
-  33.33% { transform: translate3d(0, -4px, 0) rotate(5deg); } 37.8% { transform: translate3d(0, 14px, 0) rotate(-4deg); } 42.33% { transform: translate3d(0, -22px, 0) rotate(-9deg); }
-  66.67% { transform: translate3d(0, -30px, 0) rotate(-10deg); } 71.2% { transform: translate3d(0, -38px, 0) rotate(0deg); } 75.67% { transform: translate3d(0, -8px, 0) rotate(8deg); }
+  0% { transform: translate3d(0, 0, 0) rotate(-6deg); } 4.5% { transform: translate3d(0, calc(-26px * var(--k, 1)), 0) rotate(0deg); } 9% { transform: translate3d(0, calc(4px * var(--k, 1)), 0) rotate(7deg); }
+  33.33% { transform: translate3d(0, calc(-4px * var(--k, 1)), 0) rotate(5deg); } 37.8% { transform: translate3d(0, calc(14px * var(--k, 1)), 0) rotate(-4deg); } 42.33% { transform: translate3d(0, calc(-22px * var(--k, 1)), 0) rotate(-9deg); }
+  66.67% { transform: translate3d(0, calc(-30px * var(--k, 1)), 0) rotate(-10deg); } 71.2% { transform: translate3d(0, calc(-38px * var(--k, 1)), 0) rotate(0deg); } 75.67% { transform: translate3d(0, calc(-8px * var(--k, 1)), 0) rotate(8deg); }
   100% { transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 @keyframes trim-bob { from { transform: translateY(-2px) rotate(-2deg); } to { transform: translateY(2px) rotate(2deg); } }
+/* the short phone bar (48px): the flight is lower and shallower so the sleigh is never clipped at the top */
+html.ios-short .trim-fx { --k: .4; }
+html.ios-short .fx-sleigh { top: 68%; }

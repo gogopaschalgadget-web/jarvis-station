@@ -36,6 +36,10 @@ test('every strip in the table exists in the repo, is under 100 KB and is in the
     assert.ok(existsSync(new URL('../' + t.file, import.meta.url)), t.file);
     assert.ok(statSync(new URL('../' + t.file, import.meta.url)).size < 100 * 1024, t.file + ' stays under 100 KB');
     assert.ok(sw.includes(`'${t.file}'`), t.file + ' is precached');
+    for (const sp of (t.fx && t.fx.sprites) || []) {
+      assert.ok(existsSync(new URL('../' + sp.file, import.meta.url)) && statSync(new URL('../' + sp.file, import.meta.url)).size < 100 * 1024, sp.file);
+      assert.ok(sw.includes(`'${sp.file}'`), sp.file + ' is precached');
+    }
   });
   assert.ok(existsSync(new URL('../assets/theme/sleigh.png', import.meta.url)));
   assert.ok(sw.includes("'assets/theme/sleigh.png'"));
@@ -47,9 +51,8 @@ test('effects play only in a month that lists some, in game mode, without reduce
   assert.ok(fxWanted({ month: 12, mode: 'game', reduced: false }).sleigh);
   const nov = fxWanted({ month: 11, mode: 'game', reduced: false });
   assert.ok(nov.flames.length >= 3 && nov.shadow === true, 'November carries flames and shadows together');
-  assert.equal(fxWanted({ month: 11, mode: 'professional', reduced: false }), null);
+  assert.ok(fxWanted({ month: 11, mode: 'professional', reduced: false }), 'the stylesheet hides it');
   assert.equal(fxWanted({ month: 11, mode: 'game', reduced: true }), null);
-  assert.equal(fxWanted({ month: 12, mode: 'professional', reduced: false }), null);
   assert.equal(fxWanted({ month: 12, mode: 'game', reduced: true }), null);
   assert.ok(fxWanted({ month: 12, mode: undefined, reduced: false }));
   assert.equal(fxWanted({ month: 6, mode: 'game', reduced: false }), null);
@@ -84,15 +87,15 @@ test('November draws one glow per flame and the shadow layer; December draws the
   assert.equal(d.style['--trim-url'], undefined);
 });
 
-test('December applies the strip URL; professional mode keeps the strip but draws no effects', () => {
+test('December applies the strip URL; professional mode keeps the strip and the layer, which the stylesheet hides (so switching to game mode needs no redraw)', () => {
   const dec = fakeDoc();
   applyTrim(new Date(2026, 11, 5), dec.doc);
   assert.match(dec.style['--trim-url'], /^url\("https:\/\/station\.test\/app\/assets\/themes\/forge-and-brass\/trim\/december\/frost-on-iron\.jpg"\)$/);
   assert.equal(dec.style['--trim-dim'], '0.15');
   const pro = fakeDoc('professional');
   const r = applyTrim(new Date(2026, 10, 5), pro.doc);
-  assert.equal(r.fx, null);
-  assert.equal(pro.kids.length, 0);
+  assert.equal(r.fx, '11');
+  assert.equal(pro.kids.length, 1);
   assert.match(pro.style['--trim-url'], /black-iron-hall\.jpg/);
 });
 
@@ -148,9 +151,10 @@ test('flicker and shadow are irregular and slow; the sleigh has three paths with
   assert.match(trimCss, /\.fx-shadow\s*\{[^}]*animation:\s*trim-shadow 9s ease-in-out infinite alternate/);
   const y = trimCss.match(/@keyframes trim-fly-y \{([\s\S]*?)\n\}/)[1];
   assert.ok(/rotate\(-?\d+deg\)/.test(y), 'tilt');
-  const ys = new Set([...y.matchAll(/translate3d\(0, (-?\d+)px/g)].map(m => m[1]));
+  const ys = new Set([...y.matchAll(/translate3d\(0, calc\((-?\d+)px/g)].map(m => m[1]));
   assert.ok(ys.size >= 7, 'a swoop, a dive and a long arc use different heights');
   assert.match(trimCss, /\.fx-sleigh\s*\{[^}]*animation:\s*trim-fly-x 45s cubic-bezier/);
+  assert.match(trimCss, /html\.ios-short \.trim-fx\s*\{\s*--k:/, 'shallower flight on the short bar');
   assert.match(trimCss, /\.fx-bob\s*\{[^}]*animation:\s*trim-fly-y 45s cubic-bezier/);
   assert.match(trimCss, /trim-bob 1\.3s ease-in-out infinite alternate/);
 });
