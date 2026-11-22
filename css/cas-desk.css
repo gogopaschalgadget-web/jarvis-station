@@ -199,6 +199,7 @@
 .bp-plain .bp-row small { color: #6f8fb0; text-align: right; }
 .bp-place { margin: 0 0 12px; }
 
+.bp-asked { font: 800 12px var(--dk-ui); color: #e8c46a; margin: 4px 0; }
 .bp-want { display: block; width: 100%; margin: 10px 0 0; }
 
 .bp-tile { padding: 0; overflow: hidden; }

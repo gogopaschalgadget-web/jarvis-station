@@ -142,3 +142,43 @@ test('the drawer builds tiles only for open groups and an open group stays open 
   assert.deepEqual(plan.map(g => [g.key, g.open, g.items.length]), [['station', true, 2], ['cas', false, 0]]);
   assert.deepEqual(drawerPlan(blueprintView(list, { size: 'medium' }), open).map(g => g.open), [true, false]);
 });
+
+test('asked-for days: the line names the latest day and counts the earlier ones; bad days are dropped', async () => {
+  const { askedLine, days, dayKey } = await import('../js/cas-blueprints.js');
+  assert.equal(askedLine([]), '');
+  assert.equal(askedLine(undefined), '');
+  assert.equal(askedLine(['2026-11-21']), 'Asked for on 21 Nov');
+  assert.equal(askedLine(['2026-11-03', '2026-11-21']), 'Asked for on 21 Nov, and on 1 earlier day');
+  assert.equal(askedLine(['2026-11-21', '2026-11-03', '2026-11-03', '2026-10-30']), 'Asked for on 21 Nov, and on 2 earlier days');
+  assert.deepEqual(days(['2026-13-01', 'x', 5, '2026-02-30x', '2026-12-01']), ['2026-12-01']);
+  assert.equal(dayKey(new Date(2026, 0, 5)), '2026-01-05');
+});
+
+test('a feed record may carry asked_on (checked days); nothing else changes', () => {
+  const [a, b] = normalizeBlueprints([rec('a', { asked_on: ['2026-11-20', 'bad'] }), rec('b')]);
+  assert.deepEqual(a.asked, ['2026-11-20']);
+  assert.deepEqual(b.asked, []);
+});
+
+test('the ask log keeps the days on this phone, merges the feed days, survives broken storage', async () => {
+  const { makeAskLog, makeWanter } = await import('../js/cas-blueprints.js');
+  const store = {}; const storage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = v; } };
+  const log = makeAskLog(storage);
+  const idea = { id: 'x', asked: ['2026-11-01'] };
+  assert.deepEqual(log.days(idea), ['2026-11-01']);
+  const said = [];
+  const w = makeWanter(async () => ({ ok: true, status: 200, json: { wants: 2 } }), t => said.push(t), null, log, () => '2026-11-21');
+  assert.equal(await w.tap(idea), true);
+  assert.deepEqual(log.days(idea), ['2026-11-01', '2026-11-21']);
+  assert.deepEqual(JSON.parse(store['cas-bp-asked']), { x: ['2026-11-21'] });
+  assert.deepEqual(makeAskLog(storage).days({ id: 'x' }), ['2026-11-21'], 'a new session reads it back');
+  const failing = makeWanter(async () => ({ ok: false, status: 500, json: {} }), () => {}, null, log, () => '2026-11-22');
+  assert.equal(await failing.tap({ id: 'y' }), false);
+  assert.deepEqual(log.days({ id: 'y' }), [], 'a tap that was not sent is not logged');
+  const bad = makeAskLog({ getItem: () => '{not json', setItem: () => { throw new Error('full'); } });
+  assert.deepEqual(bad.days({ id: 'x' }), []);
+  bad.record('x', '2026-11-21');
+  assert.deepEqual(bad.days({ id: 'x' }), ['2026-11-21'], 'a full or blocked store does not break it');
+  const none = makeAskLog(null); none.record('x', '2026-11-21'); assert.deepEqual(none.days({ id: 'x' }), ['2026-11-21']);
+  makeAskLog(storage).record('__proto__', '2026-11-21');
+});

@@ -8,7 +8,7 @@ import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUC
 import { normalizeProgress, xpLine, rankUpOf } from './cas-progress.js?v=cas93';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas93';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
-import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas93';
+import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas93';
 
 export { rankItems };
 
@@ -546,7 +546,8 @@ function placesMap(buckets, loops) {
   return map;
 }
 
-const _wanter = makeWanter(id => post('/blueprint', { id }), t => say(t), () => draw());
+const _asked = makeAskLog(typeof localStorage === 'undefined' ? null : (() => { try { return localStorage; } catch { return null; } })());
+const _wanter = makeWanter(id => post('/blueprint', { id }), t => say(t), () => draw(), _asked);
 
 function artImg(src, cls) {
   if (!src) return null;
@@ -563,6 +564,8 @@ function ideaDetail(idea, list) {
   if (pic) box.append(pic);
   box.append(el('b', '', idea.title));
   box.append(el('p', 'bp-tags', [STATE_WORDS[idea.state], idea.size && idea.size + ' size', idea.fun && ({ fun: 'Fun', work: 'Work', both: 'Fun and work' })[idea.fun]].filter(Boolean).join(' · ')));
+  const askedText = askedLine(_asked.days(idea));
+  if (askedText) box.append(el('p', 'bp-asked', askedText));
   if (idea.oneLine) box.append(el('p', '', idea.oneLine));
   if (idea.said) { const p = el('p', 'bp-said'); p.append(el('b', '', 'Chris said: '), document.createTextNode(idea.said)); box.append(p); }
   if (idea.needs) { const p = el('p', ''); p.append(el('b', '', 'Needs from Chris: '), document.createTextNode(idea.needs)); box.append(p); }

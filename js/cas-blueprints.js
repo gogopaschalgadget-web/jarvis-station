@@ -12,6 +12,44 @@ const MAX_IDEAS = 150;
 const own = (obj, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(obj, key);
 const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
+const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A list of YYYY-MM-DD days, checked, de-duplicated, oldest first, at most 60 kept (the newest). */
+export function days(raw) {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter(d => typeof d === 'string' && DAY.test(d)))].sort().slice(-60);
+}
+
+/** Today's day on the phone as YYYY-MM-DD. */
+export function dayKey(date = new Date()) {
+  const p = n => String(n).padStart(2, '0');
+  return date.getFullYear() + '-' + p(date.getMonth() + 1) + '-' + p(date.getDate());
+}
+
+/** "Asked for on 21 Nov" (the latest day), with "and on N earlier days" when there were more; empty when never asked. */
+export function askedLine(askedDays) {
+  const d = days(askedDays);
+  if (!d.length) return '';
+  const [, m, day] = d[d.length - 1].split('-');
+  const base = 'Asked for on ' + Number(day) + ' ' + MONTHS[Number(m) - 1];
+  return d.length > 1 ? base + ', and on ' + (d.length - 1) + (d.length === 2 ? ' earlier day' : ' earlier days') : base;
+}
+
+/** The days Chris asked for each idea, kept on this phone (a convenience: the feed's own `asked_on`, when it has one, is merged in). Storage that fails is ignored. */
+export function makeAskLog(storage, key = 'cas-bp-asked') {
+  let map = Object.create(null);
+  try {
+    const raw = storage && JSON.parse(storage.getItem(key) || '{}');
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) Object.keys(raw).slice(0, MAX_IDEAS).forEach(id => { map[id] = days(raw[id]); });
+  } catch { map = Object.create(null); }
+  const save = () => { try { if (storage) storage.setItem(key, JSON.stringify(map)); } catch { /* the line is a convenience; the tap already went */ } };
+  return {
+    days: idea => days([...(Object.prototype.hasOwnProperty.call(map, idea.id) ? map[idea.id] : []), ...(idea.asked || [])]),
+    record(id, day) { if (typeof id === 'string' && DAY.test(day) && Object.keys(map).length < MAX_IDEAS * 2) { map[id] = days([...(Object.prototype.hasOwnProperty.call(map, id) ? map[id] : []), day]); save(); } },
+  };
+}
+
 /** The feed's blueprint records, checked. Unknown keys (such as file paths) are dropped; a record without an id and a title is skipped. */
 export function normalizeBlueprints(raw) {
   if (!Array.isArray(raw)) return [];
@@ -33,6 +71,7 @@ export function normalizeBlueprints(raw) {
       fun: FUN.includes(r.fun_or_work) ? r.fun_or_work : '',
       money: MONEY.includes(r.leads_to_money) ? r.leads_to_money : '',
       tile: text(r.map_tile, 40),
+      asked: days(r.asked_on),
       dependsOn: (Array.isArray(r.depends_on) ? r.depends_on : []).filter(x => typeof x === 'string').map(x => x.slice(0, 60)).slice(0, 8),
     });
   });
@@ -104,7 +143,7 @@ export function ideaArt(idea) {
 }
 
 /** The "I want to work on this" tap: one request at a time, remembers what was sent this session, words the button and the toast. */
-export function makeWanter(postFn, sayFn, onChange) {
+export function makeWanter(postFn, sayFn, onChange, log, today = dayKey) {
   const sent = new Set();
   let busy = false;
   return {
@@ -117,7 +156,7 @@ export function makeWanter(postFn, sayFn, onChange) {
       let res;
       try { res = await postFn(idea.id); } catch { res = { ok: false, status: 0, json: {} }; }
       busy = false;
-      if (res.ok) sent.add(idea.id);
+      if (res.ok) { sent.add(idea.id); if (log) log.record(idea.id, today()); }
       sayFn(wantLine(res.ok ? 200 : res.status, res.json));
       return !!res.ok;
     },
