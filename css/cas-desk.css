@@ -232,6 +232,8 @@ html[data-mode="professional"] .bb-next { display: none; }
 .bb-desks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 0; }
 .bb-desk { padding: 8px 10px; border-radius: 10px; border: 2px ridge var(--dk-brass-lo); background: #1a130a; }
 .bb-desk.placeholder { border-style: dashed; }
+.bb-machine { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto; margin: 0 0 6px; border-radius: 8px; border: 1px solid #3c3423; background: #0b0905; object-fit: cover; }
+html[data-mode="professional"] .bb-machine { display: none; }
 .bb-desk b { display: block; font: 800 13px var(--dk-ui); color: var(--dk-brass-hi); }
 .bb-desk small { display: block; margin: 2px 0 6px; font: 700 11.5px var(--dk-ui); color: #a89468; }
 .bb-desk span { display: block; margin-top: 4px; font: 700 11.5px var(--dk-ui); color: var(--dk-text); }

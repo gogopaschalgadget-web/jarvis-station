@@ -7,6 +7,7 @@ import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } 
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas93';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas95';
 import { showRankUp } from './cas-rankup.js?v=cas95';
+import { stillFor, watchMachines } from './cas-machines.js?v=cas96';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas93';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas95';
@@ -39,6 +40,7 @@ let _toastTimer = 0;
 let _rerankTimer = 0;
 let _openInit = false;
 let _tick = 0;
+let _stopMachines = () => {};
 const _rankMemory = makeRankMemory((() => { try { return localStorage; } catch { return null; } })());
 const _open = new Set();
 const _whys = new Map();
@@ -526,6 +528,14 @@ function progressBlock(p) {
     p.desks.forEach(d => {
       const c = el('div', 'bb-desk' + (d.placeholder ? ' placeholder' : ''));
       c.dataset.slot = 'machine-' + d.id;
+      const still = stillFor(d);
+      if (still) {
+        const pic = el('img', 'bb-machine');
+        pic.alt = ''; pic.loading = 'lazy'; pic.decoding = 'async'; pic.src = still;
+        pic.dataset.still = still; pic.dataset.desk = d.id; pic.dataset.tier = d.tier || ''; pic.dataset.xp = String(d.xp == null ? 0 : d.xp); pic.dataset.placeholder = d.placeholder ? '1' : '0';
+        pic.addEventListener('error', () => pic.remove());
+        c.append(pic);
+      }
       c.append(el('b', '', d.name), el('small', '', [d.machine, d.tier].filter(Boolean).join(' · ') || 'Not reported'));
       if (d.placeholder) c.append(el('em', '', 'Placeholder: Chris does this by hand now, automation later'));
       else if (d.xp != null) c.append(barNode('desk:' + d.id, d.pct), el('span', '', d.nextAt == null ? d.xp + ' XP' : d.xp + ' / ' + d.nextAt + ' XP'));
@@ -843,6 +853,8 @@ function draw() {
   const typing = document.activeElement && document.activeElement.classList.contains('dk-whyin') ? document.activeElement.closest('[data-id]') : null;
   const typingId = typing && typing.dataset.id;
   panel.replaceChildren();
+  _stopMachines();
+  _stopMachines = () => {};
   const head = el('div', 'dk-head');
   head.append(el('h2', 'dk-h', 'Desk'));
   const wrap = el('div', 'dk-body');
@@ -873,6 +885,7 @@ function draw() {
     if (prog) wrap.append(progressBlock(prog));
     if (revealWaiting()) wrap.append(el('p', 'dk-note', revealWaiting() === 1 ? 'A picture is on its way.' : revealWaiting() + ' pictures are on their way.'));
     renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
+    try { _stopMachines = watchMachines(wrap); } catch { /* the pictures stay stills */ }
     panel.scrollTop = scroll;
     return;
   }
