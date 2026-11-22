@@ -118,8 +118,8 @@ html[data-mode="professional"] .trim-fx { display: none; }
 @media (min-width: 960px) { .trim-fx { display: none; } }
 
 /* Lights: a soft glow picture over each lamp and flame (positions from the art), flickering in an uneven pattern between a low and a high opacity;
-   `screen` blending so it only ever adds light. The layer is behind the icons and labels, so their own contrast is what the glow can change. */
-.fx-light { position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h); mix-blend-mode: screen; will-change: opacity, transform;
+   The layer is behind the icons and labels, so their own contrast is what the glow can change. */
+.fx-light { position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h); will-change: opacity, transform;
   background: center / 100% 100% no-repeat; opacity: calc(var(--lo) * var(--gain, .8)); animation: trim-flick var(--t) linear infinite; }
 .fx-light.flame { background-image: url('../assets/themes/forge-and-brass/trim/november/glow-flame.png'); --gain: .75; }
 .fx-light.lamp { background-image: url('../assets/themes/forge-and-brass/trim/november/glow-lamp.png'); --gain: .85; animation-delay: calc(var(--t) / -3); }
@@ -149,7 +149,10 @@ html[data-mode="professional"] .trim-fx { display: none; }
    and last frame equal the strip, and the sprite carries the same dark overlay as the strip so there is no seam. */
 .fx-sprite { position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h); overflow: hidden; opacity: 0;
   animation: trim-sprite-show var(--every) steps(1, end) var(--delay) infinite; }
-.fx-sprite::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / var(--trim-dim, 0)); }
+/* the same dark layers as the bar under it, drawn at the bar's size and cut to the sprite's box, so a playing sprite has no lighter patch */
+.fx-sprite::after { content: ""; position: absolute; left: calc(var(--xn) / var(--wn) * -100%); top: calc(var(--yn) / var(--hn) * -100%); width: calc(10000% / var(--wn)); height: calc(10000% / var(--hn));
+  background: linear-gradient(rgb(0 0 0 / var(--trim-dim, 0)), rgb(0 0 0 / var(--trim-dim, 0))), linear-gradient(to top, rgb(0 0 0 / var(--trim-fade, 0)) 0, rgb(0 0 0 / calc(var(--trim-fade, 0) * .55)) 35%, #0000 70%), linear-gradient(#00000018, #00000050); }
+html.ios-short .fx-sprite::after { background: linear-gradient(#3a281200 52%, #3a2812d0 74%, #3a2812 94%), linear-gradient(rgb(0 0 0 / var(--trim-dim, 0)), rgb(0 0 0 / var(--trim-dim, 0))), linear-gradient(to top, rgb(0 0 0 / var(--trim-fade, 0)) 0, rgb(0 0 0 / calc(var(--trim-fade, 0) * .55)) 35%, #0000 70%); }
 .fx-sheet { width: var(--wide); height: 100%; background: var(--sheet) 0 0 / 100% 100% no-repeat; will-change: transform;
   animation: trim-sprite-play var(--every) steps(var(--s), end) var(--delay) infinite; }
 @keyframes trim-sprite-show { 0% { opacity: 1; } 10% { opacity: 1; } 10.01% { opacity: 0; } 100% { opacity: 0; } }

@@ -184,7 +184,7 @@ test('flicker is irregular and never brighter than the gain allows; shadows are 
   assert.ok(steps.some((s, i) => i && s !== steps[i - 1]) && new Set(mult).size >= 7, 'it rises and falls unevenly, not a smooth ramp');
   assert.match(trimCss, /\.fx-light\.flame \{[^}]*--gain: \.75/);
   assert.match(trimCss, /\.fx-light\.lamp \{[^}]*--gain: \.85/);
-  assert.match(trimCss, /mix-blend-mode: screen/);
+  assert.doesNotMatch(trimCss, /mix-blend-mode/, 'no blend mode: inside the layer it blends with nothing and only costs');
   const sh = trimCss.match(/@keyframes trim-shadow \{([\s\S]*?)\n\}/)[1];
   assert.ok(Math.max(...[...sh.matchAll(/opacity:\s*([\d.]+)/g)].map(m => +m[1])) <= 0.22, 'shadows stay at 0.22 or less');
   assert.match(trimCss, /\.fx-shadow \{[^}]*animation: trim-shadow var\(--t\) ease-in-out var\(--d\) infinite alternate/);
@@ -196,7 +196,8 @@ test('flicker is irregular and never brighter than the gain allows; shadows are 
   assert.match(trimCss, /html\.ios-short \.trim-fx\s*\{\s*--k:/, 'shallower flight on the short bar');
   assert.match(trimCss, /\.fx-bob\s*\{[^}]*animation:\s*trim-fly-y 45s cubic-bezier/);
   assert.match(trimCss, /trim-bob 1\.3s ease-in-out infinite alternate/);
-  assert.match(trimCss, /\.fx-sprite::after \{[^}]*rgb\(0 0 0 \/ var\(--trim-dim, 0\)\)/, 'a sprite is dimmed like the strip, so there is no seam');
+  assert.match(trimCss, /\.fx-sprite::after \{[^}]*rgb\(0 0 0 \/ var\(--trim-dim, 0\)\)[^}]*#00000018, #00000050/, 'a sprite carries the same dark layers as the bar, so there is no seam');
+  assert.match(trimCss, /html\.ios-short \.fx-sprite::after \{[^}]*#3a281200 52%/, 'and the grain fade on the short bar');
 });
 
 test('the layer is put back after the bar is drawn (the bar redraw would wipe it)', () => {

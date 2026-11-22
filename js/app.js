@@ -6,9 +6,9 @@ import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPubl
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas75';
-import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress } from './cas-desk.js?v=cas93';
+import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress } from './cas-desk.js?v=cas95';
 import { renderThemeSettingsSafe, applyLook } from './cas-themes.js?v=cas93';
-import { startTrim, applyTrim } from './cas-trim.js?v=cas94';
+import { startTrim, applyTrim } from './cas-trim.js?v=cas95';
 applyLook(null);
 try { startTrim(); } catch { /* the plain bar stays */ }
 import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas75';

@@ -95,7 +95,7 @@ export function buildFx(doc, fx, baseHref) {
     let href = s.file;
     try { href = new URL(s.file, baseHref).href; } catch { /* keep the relative path */ }
     const sprite = el(doc, 'fx-sprite', {
-      ...area(s), '--s': frames - 1, '--end': (-100 * (frames - 1) / frames).toFixed(4) + '%', '--every': num(s.every, 15, 25, 20) + 's', '--delay': num(s.delay, 0, 30, 0) + 's',
+      ...area(s), '--xn': num(s.x, -50, 150, 0), '--yn': num(s.y, -50, 150, 0), '--wn': num(s.w, 0.5, 100, 10), '--hn': num(s.h, 0.5, 100, 30), '--s': frames - 1, '--end': (-100 * (frames - 1) / frames).toFixed(4) + '%', '--every': num(s.every, 15, 25, 20) + 's', '--delay': num(s.delay, 0, 30, 0) + 's',
     });
     sprite.append(el(doc, 'fx-sheet', { '--sheet': `url("${href}")`, '--wide': frames * 100 + '%' }));
     out.push(sprite);
