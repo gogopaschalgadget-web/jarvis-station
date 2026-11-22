@@ -160,3 +160,17 @@ test('a loop that failed to load is not requested again on every scroll or refoc
   cb([{ target: img, isIntersecting: false }]); cb([{ target: img, isIntersecting: true }]);
   assert.equal(img.attrs.src, DIR + 'forge-advanced.webp', 'stays on the still');
 });
+
+test('stopping a watcher and drawing again keeps a running machine on its loop; a desk that is no longer drawn is forgotten', () => {
+  const img = fakeImg('sales', 'Enhanced', 800);
+  let cb = null;
+  class IO { constructor(f) { cb = f; } observe() {} disconnect() {} }
+  const doc = { visibilityState: 'visible', documentElement: { dataset: {} }, addEventListener() {}, removeEventListener() {} };
+  const win = { IntersectionObserver: IO, matchMedia: () => ({ matches: false }) };
+  const stop = watchMachines({ querySelectorAll: () => [img] }, { doc, win, mode: () => 'game' });
+  cb([{ target: img, isIntersecting: true }]);
+  stop();
+  assert.equal(startPicture({ id: 'sales', tier: 'Enhanced', xp: 800 }), DIR + 'press-loop.webp', 'the redraw order is stop, draw the card, watch again');
+  watchMachines({ querySelectorAll: () => [fakeImg('operations', 'Basic', 5)] }, { doc, win, mode: () => 'game' });
+  assert.equal(startPicture({ id: 'sales', tier: 'Enhanced', xp: 800 }), DIR + 'press-enhanced.webp', 'sales is not on the new screen, so it is forgotten');
+});

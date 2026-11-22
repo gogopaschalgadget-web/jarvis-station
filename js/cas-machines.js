@@ -61,6 +61,8 @@ export function pictureNow(desk, { visible, hidden, reduced, mode }) {
  */
 export function watchMachines(root, { doc = document, win = window, mode = () => doc.documentElement.dataset.mode } = {}) {
   const imgs = [...root.querySelectorAll('img[data-still]')];
+  const here = new Set(imgs.map(i => i.dataset.desk));
+  for (const id of [...playing]) if (!here.has(id)) playing.delete(id);
   if (!imgs.length) return () => {};
   const reducedQ = (() => { try { return win.matchMedia('(prefers-reduced-motion: reduce)'); } catch { return null; } })();
   const seen = new Map();
@@ -82,6 +84,5 @@ export function watchMachines(root, { doc = document, win = window, mode = () =>
     if (io) io.disconnect();
     doc.removeEventListener('visibilitychange', onVis);
     if (reducedQ && reducedQ.removeEventListener) reducedQ.removeEventListener('change', onVis);
-    imgs.forEach(i => playing.delete(i.dataset.desk));
   };
 }
