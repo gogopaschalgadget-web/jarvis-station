@@ -131,7 +131,6 @@ test('reduced motion shows the plate still; professional mode shows one quiet li
   const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
   assert.match(css, /\.rankup\.still, \.rankup\.still \* \{ animation: none !important; \}/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.rankup, \.rankup \* \{ animation: none !important; \} \}/);
-  assert.match(css, /html\[data-mode="professional"\] \.bb-next \{ display: none; \}/);
 });
 
 test('the Desk plays the moment only from the server progress, caught so it can never stop the Desk loading, and shows both plates on the Bulletin Board', () => {

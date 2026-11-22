@@ -216,12 +216,9 @@
 .bb-lead { flex: none; display: flex; }
 .bb-plateimg { width: 72px; height: 72px; border-radius: 14px; border: 2px ridge var(--dk-brass); object-fit: cover; background: #0b0905; }
 .bb-lead.pic .bb-medal { display: none; }
-html[data-mode="professional"] .bb-lead.pic .bb-plateimg { display: none; }
-html[data-mode="professional"] .bb-lead.pic .bb-medal { display: flex; }
 .bb-next { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .bb-nextimg { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; opacity: .38; filter: grayscale(.7) brightness(.8); border: 1px solid #3c3423; }
 .bb-next small { font: 800 10px var(--dk-ui); color: #a89468; letter-spacing: .04em; }
-html[data-mode="professional"] .bb-next { display: none; }
 .bb-platebody { flex: 1; min-width: 0; }
 .bb-platebody small { display: block; font: 800 10.5px var(--dk-ui); letter-spacing: .12em; text-transform: uppercase; color: #a89468; }
 .bb-platebody b { display: block; font: 900 22px var(--dk-ui); color: var(--dk-brass-hi); }
@@ -233,7 +230,6 @@ html[data-mode="professional"] .bb-next { display: none; }
 .bb-desk { padding: 8px 10px; border-radius: 10px; border: 2px ridge var(--dk-brass-lo); background: #1a130a; }
 .bb-desk.placeholder { border-style: dashed; }
 .bb-machine { display: block; width: 100%; aspect-ratio: 4 / 3; height: auto; margin: 0 0 6px; border-radius: 8px; border: 1px solid #3c3423; background: #0b0905; object-fit: cover; }
-html[data-mode="professional"] .bb-machine { display: none; }
 .bb-desk b { display: block; font: 800 13px var(--dk-ui); color: var(--dk-brass-hi); }
 .bb-desk small { display: block; margin: 2px 0 6px; font: 700 11.5px var(--dk-ui); color: #a89468; }
 .bb-desk span { display: block; margin-top: 4px; font: 700 11.5px var(--dk-ui); color: var(--dk-text); }
@@ -292,3 +288,10 @@ html[data-mode="professional"] .bb-machine { display: none; }
 @keyframes ru-text { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .rankup.still, .rankup.still * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .rankup, .rankup * { animation: none !important; } }
+
+/* A theme with colours in its table (data-theme-colors) repaints the Desk's tokens and the bottom bar from them. */
+html[data-theme-colors] #panel-desk { --dk-brass: var(--th-accent); --dk-brass-hi: var(--th-accent-hi); --dk-brass-lo: var(--th-accent-lo); --dk-gold: var(--th-accent); --dk-text: var(--th-text); --dk-muted: var(--th-muted);
+  background: radial-gradient(120% 60% at 50% 0%, var(--th-panel-a), var(--th-panel-b) 70%); }
+html[data-theme-colors] .rankup { --dk-brass: var(--th-accent); --dk-brass-hi: var(--th-accent-hi); }
+.look-theme { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; border-top: 1px dashed #8a6a3a; border-radius: 0; padding: 6px 2px; cursor: pointer; }
+.look-theme:disabled { cursor: default; opacity: 1; }

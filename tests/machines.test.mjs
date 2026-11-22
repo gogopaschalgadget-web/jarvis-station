@@ -113,7 +113,7 @@ test('every picture exists; each loop is under 250 KB, all five under 1.3 MB; no
   assert.ok(sw.includes("'js/cas-machines.js'"));
 });
 
-test('the Desk draws a lazy picture in each desk card from the server progress, drops it if it fails, hides it in professional mode, and watches it only on the Bulletin Board', () => {
+test('the Desk draws a lazy picture in each desk card from the server progress, drops it if it fails, never hides it by mode (a theme with art shows it), and watches it only on the Bulletin Board', () => {
   const src = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
   assert.match(src, /const still = stillFor\(d\);/);
   assert.match(src, /pic\.loading = 'lazy'/);
@@ -122,7 +122,7 @@ test('the Desk draws a lazy picture in each desk card from the server progress, 
   assert.match(src, /try \{ _stopMachines = watchMachines\(wrap\); \} catch/);
   assert.match(src, /panel\.replaceChildren\(\);\s*\n\s*_stopMachines\(\);/);
   const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
-  assert.match(css, /html\[data-mode="professional"\] \.bb-machine \{ display: none; \}/);
+  assert.doesNotMatch(css, /data-mode="professional"\] \.bb-(machine|next|lead)/, 'the pictures come from the active theme; none is hidden by mode');
 });
 
 test('a redraw starts a running machine on its loop instead of flashing the still; a change of the reduced-motion setting stops a playing loop', () => {

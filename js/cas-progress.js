@@ -1,3 +1,4 @@
+import { pictureFrom } from './cas-theme-art.js?v=cas98';
 const num = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
 const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const pctOf = (xp, from, to) => (to > from ? Math.max(0, Math.min(100, Math.round(((xp - from) / (to - from)) * 100))) : 100);
@@ -34,20 +35,16 @@ export function rankUpOf(res) {
   return name ? { name, index: num(r.index) } : null;
 }
 
-const RANK_DIR = 'assets/themes/forge-and-brass/ranks/';
-const PLATE_FILES = { 1: 'rank01_founder', 2: 'rank02_amateur', 3: 'rank03_beginner', 4: 'rank04_technician', 5: 'rank05_supervisor', 6: 'rank06_manager', 7: 'rank07_senior-manager', 8: 'rank08_general-manager', 9: 'rank09_director', 10: 'rank10_vice-president', 11: 'rank11_executive', 12: 'rank12_chair' };
-/** Rank-up scenes by rank index; a rank without one gets the plate on a dark brass backdrop. Loaded only when a card shows, never precached. */
-const RANKUP_DIR = 'assets/themes/forge-and-brass/rankup/';
-const RANKUP_SCENES = { 1: 'rankup_01_founder', 2: 'rankup_02_amateur', 3: 'rankup_03_beginner', 4: 'rankup_04_technician', 5: 'rankup_05_supervisor', 6: 'rankup_06_manager', 7: 'rankup_07_senior-manager', 8: 'rankup_08_general-manager', 9: 'rankup_09_director', 10: 'rankup_10_vice-president', 11: 'rankup_11_executive', 12: 'rankup_12_chair' };
+const ownKey = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
-/** The picture of a rank's plate (rank index 1 to 12), or '' when there is none. Fixed names only. */
-export function plateFor(index) {
-  return Number.isInteger(index) && Object.prototype.hasOwnProperty.call(PLATE_FILES, index) ? RANK_DIR + PLATE_FILES[index] + '.jpg' : '';
+/** The picture of a rank's plate (rank index 1 to 12) in the active theme, else the default theme's, else ''. Fixed names from the theme table only. */
+export function plateFor(index, themeId) {
+  return Number.isInteger(index) ? pictureFrom(art => (ownKey(art.plates, index) ? art.plates[index] : undefined), themeId) : '';
 }
 
-/** The painted scene for a rank-up, or '' when that rank has none yet. */
-export function rankUpScene(index) {
-  return Number.isInteger(index) && Object.prototype.hasOwnProperty.call(RANKUP_SCENES, index) ? RANKUP_DIR + RANKUP_SCENES[index] + '.jpg' : '';
+/** The painted scene for a rank-up in the active theme (else the default theme's), or '' when that rank has none. Loaded only when a card shows, never precached. */
+export function rankUpScene(index, themeId) {
+  return Number.isInteger(index) ? pictureFrom(art => (ownKey(art.rankup, index) ? art.rankup[index] : undefined), themeId) : '';
 }
 
 /** The next rank's plate and what is still needed, from the server's progress only; null at the top rank. */

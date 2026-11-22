@@ -1,14 +1,14 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas93';
-import { syncLook } from './cas-themes.js?v=cas93';
+import { syncLook } from './cas-themes.js?v=cas98';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas93';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas93';
-import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas97';
-import { showRankUp } from './cas-rankup.js?v=cas97';
-import { stillFor, startPicture, watchMachines } from './cas-machines.js?v=cas97';
-import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas93';
+import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas98';
+import { showRankUp } from './cas-rankup.js?v=cas98';
+import { stillFor, startPicture, watchMachines } from './cas-machines.js?v=cas98';
+import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas98';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas97';
 
@@ -41,6 +41,7 @@ let _rerankTimer = 0;
 let _openInit = false;
 let _tick = 0;
 let _stopMachines = () => {};
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('station-look', () => { try { if (_panel) draw(); } catch { /* the next draw fixes it */ } });
 const _rankMemory = makeRankMemory((() => { try { return localStorage; } catch { return null; } })());
 const _open = new Set();
 const _whys = new Map();

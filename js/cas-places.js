@@ -1,3 +1,4 @@
+import { pictureFrom } from './cas-theme-art.js?v=cas98';
 export const ROWS = [['command', 'Command'], ['production', 'Production'], ['channels', 'Channels']];
 
 /** One list of places, names as on the 3D map. `built` is false for blueprint tiles (not on the 3D map yet). Moves to the server when the 3D map reads it too. */
@@ -55,15 +56,12 @@ export function viewFor(ids, items, tile) {
   return tile ? (tileBuckets(ids, items).get(tile) || []) : ids;
 }
 
-const ART = { spire: 'spire', library: 'library', workshop: 'workshop', mint: 'mint', 'content-engine': 'content', 'traffic-control': 'traffic', x: 'x', bench: 'bench' };
-export const THEME_DIR = 'assets/themes/forge-and-brass/tiles/';
-const BLUEPRINT_DIR = 'assets/themes/forge-and-brass/blueprints/';
-const BLUEPRINT_TILE = { gumroad: 'gumroad', 'github-pages': 'ghpages', reddit: 'reddit', quora: 'quora' };
-
-/** The painted picture for a tile: its own when built, the blueprint picture when not; null when none is listed. */
+/** The painted picture for a tile in the active theme (else the default theme's): its own when built, the blueprint picture when not; null when none is listed. */
 export function tileArt(place) {
   if (!place) return null;
-  if (!place.built) return BLUEPRINT_TILE[place.id] ? BLUEPRINT_DIR + 'tiles_blueprint/' + BLUEPRINT_TILE[place.id] + '.jpg' : THEME_DIR + 'blueprint.jpg';
-  const name = ART[place.id];
-  return name ? THEME_DIR + name + '.jpg' : null;
+  const own = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
+  if (!place.built) {
+    return pictureFrom(art => (own(art.tiles.blueprint, place.id) ? art.tiles.blueprint[place.id] : undefined)) || pictureFrom(art => art.tiles.blueprintDefault);
+  }
+  return pictureFrom(art => (own(art.tiles.built, place.id) ? art.tiles.built[place.id] : undefined)) || null;
 }

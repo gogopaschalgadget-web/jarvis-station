@@ -1,19 +1,10 @@
-const DIR = 'assets/themes/forge-and-brass/machines/';
+import { THEME_ART, DEFAULT_THEME, artFor } from './cas-theme-art.js?v=cas98';
 
-/** Desk id (from the server's progress) to its machine's picture set. A desk not listed has no machine picture. */
-export const MACHINES = {
-  operations: 'forge',
-  sales: 'press',
-  marketing: 'tower',
-  money: 'gauge',
-  customer_experience: 'switch',
-};
+/** Desk id (from the server's progress) to its machine in the default theme; each theme's own table decides the real mapping. */
+export const MACHINES = THEME_ART[DEFAULT_THEME].machines.desks;
 
 /** The tiers in rising order, with the words the server uses. */
 export const TIERS = ['basic', 'enhanced', 'advanced', 'legendary'];
-
-/** Which pictures exist for each machine: all four tier stills and one loop. A missing tier falls to the nearest lower one. */
-const HAS = Object.fromEntries(Object.values(MACHINES).map(m => [m, { stills: ['basic', 'enhanced', 'advanced', 'legendary'], loop: true }]));
 
 const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
 
@@ -23,21 +14,29 @@ export function tierKey(tier) {
   return TIERS.includes(k) ? k : TIERS[0];
 }
 
-/** The still picture for a desk at its current tier, or '' when the desk has no machine. A tier with no picture uses the nearest lower one. */
-export function stillFor(desk, set = HAS) {
-  const m = desk && own(MACHINES, desk.id) ? MACHINES[desk.id] : '';
-  if (!m || !own(set, m)) return '';
-  const have = set[m].stills;
-  for (let i = TIERS.indexOf(tierKey(desk.tier)); i >= 0; i--) if (have.includes(TIERS[i])) return DIR + m + '-' + TIERS[i] + '.webp';
+/** The still picture for a desk at its current tier, or '' when it has no machine. A tier with no picture uses the nearest lower one; a desk the active theme has no machine for uses the default theme's. `set` (tests) limits which tiers exist per machine. */
+export function stillFor(desk, set = null) {
+  if (!desk) return '';
+  for (const art of [artFor(), THEME_ART[DEFAULT_THEME]]) {
+    const m = own(art.machines.desks, desk.id) ? art.machines.desks[desk.id] : '';
+    if (!m || !own(art.machines.stills, m)) continue;
+    if (set && !own(set, m)) continue;
+    const have = set ? set[m].stills : Object.keys(art.machines.stills[m]);
+    for (let i = TIERS.indexOf(tierKey(desk.tier)); i >= 0; i--) if (have.includes(TIERS[i]) && own(art.machines.stills[m], TIERS[i])) return art.machines.stills[m][TIERS[i]];
+    return '';
+  }
   return '';
 }
 
-/** The loop for a desk, only when the machine is really running: it has earned XP and is not a placeholder. Else ''. */
-export function loopFor(desk, set = HAS) {
-  const m = desk && own(MACHINES, desk.id) ? MACHINES[desk.id] : '';
-  if (!m || !own(set, m) || !set[m].loop) return '';
+/** The loop for a desk in the active theme, only when the machine is really running: it has earned XP and is not a placeholder. Else ''. */
+export function loopFor(desk, set = null) {
+  if (!desk) return '';
+  const art = artFor();
+  const m = own(art.machines.desks, desk.id) ? art.machines.desks[desk.id] : '';
+  if (!m || !own(art.machines.loops, m)) return '';
+  if (set && !(own(set, m) && set[m].loop)) return '';
   if (desk.placeholder === true || !(typeof desk.xp === 'number' && desk.xp > 0)) return '';
-  return DIR + m + '-loop.webp';
+  return art.machines.loops[m];
 }
 
 /** The desks whose loop was playing at the last look, so a redraw of the Desk starts a running machine on its loop instead of flashing the still first. */

@@ -1,3 +1,5 @@
+import { artFor } from './cas-theme-art.js?v=cas98';
+
 const DIR = 'assets/themes/forge-and-brass/trim/';
 
 /**
@@ -113,8 +115,9 @@ export function buildFx(doc, fx, baseHref) {
 export function applyTrim(date = new Date(), doc = typeof document === 'undefined' ? null : document) {
   if (!doc || !doc.documentElement) return null;
   const month = date.getMonth() + 1;
-  const trim = trimFor(month);
   const root = doc.documentElement;
+  const themed = artFor(root.dataset.theme).trim !== false;
+  const trim = themed ? trimFor(month) : null;
   const nav = doc.querySelector ? doc.querySelector('.station-nav') : null;
   if (trim) {
     let href = trim.file;
@@ -130,7 +133,7 @@ export function applyTrim(date = new Date(), doc = typeof document === 'undefine
     delete root.dataset.trim;
   }
   const layer = doc.getElementById ? doc.getElementById(FX_ID) : null;
-  const fx = fxWanted({ month, reduced: reducedMotion() });
+  const fx = themed ? fxWanted({ month, reduced: reducedMotion() }) : null;
   const sig = fx ? String(month) : '';
   if (layer && layer.dataset.fx !== sig) layer.remove();
   if (fx && nav && (!layer || layer.dataset.fx !== sig)) {
@@ -153,4 +156,5 @@ export function startTrim(doc = document) {
     doc.documentElement.dataset.hidden = doc.visibilityState === 'hidden' ? '1' : '';
     if (doc.visibilityState !== 'hidden') applyTrim(new Date(), doc);
   });
+  doc.addEventListener('station-look', () => applyTrim(new Date(), doc));
 }

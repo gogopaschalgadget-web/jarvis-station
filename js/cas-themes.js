@@ -1,12 +1,11 @@
+import { THEME_ART, DEFAULT_THEME } from './cas-theme-art.js?v=cas98';
+
 const STORE = 'station-look';
 export const TECHNICIAN_INDEX = 4;
 
 /** The themes the Station knows about. `ready` is true only when its art is in the Station; nothing else can be chosen. */
-export const THEMES = [
-  { id: 'forge-and-brass', name: 'Forge and Brass', mode: 'game', ready: true, tagline: 'Blackened iron, brass and furnace light.' },
-  { id: 'counting-house', name: 'Counting House', mode: 'professional', ready: false, tagline: 'Oak, green lamps and ledgers. The art has not arrived yet.' },
-];
-export const DEFAULT_LOOK = { mode: 'game', theme: 'forge-and-brass' };
+export const THEMES = Object.entries(THEME_ART).map(([id, art]) => ({ id, ...art.meta }));
+export const DEFAULT_LOOK = { mode: THEME_ART[DEFAULT_THEME].meta.mode, theme: DEFAULT_THEME };
 
 const readyFor = (mode, themes = THEMES) => themes.find(t => t.ready && t.mode === mode) || null;
 
@@ -52,10 +51,31 @@ export function saveLook(look, themes = THEMES) {
   try { localStorage.setItem(STORE, JSON.stringify(normalizeLook(look, themes))); } catch { /* no storage: the look is not remembered */ }
 }
 
+const COLOR_VARS = { barA: '--th-bar-a', barB: '--th-bar-b', accent: '--th-accent', accentHi: '--th-accent-hi', accentLo: '--th-accent-lo', panelA: '--th-panel-a', panelB: '--th-panel-b', text: '--th-text', muted: '--th-muted' };
+
+/** A theme's bar and accent colours go onto the page as custom properties; a theme with none leaves the stylesheet's own look. */
+export function paintColors(root, colors) {
+  const style = root.style;
+  if (colors && typeof colors === 'object') {
+    for (const [k, v] of Object.entries(COLOR_VARS)) if (/^#[0-9a-f]{6}$/i.test(String(colors[k]))) style.setProperty(v, colors[k]);
+    root.dataset.themeColors = '1';
+  } else {
+    for (const v of Object.values(COLOR_VARS)) style.removeProperty(v);
+    delete root.dataset.themeColors;
+  }
+}
+
 /** Marks the page with the chosen look so styles and art can follow it. */
 export function applyLook(look, themes = THEMES) {
   const l = normalizeLook(look, themes);
-  try { document.documentElement.dataset.theme = l.theme; document.documentElement.dataset.mode = l.mode; } catch { /* no document */ }
+  try {
+    const root = document.documentElement;
+    const changed = root.dataset.theme !== l.theme || root.dataset.mode !== l.mode;
+    root.dataset.theme = l.theme;
+    root.dataset.mode = l.mode;
+    paintColors(root, Object.prototype.hasOwnProperty.call(THEME_ART, l.theme) ? THEME_ART[l.theme].colors : null);
+    if (changed && typeof document.dispatchEvent === 'function' && typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent('station-look', { detail: l }));
+  } catch { /* no document */ }
   return l;
 }
 
@@ -93,10 +113,19 @@ export function renderThemeSettings(panel, getProgress, themes = THEMES) {
   card.append(modes);
 
   themes.forEach(t => {
-    const row = el('div', 'look-theme' + (look.theme === t.id ? ' on' : ''));
+    const row = el('button', 'look-theme' + (look.theme === t.id ? ' on' : ''));
+    row.type = 'button';
+    row.setAttribute('aria-pressed', String(look.theme === t.id));
+    row.disabled = !t.ready || !lock.open || look.theme === t.id;
     const head = el('div', 'look-name');
-    head.append(el('b', '', t.name), el('span', '', look.theme === t.id ? 'Active' : t.ready ? (lock.open ? 'Available' : 'Locked') : 'Art not here yet'));
+    head.append(el('b', '', t.name), el('span', '', look.theme === t.id ? 'Active' : t.ready ? (lock.open ? 'Tap to use' : 'Locked') : 'Art not here yet'));
     row.append(head, el('small', '', t.tagline));
+    row.addEventListener('click', () => {
+      if (!t.ready || !lookLock(getProgress ? getProgress() : null).open) return;
+      saveLook({ mode: t.mode, theme: t.id }, themes);
+      applyLook({ mode: t.mode, theme: t.id }, themes);
+      renderThemeSettings(panel, getProgress, themes);
+    });
     card.append(row);
   });
   if (!lock.open) card.append(el('p', 'look-note', lock.why));

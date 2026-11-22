@@ -109,6 +109,11 @@ body { background: #241917; }
   body:has(.metrics-bar:not([hidden]))::before { content: ""; position: fixed; left: 0; right: 0; top: var(--mark-top); height: var(--metrics-height); background: #100c07; pointer-events: none; }
 }
 
+/* A theme with colours in its table repaints the bottom bar from them (the monthly strip belongs to the Forge theme only). */
+html[data-theme-colors] .station-nav { background: linear-gradient(var(--th-bar-a), var(--th-bar-b)) !important; box-shadow: 0 -4px 14px #000c !important; }
+html.ios-short[data-theme-colors] .station-nav { background: linear-gradient(#0000 52%, var(--th-bar-b) 94%), linear-gradient(var(--th-bar-a), var(--th-bar-b)) !important; }
+html[data-theme-colors] .station-nav .nav-item { color: var(--th-text); }
+
 /* Monthly trim: the strip comes from cas-trim.js (--trim-url); the effects layer sits over it. Every effect moves only opacity or transform (no layout). */
 .trim-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; border-radius: inherit; } /* behind the icons and labels, above the bar's own picture */
 .trim-fx i { display: block; pointer-events: none; }
@@ -181,3 +186,4 @@ html.ios-short .fx-sprite::after { background: linear-gradient(#3a281200 52%, #3
 /* the short phone bar (48px): the flight is lower and shallower so the sleigh is never clipped at the top */
 html.ios-short .trim-fx { --k: .4; }
 html.ios-short .fx-sleigh { top: 68%; }
+

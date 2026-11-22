@@ -1,4 +1,4 @@
-import { plateFor, rankUpScene, rankUpMode } from './cas-progress.js?v=cas97';
+import { plateFor, rankUpScene, rankUpMode } from './cas-progress.js?v=cas98';
 
 const AUTO_MS = 12000;
 let current = null;

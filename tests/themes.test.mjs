@@ -4,7 +4,8 @@ import { THEMES, DEFAULT_LOOK, normalizeLook, lookLock, modeOptions, loadLook, a
 
 test('a saved look must name a theme that exists and has its art; anything else is the default', () => {
   assert.deepEqual(normalizeLook({ mode: 'game', theme: 'forge-and-brass' }), DEFAULT_LOOK);
-  assert.deepEqual(normalizeLook({ mode: 'professional', theme: 'counting-house' }), DEFAULT_LOOK);
+  assert.deepEqual(normalizeLook({ mode: 'professional', theme: 'counting-house' }), { mode: 'professional', theme: 'counting-house' }, 'the second theme has its art now');
+  assert.deepEqual(normalizeLook({ mode: 'game', theme: 'counting-house' }), DEFAULT_LOOK, 'a mode that does not belong to the theme is the default');
   assert.deepEqual(normalizeLook({ mode: 'professional', theme: 'forge-and-brass' }), DEFAULT_LOOK);
   assert.deepEqual(normalizeLook({ theme: 'nope' }), DEFAULT_LOOK);
   assert.deepEqual(normalizeLook(null), DEFAULT_LOOK);
@@ -13,8 +14,11 @@ test('a saved look must name a theme that exists and has its art; anything else 
 });
 
 test('a theme without art is listed but never selectable; its mode is not offered', () => {
-  assert.equal(THEMES.find(t => t.id === 'counting-house').ready, false);
-  assert.deepEqual(modeOptions().map(m => [m.mode, m.available]), [['game', true], ['professional', false]]);
+  const noArt = [{ id: 'forge-and-brass', name: 'F', mode: 'game', ready: true, tagline: '' }, { id: 'counting-house', name: 'C', mode: 'professional', ready: false, tagline: '' }];
+  assert.deepEqual(modeOptions(noArt).map(m => [m.mode, m.available]), [['game', true], ['professional', false]]);
+  assert.deepEqual(normalizeLook({ mode: 'professional', theme: 'counting-house' }, noArt), DEFAULT_LOOK);
+  assert.equal(THEMES.find(t => t.id === 'counting-house').ready, true);
+  assert.deepEqual(modeOptions().map(m => [m.mode, m.available]), [['game', true], ['professional', true]]);
 });
 
 test('changing the look opens at Technician; no reported rank keeps it closed with a reason', () => {
