@@ -271,12 +271,15 @@ test('a thumbnail is fetched only for what is shown and never for rejected pictu
   assert.ok(s.calls.some(c => c.path === '/a/picture'));
 });
 
-test('hardening: no HTML from the server is ever parsed (text nodes only), ids are encoded in paths, and the entry sits on the Bulletin Board behind a try', () => {
+test('hardening: no HTML from the server is ever parsed (text nodes only), ids are encoded in paths, and the entry sits in the More tab behind a try', () => {
   const src = readFileSync(new URL('../js/cas-gallery.js', import.meta.url), 'utf8');
   assert.ok(!/innerHTML|insertAdjacentHTML|outerHTML|document\.write/.test(src));
   assert.ok(src.includes("encodeURIComponent(id)"));
   const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
-  assert.match(desk, /try \{ wrap\.append\(galleryEntryNode\(\)\); \} catch/);
+  assert.ok(!desk.includes('galleryEntryNode'), 'the Bulletin Board no longer carries the entry');
+  const appSrc = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
+  assert.match(appSrc, /try \{ const card = panel\.querySelector\('\.panel-card'\); if \(card\) card\.append\(galleryEntryNode\(\)\); \} catch/);
+  assert.match(appSrc, /import \{ stopGallery, galleryEntryNode \} from '\.\/cas-gallery\.js\?v=cas100'/);
   assert.match(desk, /onChoice: \(\) => invalidateGallery\(\)/);
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.ok(sw.includes("'js/cas-gallery.js'") && sw.includes("'js/cas-gallery-logic.js'"));

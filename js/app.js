@@ -6,10 +6,10 @@ import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPubl
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas75';
-import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress } from './cas-desk.js?v=cas102';
+import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress } from './cas-desk.js?v=cas103';
 import { renderThemeSettingsSafe, applyLook, bootLook } from './cas-themes.js?v=cas99';
 import { startTrim, applyTrim } from './cas-trim.js?v=cas98';
-import { stopGallery } from './cas-gallery.js?v=cas100';
+import { stopGallery, galleryEntryNode } from './cas-gallery.js?v=cas100';
 applyLook(bootLook());
 try { startTrim(); } catch { /* the plain bar stays */ }
 import { initScreenReport, sendScreenReport, initShortFix } from './cas-screen.js?v=cas75';
@@ -1080,6 +1080,7 @@ function renderMore() {
         ).join('')}
       </div>
     </div>`;
+  try { const card = panel.querySelector('.panel-card'); if (card) card.append(galleryEntryNode()); } catch { /* More never depends on the Gallery */ }
   panel.querySelectorAll('.more-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.moreTab));
   });

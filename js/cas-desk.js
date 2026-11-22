@@ -7,7 +7,7 @@ import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } 
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas93';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas98';
 import { showRankUp } from './cas-rankup.js?v=cas98';
-import { initGallery, galleryEntryNode, invalidateGallery } from './cas-gallery.js?v=cas100';
+import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas100';
 import { stillFor, startPicture, watchMachines, machineName } from './cas-machines.js?v=cas101';
 import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfterJump, viewFor } from './cas-places.js?v=cas98';
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
@@ -885,7 +885,6 @@ function draw() {
     if (bbToast) wrap.append(bbToast);
     const prog = normalizeProgress(_data && _data.progress);
     if (prog) wrap.append(progressBlock(prog));
-    try { wrap.append(galleryEntryNode()); } catch { /* the Bulletin Board never depends on the Gallery */ }
     if (revealWaiting()) wrap.append(el('p', 'dk-note', revealWaiting() === 1 ? 'A picture is on its way.' : revealWaiting() + ' pictures are on their way.'));
     renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
     try { _stopMachines = watchMachines(wrap); } catch { /* the pictures stay stills */ }

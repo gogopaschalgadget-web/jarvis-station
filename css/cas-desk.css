@@ -298,6 +298,8 @@ html[data-theme-colors] .rankup { --dk-brass: var(--th-accent); --dk-brass-hi: v
 
 /* The Gallery: an entry on the Bulletin Board (count and newest thumbnail), a grid of the pictures Chris kept, one picture at a time. Professional mode shows a plain list. */
 .gal-wrap { margin: 0 0 12px; }
+#panel-more .gal-wrap { --dk-brass: #c89943; --dk-brass-hi: #ffe4a1; --dk-text: #e2d3b6; --dk-muted: #b6a285; --dk-ui: -apple-system, system-ui, 'Segoe UI', sans-serif; margin: 12px 0 0; }
+html[data-theme-colors] #panel-more .gal-wrap { --dk-brass: var(--th-accent); --dk-brass-hi: var(--th-accent-hi); --dk-text: var(--th-text); --dk-muted: var(--th-muted); }
 .gal-entry { display: flex; gap: 12px; align-items: center; width: 100%; padding: 10px; border-radius: 12px; border: 2px ridge var(--dk-brass); background: linear-gradient(#2a2010, #14100a); color: var(--dk-text); text-align: left; font: inherit; cursor: pointer; }
 .gal-entry-pic { flex: none; width: 64px; height: 64px; border-radius: 10px; background: #0b0905; border: 1px solid #3c3423; overflow: hidden; }
 .gal-entry-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
