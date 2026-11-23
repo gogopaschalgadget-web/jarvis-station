@@ -4,7 +4,7 @@ import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, re
 import { syncLook } from './cas-themes.js?v=cas104';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas104';
-import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas106';
+import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas104';
@@ -13,7 +13,7 @@ import { tileArt, PLACES, ROWS, BENCH, tileBuckets, loopsFor, lampFor, tileAfter
 import { openIds, returnDay, LANDING_SUB, DESK_SUBS, unseenLinks, SHOWN, rankItems, itemsById, orderedIds, moveTo, stepBy, dropIndex, pinnedAfterMove, stepParts, stepDetail, termMap, textParts, plainItem, cleanSources, holdUntil, holdDates, serverDay, heldCards, dayWords, HOLD_REASONS, isHttps, linkHost, linkAction, deskRows, casMessage } from './cas-desk-logic.js?v=cas93';
 import { normalizeBlueprints, blueprintView, ideasForPlace, dependsTitles, STATE_WORDS, makeWanter, makeAskLog, askedLine, OPEN_STATES, ideaArt, drawerPlan } from './cas-blueprints.js?v=cas97';
 
-export { rankItems, actions, stuckSheet };
+export { rankItems, actions, stuckSheet, whyInput };
 
 const FRESH_MS = 60_000;
 const OLD_FEED_S = 6 * 3600;
@@ -341,14 +341,20 @@ function valuesBlock(values, items) {
 }
 
 function whyInput(id, placeholder) {
-  const input = el('input', 'dk-whyin' + (_need.has(id) ? ' need' : ''));
-  input.type = 'text';
-  input.maxLength = 300;
+  const wrap = el('div', 'dk-whywrap');
+  const input = el('textarea', 'dk-whyin' + (_need.has(id) ? ' need' : ''));
+  input.rows = 3;
+  input.maxLength = STUCK_MAX;
   input.placeholder = placeholder;
   input.value = _whys.get(id) || '';
-  input.addEventListener('input', () => { _whys.set(id, input.value); _need.delete(id); input.classList.remove('need'); });
+  const count = el('p', 'dk-count', countLine(input.value.length));
+  const show = () => { count.textContent = countLine(input.value.length); count.classList.toggle('near', countNear(input.value.length)); };
+  show();
+  input.addEventListener('input', () => { _whys.set(id, input.value); _need.delete(id); input.classList.remove('need'); show(); });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
   input.addEventListener('click', e => e.stopPropagation());
-  return input;
+  wrap.append(input, count);
+  return wrap;
 }
 
 function stuckNoteBox(b) {
@@ -410,7 +416,7 @@ function goToMissions(c, id) {
 
 function actions(item, stuckNow, kidsNode) {
   const box = el('div', 'dk-acts');
-  const text = () => (_whys.get(item.id) || '').trim();
+  const text = () => oneLine(_whys.get(item.id));
   if (stuckNow) {
     const st = stuckNow.status || stuckStatus(null, null, !!stuckNow.hasKids);
     const said = stuckNow.why ? 'You said: ' + stuckNow.why : '';
@@ -429,7 +435,7 @@ function actions(item, stuckNow, kidsNode) {
     item.choices.forEach((c, i) => list.append(button('dk-choice', c.label, () => answer(item.id, 'choice', { choice: i, why: text() }))));
     box.append(list);
   }
-  box.append(whyInput(item.id, hasChoices ? 'Why, or what is in the way (one line)' : 'If stuck: what is in the way? (one line)'));
+  box.append(whyInput(item.id, hasChoices ? 'Why, or what is in the way' : 'If stuck: what is in the way?'));
   if (_need.has(item.id)) box.append(el('p', 'dk-needline', 'Say in a line what is in the way, then press Stuck.'));
   const row = el('div', 'dk-row2');
   if (!hasChoices) row.append(button('dk-act done', 'Done', () => answer(item.id, 'done', { why: text() })));

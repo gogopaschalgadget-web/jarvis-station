@@ -60,6 +60,15 @@ export function stuckStatus(meta, now, hasKids) {
 }
 
 export const SLIDE_CONFIRM = 0.9;
+export const STUCK_MAX = 1000;
+export const STUCK_NEAR = 900;
+
+/** The counter under the stuck line: how much is typed of how much is allowed. A bad value counts as nothing typed. */
+export const countLine = n => `${Number.isInteger(n) && n > 0 ? Math.min(n, STUCK_MAX) : 0} / ${STUCK_MAX}`;
+export const countNear = n => Number.isInteger(n) && n >= STUCK_NEAR;
+
+/** What is sent: the typed text on one line, trimmed. A line break, a tab or any other control character (the server refuses them) becomes a space. */
+export const oneLine = text => String(text == null ? '' : text).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
 /** How far a drag has gone, from 0 to 1: a bad number or a zero travel is 0. */
 export function slideFraction(dx, travel) {

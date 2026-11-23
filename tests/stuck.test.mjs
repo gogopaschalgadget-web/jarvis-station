@@ -148,14 +148,14 @@ test('every changed module carries the new tag and the service worker the new ve
   const idx = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
-  assert.match(idx, /js\/app\.js\?v=cas106/);
-  assert.match(idx, /cas-desk\.css\?v=19/);
-  assert.match(app, /cas-desk\.js\?v=cas106/);
-  assert.match(desk, /cas-stuck\.js\?v=cas106/);
+  assert.match(idx, /js\/app\.js\?v=cas107/);
+  assert.match(idx, /cas-desk\.css\?v=20/);
+  assert.match(app, /cas-desk\.js\?v=cas107/);
+  assert.match(desk, /cas-stuck\.js\?v=cas107/);
 });
 
 const fakeNode = tag => {
-  const node = { tag, className: '', textContent: '', children: [], type: '', attrs: {}, style: {}, listeners: {}, tabIndex: -1,
+  const node = { tag, classList: { set: new Set(), toggle(c, on) { on ? this.set.add(c) : this.set.delete(c); }, contains(c) { return this.set.has(c); }, remove(c) { this.set.delete(c); } }, className: '', textContent: '', children: [], type: '', attrs: {}, style: {}, listeners: {}, tabIndex: -1,
     addEventListener(name, fn) { (node.listeners[name] = node.listeners[name] || []).push(fn); },
     setAttribute(k, v) { node.attrs[k] = v; }, append(...kids) { kids.forEach(k => node.children.push(k)); }, remove() { node.removed = true; },
     fire(name, event = {}) { (node.listeners[name] || []).forEach(fn => fn({ preventDefault() {}, stopPropagation() {}, ...event })); }, clientWidth: 300 };
@@ -358,4 +358,48 @@ test('the desk source draws the stamp from the stuck state, scrolls to the missi
   const stuckClick = src.slice(src.indexOf("row.append(button('dk-act', 'Stuck'"), src.indexOf('box.append(row);'));
   assert.doesNotMatch(stuckClick, /answer\(item\.id, 'stuck'/);
   assert.match(src, /const sheet = stuckSheet\(why, \(\) => \{ sheet\.remove\(\); answer\(item\.id, 'stuck', \{ why \}\); \}/);
+});
+
+import { STUCK_MAX, STUCK_NEAR, countLine, countNear, oneLine } from '../js/cas-stuck.js';
+const { whyInput } = await import('../js/cas-desk.js');
+
+test('the stuck line allows 1000 characters, counts them, warns near the end and sends one clean line', () => {
+  assert.equal(STUCK_MAX, 1000);
+  assert.equal(STUCK_NEAR, 900);
+  assert.equal(countLine(0), '0 / 1000');
+  assert.equal(countLine(123), '123 / 1000');
+  assert.equal(countLine(5000), '1000 / 1000');
+  for (const bad of [NaN, -3, 2.5, '7', null, undefined]) assert.equal(countLine(bad), '0 / 1000');
+  assert.equal(countNear(899), false);
+  assert.equal(countNear(900), true);
+  assert.equal(countNear(NaN), false);
+  assert.equal(oneLine('  first\r\nsecond \n\n third  '), 'first second third');
+  assert.equal(oneLine('a\tb\u0000c\u0007d\u001be\u007ff'), 'a b c d e f');
+  assert.equal(oneLine('tab\t\tseparated\tline'), 'tab separated line');
+  assert.equal(oneLine('plain text, kept: as is (1/2).'), 'plain text, kept: as is (1/2).');
+  for (const text of ['a\tb', 'x\u0001y\nz', '\u001f\u001e']) assert.equal([...oneLine(text)].some(ch => ch.charCodeAt(0) < 32), false);
+  assert.equal(oneLine(null), '');
+});
+
+test('the stuck line is a roomy box with a visible counter that follows the typing and turns red near the limit', () => {
+  globalThis.document = fakeDocument();
+  const wrap = whyInput('c', 'If stuck: what is in the way?');
+  const box = wrap.children[0];
+  const counter = wrap.children[1];
+  assert.equal(box.tag, 'textarea');
+  assert.equal(box.maxLength, 1000);
+  assert.equal(box.rows, 3);
+  assert.equal(counter.className, 'dk-count');
+  assert.equal(counter.textContent, '0 / 1000');
+  box.value = 'x'.repeat(950);
+  box.fire('input');
+  assert.equal(counter.textContent, '950 / 1000');
+  assert.equal(counter.classList.contains('near'), true);
+  box.value = 'x'.repeat(10);
+  box.fire('input');
+  assert.equal(counter.textContent, '10 / 1000');
+  assert.equal(counter.classList.contains('near'), false);
+  let prevented = false;
+  box.fire('keydown', { key: 'Enter', preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
 });
