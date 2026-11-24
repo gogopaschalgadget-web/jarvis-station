@@ -197,3 +197,52 @@ test('art comes from the manifest: the still, the trait variant, the sleeping po
   assert.equal(L.normalizeManifest(null).size, 0);
   assert.equal(L.normalizeManifest({ files: 'x' }).size, 0);
 });
+
+test('a hung request times out, frees the next call, and does not write late; the manifest hang is bounded too', async () => {
+  makeDom();
+  const v = await fresh();
+  let calls = 0;
+  let late;
+  const never = new Promise(r => { late = r; });
+  v.initCreature({ apiBase: '', getToken: () => 't', timeoutMs: 40, fetch: async (url, init) => { calls++; if (calls === 1) { await never; return { ok: true, status: 200, json: async () => ({ creature: mon() }) }; } return { ok: true, status: 200, json: async () => ({ creature: mon() }) }; } });
+  const t0 = Date.now();
+  assert.equal(await v.loadCreature(true), null, 'a hung read resolves to nothing');
+  assert.ok(Date.now() - t0 < 500, 'and does so at the limit, not never');
+  late();
+  await tick(30);
+  assert.equal(v.creatureRead(), null, 'the late answer wrote nothing');
+  v.forgetCreature();
+  v.initCreature({ fetch: async url => { if (url === 'creatures/manifest.json') { await new Promise(() => {}); } return { ok: true, status: 200, json: async () => ({ creature: mon() }) }; } });
+  assert.ok(await v.loadCreature(true), 'a hung manifest is cut off and the creature still shows (placeholders)');
+  let signalSeen = null;
+  v.forgetCreature();
+  v.initCreature({ fetch: async (url, init) => { signalSeen = init && init.signal; return { ok: true, status: 200, json: async () => ({ creature: mon() }) }; } });
+  await v.loadCreature(true);
+  assert.ok(signalSeen && typeof signalSeen.aborted === 'boolean', 'requests carry an abort signal');
+});
+
+test('a 404 (route not on the server yet) backs off ten minutes, a 500 sixty seconds; forgetting or a new service worker resets it', async () => {
+  makeDom();
+  const v = await fresh();
+  let n = 0, status = 404;
+  v.initCreature({ apiBase: '', getToken: () => 't', fetch: async () => { n++; return { ok: false, status }; } });
+  assert.equal(await v.loadCreature(true), null);
+  assert.equal(await v.loadCreature(true), null, 'even a forced read does not hammer a missing route');
+  assert.equal(await v.loadCreature(false), null);
+  assert.equal(n, 1);
+  const realNow = Date.now;
+  try {
+    Date.now = () => realNow() + 9 * 60000;
+    await v.loadCreature(true); assert.equal(n, 1, 'still quiet after 9 minutes');
+    Date.now = () => realNow() + 11 * 60000;
+    await v.loadCreature(true); assert.equal(n, 2, 'asks again after ten minutes');
+  } finally { Date.now = realNow; }
+  v.forgetCreature();
+  status = 500;
+  const before = n;
+  await v.loadCreature(true); assert.equal(n, before + 1);
+  await v.loadCreature(false); assert.equal(n, before + 1, 'a 500 is retried after the shorter wait, not at once');
+  const src = readFileSync(new URL('../js/cas-creature.js', import.meta.url), 'utf8');
+  assert.match(src, /NOT_FOUND_MS = 600000/);
+  assert.match(src, /controllerchange/);
+});

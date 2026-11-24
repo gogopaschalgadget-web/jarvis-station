@@ -3,6 +3,9 @@ import { normalizeCreatureRead, normalizeManifest, pickArt, nameLine, barFractio
 
 const TTL_MS = 30000;
 const FAIL_MS = 60000;
+const NOT_FOUND_MS = 600000;
+const TIMEOUT_MS = 15000;
+let _notFoundAt = 0;
 let _o = { apiBase: '', getToken: () => '', fetch: (...a) => fetch(...a) };
 let _read = null;
 let _loadedAt = 0;
@@ -24,6 +27,16 @@ function el(tag, cls, text) {
 }
 
 export function initCreature(options) { _o = { ..._o, ...options }; }
+// A new service worker taking control means a new build, which may have the route: ask again.
+try { if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.addEventListener) navigator.serviceWorker.addEventListener('controllerchange', () => { _notFoundAt = 0; _failedAt = 0; }); } catch { /* no service worker here */ }
+
+/** Run a request with an abort signal and a time limit; a request that hangs rejects after the limit instead of holding everything up. */
+function timed(run) {
+  const ctl = typeof AbortController === 'function' ? new AbortController() : { signal: undefined, abort() {} };
+  let timer;
+  const clock = new Promise((_, reject) => { timer = setTimeout(() => { try { ctl.abort(); } catch { /* already done */ } reject(new Error('timeout')); }, _o.timeoutMs || TIMEOUT_MS); });
+  return Promise.race([run(ctl.signal), clock]).finally(() => clearTimeout(timer));
+}
 export const professional = () => { try { return document.documentElement.dataset.mode === 'professional'; } catch { return false; } };
 export const creatureShown = () => !!_read && !_read.hidden && !professional();
 /** The Station's own list of art files (creatures/manifest.json, a static file, no sign-in). A missing or bad file means no art yet: placeholders. */
@@ -31,15 +44,17 @@ async function loadManifest() {
   if (Date.now() - _manifestAt < MANIFEST_MS) return;
   _manifestAt = Date.now();
   try {
-    const res = await _o.fetch('creatures/manifest.json', { cache: 'no-cache' });
-    _files = res.ok ? normalizeManifest(await res.json()) : new Set();
+    _files = await timed(async signal => {
+      const res = await _o.fetch('creatures/manifest.json', { cache: 'no-cache', signal });
+      return res.ok ? normalizeManifest(await res.json()) : new Set();
+    });
   } catch { _files = new Set(); }
 }
 const reduced = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 export function creatureRead() { return _read; }
 export function creatureCard() { return creatureShown() ? _read.creature : null; }
-export function forgetCreature() { _epoch++; _read = null; _loadedAt = 0; _failedAt = 0; _inflight = null; _lastLevel = null; _cheerUntil = 0; _glowUntil = 0; _files = new Set(); _manifestAt = 0; }
+export function forgetCreature() { _epoch++; _read = null; _loadedAt = 0; _failedAt = 0; _inflight = null; _lastLevel = null; _cheerUntil = 0; _glowUntil = 0; _files = new Set(); _manifestAt = 0; _notFoundAt = 0; }
 export function cheer(ms = 3000) { _cheerUntil = Date.now() + ms; }
 const cheering = () => Date.now() < _cheerUntil;
 const glowing = () => Date.now() < _glowUntil;
@@ -47,6 +62,7 @@ const glowing = () => Date.now() < _glowUntil;
 /** Ask for the creature (fun mode only). Nothing is sent in professional mode. Resolves to the checked read or null. */
 export function loadCreature(force) {
   if (professional()) return Promise.resolve(null);
+  if (_notFoundAt && Date.now() - _notFoundAt < NOT_FOUND_MS) return Promise.resolve(null);
   if (!force && _read && Date.now() - _loadedAt < TTL_MS) return Promise.resolve(_read);
   if (!force && !_read && _failedAt && Date.now() - _failedAt < FAIL_MS) return Promise.resolve(null);
   if (_inflight) return _inflight;
@@ -55,11 +71,14 @@ export function loadCreature(force) {
   if (!token) return Promise.resolve(null);
   const mine = (async () => {
     try {
-      const res = await _o.fetch(`${_o.apiBase}/api/station/desk/creature`, { headers: { Authorization: 'Bearer ' + token } });
+      const got = await timed(async signal => {
+        const res = await _o.fetch(`${_o.apiBase}/api/station/desk/creature`, { headers: { Authorization: 'Bearer ' + token }, signal });
+        return { status: res.status, ok: res.ok, body: res.ok ? await res.json() : null };
+      });
       if (epoch !== _epoch) return null;
-      if (!res.ok) { _failedAt = Date.now(); return null; }
+      if (!got.ok) { _failedAt = Date.now(); if (got.status === 404) _notFoundAt = Date.now(); return null; }
       await loadManifest();
-      const read = normalizeCreatureRead(await res.json());
+      const read = normalizeCreatureRead(got.body);
       if (epoch !== _epoch) return null;
       if (!read) { _failedAt = Date.now(); return null; }
       if (_read && _read.creature.number === read.creature.number && read.creature.level > _read.creature.level) _glowUntil = Date.now() + 2000;
