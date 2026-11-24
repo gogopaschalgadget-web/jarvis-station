@@ -5,6 +5,7 @@ import { syncLook } from './cas-themes.js?v=cas111';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas112';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
+import { normalizeEffort, effortTag, earnedTag } from './cas-effort.js?v=cas114';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas109';
@@ -46,6 +47,7 @@ if (typeof document !== 'undefined' && document.addEventListener) document.addEv
 export function forgetRank() { _rankMemory.forget(); }
 const _rankMemory = makeRankMemory((() => { try { return localStorage; } catch { return null; } })());
 const _open = new Set();
+const _effOpen = new Set();
 const _whys = new Map();
 const _need = new Set();
 const _busy = new Set();
@@ -70,7 +72,7 @@ function button(cls, text, fn) {
 
 export function doneList(data) {
   const log = data && data.done_log;
-  if (Array.isArray(log)) return log.map(d => ({ title: d.title, project: d.project, note: [d.date, d.answer ? shorten(d.answer, 110) : ''].filter(Boolean).join(' · '), seen: d.first_seen || 0 }));
+  if (Array.isArray(log)) return log.map(d => ({ title: d.title, project: d.project, note: [d.date, d.answer ? shorten(d.answer, 110) : ''].filter(Boolean).join(' · '), seen: d.first_seen || 0, earned: earnedTag(d) }));
   const feed = data && data.feed;
   const out = ((feed && feed.done_since_last_look) || []).map(d => ({ title: d.title, project: d.project, note: '', seen: 0 }));
   ((feed && feed.items) || []).filter(i => i.status !== 'open').forEach(i => {
@@ -771,8 +773,16 @@ function card(item, n, ctx) {
   c.addEventListener('toggle', () => { if (c.open) _open.add(item.id); else _open.delete(item.id); });
   const top = el('summary', 'dk-top');
   top.append(el('span', 'dk-num', String(n)), el('span', 'dk-proj', words(item.project)), el('span', 'dk-kind dk-kind-' + item.kind, KIND[item.kind] || item.kind));
+  const eff = normalizeEffort(item);
+  if (eff) {
+    const tag = button('dk-eff' + (_effOpen.has(item.id) ? ' on' : ''), effortTag(eff), () => { if (_effOpen.has(item.id)) _effOpen.delete(item.id); else _effOpen.add(item.id); draw(); });
+    tag.setAttribute('aria-expanded', _effOpen.has(item.id) ? 'true' : 'false');
+    tag.title = 'Tap for why this size';
+    top.append(tag);
+  }
   if (item.minutes != null) top.append(el('span', 'dk-min', 'takes ' + item.minutes + ' min'));
   top.append(titleNode(item));
+  if (eff && _effOpen.has(item.id)) top.append(el('p', 'dk-effwhy', eff.reason || 'No reason was given for this size.'));
   const marks = el('div', 'dk-marks');
   if (ctx.mine) { marks.append(el('span', 'dk-mark', 'Your order')); marks.append(button('dk-rel', 'Release', () => release(item.id))); }
   if (ctx.stuckNow && ctx.stuckNow.status && ctx.stuckNow.status.working) marks.append(el('span', 'dk-mark warn', 'Cas is working on it'));
@@ -1071,6 +1081,7 @@ function draw() {
       const row = el('div', 'dk-donerow');
       row.append(el('span', '', d.title));
       if (d.project || d.note) row.append(el('small', '', [d.project ? words(d.project) : '', d.note].filter(Boolean).join(' · ')));
+      if (d.earned) row.append(el('span', 'dk-eff earned', d.earned));
       box.append(row);
     });
     wrap.append(box);
