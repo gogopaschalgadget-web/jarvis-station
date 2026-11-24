@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { EFFORT, REASON_MAX, normalizeEffort, effortTag, earnedTag } from '../js/cas-effort.js';
+import { EFFORT, REASON_MAX, normalizeEffort, effortTag, earnedTag, ruleOf } from '../js/cas-effort.js';
 import { doneList } from '../js/cas-desk.js';
 
 test('the table is the agreed one: xs 20, s 40, m 60, l 100, xl 160', () => {
@@ -9,9 +9,9 @@ test('the table is the agreed one: xs 20, s 40, m 60, l 100, xl 160', () => {
 });
 
 test('a card size is read only when valid; the tag, the one-line reason and its cut', () => {
-  assert.equal(effortTag(normalizeEffort({ effort: 'm', effort_reason: 'Ordinary work' })), 'M · 60 XP');
-  assert.equal(effortTag(normalizeEffort({ effort: 'XL' })), 'XL · 160 XP', 'case does not matter');
-  assert.equal(effortTag(normalizeEffort({ effort: 'xs' })), 'XS · 20 XP');
+  assert.equal(effortTag(normalizeEffort({ effort: 'm', effort_reason: 'Ordinary work' }), 'effort'), 'M · 60 XP');
+  assert.equal(effortTag(normalizeEffort({ effort: 'XL' }), 'effort'), 'XL · 160 XP', 'case does not matter');
+  assert.equal(effortTag(normalizeEffort({ effort: 'xs' }), 'effort'), 'XS · 20 XP');
   for (const bad of [null, undefined, {}, { effort: '' }, { effort: 'huge' }, { effort: 60 }, { effort: '__proto__' }, { effort: 'toString' }, 'm']) assert.equal(normalizeEffort(bad), null, JSON.stringify(bad));
   const long = normalizeEffort({ effort: 's', effort_reason: 'x'.repeat(400) });
   assert.ok(long.reason.length <= REASON_MAX);
@@ -42,4 +42,23 @@ test('the card draws the tag as a button with text nodes only, keeps its open st
   assert.ok(sw.includes("'js/cas-effort.js'"));
   const mod = readFileSync(new URL('../js/cas-effort.js', import.meta.url), 'utf8');
   assert.ok(!/innerHTML|insertAdjacentHTML/.test(mod + desk.match(/dk-eff[^\n]*/g).join('\n')));
+});
+
+test('XP is promised only when the server says the rule is effort; otherwise the plain size', () => {
+  const m = normalizeEffort({ effort: 'm' });
+  for (const rule of ['old', 'flat', null, undefined, 'maybe', 7]) assert.equal(effortTag(m, rule), 'M', String(rule));
+  assert.equal(effortTag(m), 'M', 'no rule given: plain size');
+  assert.equal(effortTag(m, 'effort'), 'M · 60 XP');
+  assert.equal(effortTag(null, 'effort'), '');
+  assert.equal(ruleOf({ progress: { xp_rule: 'effort' } }), 'effort');
+  assert.equal(ruleOf({ progress: { xp_rule: 'flat' } }), 'flat');
+  for (const bad of [null, {}, { progress: {} }, { progress: { xp_rule: 'EFFORT' } }, { progress: { xp_rule: 1 } }]) assert.equal(ruleOf(bad), null);
+  const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
+  assert.match(desk, /effortTag\(eff, ruleOf\(_data\)\)/);
+});
+
+test('the earned chip also reads rows of done_since_last_look', () => {
+  const rows = doneList({ feed: { items: [], done_since_last_look: [{ title: 'A', project: 'station', effort: 'l', xp_earned: 100 }, { title: 'B', effort: null, xp_earned: null }] } });
+  assert.equal(rows[0].earned, 'L · 100 XP earned');
+  assert.equal(rows[1].earned, '');
 });

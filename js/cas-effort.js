@@ -20,7 +20,11 @@ export function normalizeEffort(item) {
   return { size, label: EFFORT[size].label, xp: EFFORT[size].xp, reason };
 }
 
-export const effortTag = e => (e ? `${e.label} · ${e.xp} XP` : '');
+/** The rule in force from the Desk read (`progress.xp_rule`): 'old', 'flat' or 'effort'; anything else is unknown. */
+export const ruleOf = data => { const r = data && data.progress && data.progress.xp_rule; return r === 'old' || r === 'flat' || r === 'effort' ? r : null; };
+
+/** The tag text. XP is promised only when the server says the rule is effort; otherwise (old, flat, unknown, missing) it is the plain size. */
+export const effortTag = (e, rule) => (e ? (rule === 'effort' ? `${e.label} · ${e.xp} XP` : e.label) : '');
 
 /** What a finished card paid, from a done-log row: the size and the whole number the server says was awarded, or ''. */
 export function earnedTag(row) {

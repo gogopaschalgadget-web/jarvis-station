@@ -5,7 +5,7 @@ import { syncLook } from './cas-themes.js?v=cas111';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas112';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
-import { normalizeEffort, effortTag, earnedTag } from './cas-effort.js?v=cas114';
+import { normalizeEffort, effortTag, earnedTag, ruleOf } from './cas-effort.js?v=cas114';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas109';
@@ -74,7 +74,7 @@ export function doneList(data) {
   const log = data && data.done_log;
   if (Array.isArray(log)) return log.map(d => ({ title: d.title, project: d.project, note: [d.date, d.answer ? shorten(d.answer, 110) : ''].filter(Boolean).join(' · '), seen: d.first_seen || 0, earned: earnedTag(d) }));
   const feed = data && data.feed;
-  const out = ((feed && feed.done_since_last_look) || []).map(d => ({ title: d.title, project: d.project, note: '', seen: 0 }));
+  const out = ((feed && feed.done_since_last_look) || []).map(d => ({ title: d.title, project: d.project, note: '', seen: 0, earned: earnedTag(d) }));
   ((feed && feed.items) || []).filter(i => i.status !== 'open').forEach(i => {
     out.push({ title: i.title, project: i.project, note: i.status === 'done' ? 'Done' : 'Answered' + (i.answer ? ': ' + shorten(i.answer, 110) : ''), seen: 0 });
   });
@@ -775,7 +775,7 @@ function card(item, n, ctx) {
   top.append(el('span', 'dk-num', String(n)), el('span', 'dk-proj', words(item.project)), el('span', 'dk-kind dk-kind-' + item.kind, KIND[item.kind] || item.kind));
   const eff = normalizeEffort(item);
   if (eff) {
-    const tag = button('dk-eff' + (_effOpen.has(item.id) ? ' on' : ''), effortTag(eff), () => { if (_effOpen.has(item.id)) _effOpen.delete(item.id); else _effOpen.add(item.id); draw(); });
+    const tag = button('dk-eff' + (_effOpen.has(item.id) ? ' on' : ''), effortTag(eff, ruleOf(_data)), () => { if (_effOpen.has(item.id)) _effOpen.delete(item.id); else _effOpen.add(item.id); draw(); });
     tag.setAttribute('aria-expanded', _effOpen.has(item.id) ? 'true' : 'false');
     tag.title = 'Tap for why this size';
     top.append(tag);
