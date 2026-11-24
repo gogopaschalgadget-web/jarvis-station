@@ -6,6 +6,7 @@ import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas112';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
 import { normalizeEffort, effortTag, earnedTag, ruleOf, previewOf, promiseTag, pictureLine, whyLine } from './cas-effort.js?v=cas114';
+import { initCreature, loadCreature, tileNode, denNode, creatureShown, cheer } from './cas-creature.js?v=cas115';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas109';
@@ -48,6 +49,7 @@ export function forgetRank() { _rankMemory.forget(); }
 const _rankMemory = makeRankMemory((() => { try { return localStorage; } catch { return null; } })());
 const _open = new Set();
 const _effOpen = new Set();
+let _den = false;
 const _whys = new Map();
 const _need = new Set();
 const _busy = new Set();
@@ -143,7 +145,7 @@ async function answer(id, kind, extra = {}) {
   const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
   const xp = kind === 'done' || kind === 'choice' ? xpLine(res.json) : '';
   const up = rankUpOf(res.json);
-  if (kind === 'done') scheduleReveal(id); else if (kind === 'undo') cancelReveal(id);
+  if (kind === 'done') { scheduleReveal(id); try { cheer(); loadCreature(true).then(() => { if (_panel) draw(); }); } catch { /* a nicety */ } } else if (kind === 'undo') cancelReveal(id);
   say(kind === 'undo' ? 'Undone.' : [res.json.line || 'Saved.', xp, up ? 'Rank up: ' + up.name + '.' : ''].filter(Boolean).join(' '), undoable ? () => answer(id, 'undo') : null);
   await load(true);
 }
@@ -968,6 +970,11 @@ function draw() {
     if (bbToast) wrap.append(bbToast);
     const prog = normalizeProgress(_data && _data.progress);
     if (prog) wrap.append(progressBlock(prog));
+    if (_den && !creatureShown()) _den = false;
+    if (_den) {
+      try { wrap.replaceChildren(denNode(need, () => { _den = false; draw(); })); panel.scrollTop = 0; return; } catch { _den = false; }
+    }
+    try { const tile = tileNode(need, () => { _den = true; draw(); }); if (tile) wrap.append(tile); } catch { /* the Bulletin Board never depends on the creature */ }
     if (revealWaiting()) wrap.append(el('p', 'dk-note', revealWaiting() === 1 ? 'A picture is on its way.' : revealWaiting() + ' pictures are on their way.'));
     renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
     try { _stopMachines = watchMachines(wrap); } catch { /* the pictures stay stills */ }
@@ -1131,6 +1138,7 @@ async function doLoad(force) {
     if (!_doneOpen) _lookBase = lastLook();
     _state = data.feed && Array.isArray(data.feed.items) ? 'ready' : 'empty';
     _loadedAt = Date.now();
+    try { loadCreature(false).then(r => { if (r && _panel && _sub === LANDING_SUB) draw(); }); } catch { /* the Desk never depends on the creature */ }
     _refreshFailed = false;
   } catch {
     if (_state !== 'ready') _state = 'failed';
@@ -1165,6 +1173,7 @@ export function initDesk(panel, options) {
   _o = { ..._o, ...options };
   initReveal({ apiBase: _o.apiBase, getToken: _o.getToken, say: t => say(t), onChoice: () => invalidateGallery() });
   initGallery({ apiBase: _o.apiBase, getToken: _o.getToken, say: t => say(t) });
+  initCreature({ apiBase: _o.apiBase, getToken: _o.getToken });
   initOrders({ apiBase: _o.apiBase, getToken: _o.getToken, openCard: jumpToCard, showOrders: () => { _sub = 'orders'; draw(); }, redraw: draw, unavailable: () => { if (_sub === 'orders') { _sub = 'desk'; load(true); draw(); } } });
   draw();
 }
