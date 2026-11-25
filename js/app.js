@@ -1265,14 +1265,14 @@ function renderContentReview() {
     <div class="panel-card">
       <div class="panel-card-title">${esc(platformLabel)} | r/${esc(subreddit)} | ${esc(item.post_type||'?')}</div>
       <div style="font-size:0.85rem;color:#888;margin-bottom:0.5rem">${esc(item.post_id||'?')} | age ${ageMin}m | ${overall} | rec: ${recAction}</div>
-      ${oppSrc.post_title||oppSrc.thread_url ? `<div style="background:#1a1e28;padding:0.75rem;border-radius:6px;margin-bottom:0.75rem;border-left:3px solid #d4a853">
+      ${oppSrc.post_title||oppSrc.thread_url ? `<div style="background:#1a1e28;color:#c8d0dc;padding:0.75rem;border-radius:6px;margin-bottom:0.75rem;border-left:3px solid #d4a853">
         <div style="font-size:0.8rem;color:#d4a853;font-weight:bold;margin-bottom:0.25rem">ORIGINAL POST</div>
         ${oppSrc.post_title ? `<div style="font-size:0.9rem;color:#c8d0dc;font-weight:bold;margin-bottom:0.25rem">${esc(oppSrc.post_title)}</div>` : ''}
         ${oppSrc.post_body_snippet ? `<div style="font-size:0.85rem;color:#aaa;margin-bottom:0.5rem;white-space:pre-wrap">${esc(oppSrc.post_body_snippet)}</div>` : ''}
         ${oppSrc.thread_url ? `<a href="${esc(oppSrc.thread_url)}" target="_blank" rel="noopener" style="font-size:0.8rem;color:#22d3ee;text-decoration:underline">View on Reddit</a>` : ''}
       </div>` : ''}
       <div style="font-size:0.8rem;color:#888;margin-bottom:0.25rem">GENERATED REPLY</div>
-      <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:300px;overflow-y:auto;border:1px solid #1e2530">${esc(item.body||'(no body)')}</div>
+      <div style="background:#0a0e14;color:#e6edf3;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:300px;overflow-y:auto;border:1px solid #1e2530">${esc(item.body||'(no body)')}</div>
     </div>
     ${verdict && Object.keys(dims).length ? `<div class="panel-card-title" style="margin-top:1rem;padding:0 0.5rem">Rubric Dimensions</div>${Object.entries(dims).map(([n,d])=>dimCardHtml(n,d)).join('')}` : ''}
     <div class="panel-card" id="action-panel">
@@ -1422,7 +1422,7 @@ function renderAnchorReview() {
         <span style="background:#1e2530;color:#c8d0dc;padding:0.25rem 0.6rem;border-radius:4px;font-size:0.8rem">${personaTxt}</span>
       </div>
       ${item.title ? `<div style="font-size:0.95rem;color:#c8d0dc;font-weight:bold;margin-bottom:0.5rem">${esc(item.title)}</div>` : ''}
-      <div style="background:#0a0e14;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:50vh;overflow-y:auto;border:1px solid #1e2530">${esc(item.body||item.excerpt||'')}</div>
+      <div style="background:#0a0e14;color:#e6edf3;padding:0.75rem;border-radius:6px;font-family:monospace;font-size:0.85rem;white-space:pre-wrap;max-height:50vh;overflow-y:auto;border:1px solid #1e2530">${esc(item.body||item.excerpt||'')}</div>
       ${item.thread_url ? `<a href="${esc(item.thread_url)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:0.5rem;font-size:0.8rem;color:#22d3ee;text-decoration:underline">View thread</a>` : ''}
     </div>
     <div class="panel-card">
@@ -1770,7 +1770,7 @@ async function markXTrackerPosted(post) {
 function xPostCard(post) {
   const c = xCard('X post');
   const text = String(post.content_preview || '');
-  c.appendChild(xEl('div', text.length > 140 ? text.slice(0, 140) + '...' : text, 'background:#0a0e14;padding:0.6rem;border-radius:6px;font-size:0.9rem;color:#e6edf3;white-space:pre-wrap;word-break:break-word'));
+  c.appendChild(xEl('div', text, 'background:#0a0e14;padding:0.6rem;border-radius:6px;font-size:0.9rem;color:#e6edf3;white-space:pre-wrap;word-break:break-word'));
   c.appendChild(xEl('div', 'Status: ' + (post.status || 'unknown'), 'font-size:0.85rem;color:#888;margin-top:0.4rem'));
   const link = typeof post.post_url === 'string' ? post.post_url : '';
   if (link) {

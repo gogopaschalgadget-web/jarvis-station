@@ -331,7 +331,7 @@ test('every module changed in this stack carries the one new tag in every import
     const want = m === 'cas-desk' ? 'cas107' : 'cas104';   // cas-desk changed again (stuck note box): new tag; the rest are unchanged
     assert.ok(tags.every(t => t === want), m + ' carries ' + want + ' everywhere: ' + tags);
   }
-  assert.match(files, /js\/app\.js\?v=cas107/);
+  assert.match(files, /js\/app\.js\?v=cas108/);
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.ok(/forgetRank\(\)/.test(app));
 });
