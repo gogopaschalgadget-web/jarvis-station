@@ -1,5 +1,5 @@
-import { failureAction, REASON_MAX } from './cas-reveal-logic.js?v=cas93';
-import { normalizeGallery, galleryEntry, countWords, dateWords, actionsFor, afterChoice, galleryChoiceBody, THUMB_PARALLEL, THUMB_WIDTH } from './cas-gallery-logic.js?v=cas104';
+import { failureAction, REASON_MAX } from './cas-reveal-logic.js?v=cas117';
+import { normalizeGallery, galleryEntry, countWords, dateWords, actionsFor, afterChoice, galleryChoiceBody, THUMB_PARALLEL, THUMB_WIDTH } from './cas-gallery-logic.js?v=cas117';
 
 const TTL_MS = 30000;
 const FAIL_MS = 60000;

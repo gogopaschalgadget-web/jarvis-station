@@ -54,7 +54,7 @@ export const dropWaiting = (list, cardId) => (Array.isArray(list) ? list : []).f
 
 /** Rarity words for the reveal, only for rarities the server names. */
 export function rarityLabel(r) {
-  return { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', legendary: 'Legendary' }[r] || '';
+  return { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }[r] || '';
 }
 
 /** An id the Station will put in a request path: short, plain characters only (no slashes, no "..", no spaces). */

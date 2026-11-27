@@ -279,7 +279,7 @@ test('hardening: no HTML from the server is ever parsed (text nodes only), ids a
   assert.ok(!desk.includes('galleryEntryNode'), 'the Bulletin Board no longer carries the entry');
   const appSrc = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.match(appSrc, /try \{ const card = panel\.querySelector\('\.panel-card'\); if \(card\) card\.append\(galleryEntryNode\(\)\); \} catch/);
-  assert.match(appSrc, /import \{ stopGallery, galleryEntryNode \} from '\.\/cas-gallery\.js\?v=cas109'/);
+  assert.match(appSrc, /import \{ stopGallery, galleryEntryNode \} from '\.\/cas-gallery\.js\?v=cas117'/);
   assert.match(desk, /onChoice: \(\) => invalidateGallery\(\)/);
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.ok(sw.includes("'js/cas-gallery.js'") && sw.includes("'js/cas-gallery-logic.js'"));
@@ -328,10 +328,10 @@ test('every module changed in this stack carries the one new tag in every import
   for (const m of changed) {
     const tags = [...files.matchAll(new RegExp('\\./' + m + '\\.js\\?v=(cas\\d+)', 'g'))].map(x => x[1]);
     assert.ok(tags.length, m + ' is imported');
-    const want = m === 'cas-desk' ? 'cas116' : m === 'cas-reveal' ? 'cas112' : m === 'cas-themes' ? 'cas111' : m === 'cas-gallery' ? 'cas109' : 'cas104';   // changed again: cas-gallery (overlay fix) cas109; cas-desk and cas-themes (Appearance directions) cas111; the rest are unchanged
+    const want = ['cas-desk', 'cas-reveal', 'cas-gallery', 'cas-gallery-logic'].includes(m) ? 'cas117' : m === 'cas-themes' ? 'cas111' : 'cas104';   // the Epic word touches the gallery and reveal modules: cas117; cas-themes (Appearance directions) cas111; the rest are unchanged
     assert.ok(tags.every(t => t === want), m + ' carries ' + want + ' everywhere: ' + tags);
   }
-  assert.match(files, /js\/app\.js\?v=cas116/);
+  assert.match(files, /js\/app\.js\?v=cas117/);
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.ok(/forgetRank\(\)/.test(app));
 });

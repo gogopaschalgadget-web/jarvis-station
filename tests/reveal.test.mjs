@@ -44,6 +44,8 @@ test('waiting cards: unique, newest five kept, droppable', () => {
   assert.deepEqual(dropWaiting(l, 'b'), ['c', 'd', 'e', 'f']);
   assert.deepEqual(addWaiting(null, ''), []);
   assert.equal(rarityLabel('rare'), 'Rare');
+  assert.equal(rarityLabel('epic'), 'Epic');
+  assert.equal(rarityLabel('legendary'), 'Legendary');
   assert.equal(rarityLabel('weird'), '');
 });
 

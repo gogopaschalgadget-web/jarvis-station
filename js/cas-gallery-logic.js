@@ -1,4 +1,4 @@
-import { isSafeId, choiceBody } from './cas-reveal-logic.js?v=cas93';
+import { isSafeId, choiceBody } from './cas-reveal-logic.js?v=cas117';
 
 /** The states a picture the gallery shows can be in: starred first, then kept. Anything else (rejected, not yet answered, unknown) is never shown. */
 export const SHOWN_STATES = ['starred', 'kept'];
