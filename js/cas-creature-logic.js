@@ -63,7 +63,7 @@ function normalizeOne(c) {
     number: whole(c.number, 100000) || 1, phase, xpIn, toNext,
     nextLabel: plain(c.next_label, 40),
     eggStep: phase === 'egg' ? (typeof c.egg_step === 'string' && own(EGG_ART, c.egg_step) ? c.egg_step : null) : null,
-    level: phase === 'creature' ? level : 0, stage: phase === 'creature' ? stage : null, species: phase === 'creature' ? species : null,
+    level: phase === 'creature' ? level : 0, stage: phase === 'creature' ? stage : null, species,   // an egg may carry its species when the server knows it: it picks the egg's picture
     rarity: phase === 'creature' ? rarity : null,
     name: plain(c.name, 24) || null, suggested: plain(c.suggested_name, 24) || null,
     traits, mood: MOODS.includes(c.mood) ? c.mood : 'awake', welcomeBack: c.welcome_back === true,
@@ -188,8 +188,8 @@ export function pickArt(c, files, opts = {}) {
   const has = f => files && files.has(f);
   const serverStill = c.art && c.art.still;
   if (c.phase === 'egg') {
-    const f = eggSlotFile(c).replace(/^creatures\//, '');
-    return has(f) ? 'creatures/' + f : serverStill;
+    const f = eggFile(c, has);
+    return f ? 'creatures/' + f : serverStill;
   }
   const form = formFor(opts.forms, c.species, c.level);
   if (form && has(form.file)) return 'creatures/' + form.file;
@@ -204,4 +204,13 @@ export function pickArt(c, files, opts = {}) {
   const hit = order.find(has);
   return hit ? 'creatures/' + hit : serverStill;
 }
+const eggStepFile = (c, step) => (step != null ? EGG_ART[step] : (c.eggStep ? EGG_ART[c.eggStep] : 'egg-0-whole')) + '.webp';
+/** The egg picture for this step (default: the creature's own): the species' own egg when the manifest lists it, else the neutral egg when listed, else null. */
+export function eggFile(c, has, step) {
+  const name = eggStepFile(c, step);
+  if (c.species && own(SPECIES, c.species) && has(`egg-${c.species}/${name}`)) return `egg-${c.species}/${name}`;
+  return has(`egg/${name}`) ? `egg/${name}` : null;
+}
+/** The burst egg of the hatching: the species' own, else the neutral one, else null. */
+export const burstEggFile = (c, has) => { const name = 'egg-4-burst.webp'; return c.species && own(SPECIES, c.species) && has(`egg-${c.species}/${name}`) ? `egg-${c.species}/${name}` : has(`egg/${name}`) ? `egg/${name}` : null; };
 export const eggSlotFile = c => (c.phase === 'egg' ? 'creatures/egg/' + (c.eggStep ? EGG_ART[c.eggStep] : 'egg-0-whole') + '.webp' : null);

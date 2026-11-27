@@ -1,5 +1,5 @@
 // cas-creature.js - the creature tile on the Bulletin Board and the Den view. Reads GET /api/creature (a read with no side effects); server text goes in with textContent only.
-import { normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
+import { burstEggFile, normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
 import { nextEmote, emoteClass, cheerWords, EMOTE_MS, HATCH_MS } from './cas-creature-emotes.js?v=cas115';
 
 const TTL_MS = 30000;
@@ -116,8 +116,9 @@ function hatchOverlay() {
   box.setAttribute('role', 'status');
   box.setAttribute('aria-live', 'polite');
   const stage = el('div', 'cr-hatch-stage');
-  const egg = _files.has('egg/egg-4-burst.webp') ? el('img', 'cr-hatch-egg') : null;
-  if (egg) { egg.alt = ''; egg.src = 'creatures/egg/egg-4-burst.webp'; stage.append(egg); }
+  const burst = burstEggFile(c, f => _files.has(f));
+  const egg = burst ? el('img', 'cr-hatch-egg') : null;
+  if (egg) { egg.alt = ''; egg.src = 'creatures/' + burst; stage.append(egg); }
   const born = pictureNode(c, 'small');
   born.classList.add('cr-hatch-born');
   stage.append(born, el('span', 'cr-hatch-flash'));
@@ -196,7 +197,8 @@ export function tileNode(flags, onOpen) {
   const chip = rarityChip(c);
   if (chip) body.append(chip);
   if (!c.notStarted) body.append(bar(c));
-  body.append(el('span', 'cr-xp', barWords(c)), el('span', 'cr-status', statusLine(c, flags)));
+  if (!c.notStarted) body.append(el('span', 'cr-xp', barWords(c)));
+  body.append(el('span', 'cr-status', statusLine(c, flags)));
   tile.append(hero, body);
   return tile;
 }
@@ -225,7 +227,8 @@ export function denNode(flags, onBack) {
   if (c.phase === 'creature' && !c.name && c.suggested) den.append(el('p', 'cr-hint', 'Not named yet. Suggested name: ' + c.suggested + '.'));
   den.append(el('p', 'cr-stage', c.phase === 'egg' ? nameLine(c) : `${stageWord(c, _forms)}, Level ${c.level}, ${SPECIES[c.species]}`));
   if (!c.notStarted) den.append(bar(c));
-  den.append(el('p', 'cr-xp', barWords(c)), el('p', 'cr-status', statusLine(c, flags)));
+  if (!c.notStarted) den.append(el('p', 'cr-xp', barWords(c)));
+  den.append(el('p', 'cr-status', statusLine(c, flags)));
   if (c.phase === 'creature') {
     den.append(el('h5', 'cr-h', 'Traits'));
     const row = el('div', 'cr-chips');

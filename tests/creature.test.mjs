@@ -270,7 +270,7 @@ test('a server that has not started the creature (epoch null) shows "not started
   v.initCreature({ apiBase: 'https://x', getToken: () => 't', fetch: answer({ creature: egg({ xp_in: 0, xp_to_next: 60 }), stable: [], epoch: null }) });
   await v.loadCreature(true);
   const tile = all(v.tileNode(0, () => {}));
-  assert.ok(texts(tile[0]).includes('Egg, not started yet') && texts(tile[0]).includes('Not started yet'));
+  assert.ok(texts(tile[0]).includes('Egg, not started yet') && !texts(tile[0]).includes('Not started yet'), 'said once, not twice');
   assert.ok(!tile.some(n => (n.className || '').split(' ').includes('cr-bar')), 'no bar to sit at zero');
   assert.ok(!texts(tile[0]).some(t => /of 300/.test(t)));
   const den = all(v.denNode(0, () => {}));
@@ -295,4 +295,22 @@ test('the loops pause while the page is hidden, stop under reduced motion, and t
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.ok(sw.includes("'creatures/manifest.json'"));
   assert.match(css, /\.cr-body \{[^}]*padding-bottom: 22px/, 'room under the status line for "Tap to open the Den"');
+});
+
+test('each species can have its own egg: chosen by species, step by step, the neutral egg when the species egg file is missing', () => {
+  const both = new Set(['egg/egg-0-whole.webp', 'egg/egg-2-cracks.webp', 'egg/egg-4-burst.webp', 'egg-stag/egg-0-whole.webp', 'egg-stag/egg-4-burst.webp']);
+  const e = o => read(egg({ art: null, ...o })).creature;
+  assert.equal(e({ species: 'stag', egg_step: null }).species, 'stag', 'an egg may carry its species');
+  assert.equal(e({}).species, null, 'an egg with no species still works');
+  assert.equal(L.pickArt(e({ species: 'stag', egg_step: null }), both), 'creatures/egg-stag/egg-0-whole.webp', 'the species egg');
+  assert.equal(L.pickArt(e({ species: 'stag', egg_step: 'cracks1' }), both), 'creatures/egg/egg-2-cracks.webp', 'that step is missing for the species: the neutral egg');
+  assert.equal(L.pickArt(e({ species: 'wolf', egg_step: null }), both), 'creatures/egg/egg-0-whole.webp', 'no wolf egg listed: neutral');
+  assert.equal(L.pickArt(e({ egg_step: null }), both), 'creatures/egg/egg-0-whole.webp', 'species unknown: neutral');
+  assert.equal(L.pickArt(e({ species: 'stag' }), new Set()), null, 'nothing listed: placeholder');
+  assert.equal(L.pickArt(e({ species: 'dragon', egg_step: null }), both), 'creatures/egg/egg-0-whole.webp', 'an unknown species is ignored');
+  assert.equal(L.burstEggFile({ species: 'stag' }, f => both.has(f)), 'egg-stag/egg-4-burst.webp');
+  assert.equal(L.burstEggFile({ species: 'wolf' }, f => both.has(f)), 'egg/egg-4-burst.webp');
+  assert.equal(L.burstEggFile({ species: null }, f => both.has(f)), 'egg/egg-4-burst.webp');
+  assert.equal(L.burstEggFile({ species: 'stag' }, () => false), null);
+  assert.ok(L.normalizeManifest({ files: ['egg-stag/egg-0-whole.webp'] }).has('egg-stag/egg-0-whole.webp'), 'the manifest accepts the species egg folders');
 });
