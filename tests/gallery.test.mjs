@@ -411,3 +411,30 @@ test('freeze: a failed, slow-to-fail, empty or odd list never leaves the overlay
     assert.ok(!body.children.includes(shell) && frame.inert === false, b.name + ': Close gives the app back');
   }
 });
+
+test('freeze: a slow server and a server that never answers leave the Gallery closable the whole time; the wait ends by itself', async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  for (const kind of ['slow', 'never']) {
+    const { body } = makeDom();
+    const g = await fresh();
+    const base = server([]);
+    const f = (u, i) => (/pictures$/.test(u) ? (kind === 'slow' ? wait(150).then(() => base.f(u, i)) : new Promise(() => {})) : base.f(u, i));
+    g.initGallery({ apiBase: '', getToken: () => 't', fetch: f, say: () => {}, timeoutMs: 60 });
+    const frame = document.createElement('div'); body.append(frame);
+    const box = g.galleryEntryNode(); frame.append(box);
+    assert.ok(texts(box).includes('Loading...'), kind + ': it says it is loading');
+    all(box).find(n => n.tag === 'button').click();
+    const shell = body.children.find(c => c.className === 'gal-overlay');
+    assert.ok(texts(shell).includes('Loading...'), kind + ': the card says loading, it does not hang');
+    all(shell).find(n => n.className === 'gal-close').click();
+    assert.ok(!body.children.includes(shell) && frame.inert === false, kind + ': Close works at once, while the server is still silent');
+    all(box).find(n => n.tag === 'button').click();
+    const again = body.children.find(c => c.className === 'gal-overlay');
+    assert.ok(again, kind + ': it can be opened again while waiting');
+    await wait(260);
+    assert.ok(texts(box).some(t => /Not available right now|Finish a card/.test(t)), kind + ': the wait ended and the entry says something plain: ' + texts(box));
+    assert.ok(texts(again).some(t => /Not available right now|Finish a card/.test(t)), kind + ': the open card followed');
+    all(again).find(n => n.className === 'gal-close').click();
+    assert.ok(!body.children.some(c => c.className === 'gal-overlay') && frame.inert === false, kind + ': and it still closes');
+  }
+});

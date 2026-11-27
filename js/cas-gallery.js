@@ -4,6 +4,7 @@ import { normalizeGallery, galleryEntry, countWords, dateWords, actionsFor, afte
 const TTL_MS = 30000;
 const FAIL_MS = 60000;
 const BACKOFF_MS = 5000;
+const TIMEOUT_MS = 15000;
 let _o = { apiBase: '', getToken: () => '', say: () => {}, fetch: (...a) => fetch(...a) };
 let _list = [];
 let _state = 'idle';
@@ -38,14 +39,21 @@ export function initGallery(options) {
 }
 
 async function call(path, body) {
-  try {
-    const res = await _o.fetch(`${_o.apiBase}/api/station/pictures${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
-      headers: { Authorization: 'Bearer ' + _o.getToken(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    return { ok: res.ok, status: res.status, res };
-  } catch { return { ok: false, status: 0, res: null }; }
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  let timer = 0;
+  const late = new Promise(done => { timer = setTimeout(() => { if (ctl) { try { ctl.abort(); } catch { /* already over */ } } done({ ok: false, status: 0, res: null }); }, _o.timeoutMs || TIMEOUT_MS); });
+  const go = (async () => {
+    try {
+      const res = await _o.fetch(`${_o.apiBase}/api/station/pictures${path}`, {
+        method: body === undefined ? 'GET' : 'POST',
+        headers: { Authorization: 'Bearer ' + _o.getToken(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        ...(ctl ? { signal: ctl.signal } : {}),
+      });
+      return { ok: res.ok, status: res.status, res };
+    } catch { return { ok: false, status: 0, res: null }; }
+  })();
+  try { return await Promise.race([go, late]); } finally { clearTimeout(timer); }
 }
 
 const professional = () => { try { return document.documentElement.dataset.mode === 'professional'; } catch { return false; } };
