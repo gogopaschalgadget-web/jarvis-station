@@ -1,0 +1,67 @@
+{
+ "files": [
+  "egg/egg-0-whole.webp",
+  "egg/egg-1-wobble.webp",
+  "egg/egg-2-cracks.webp",
+  "egg/egg-3-wide.webp",
+  "egg/egg-4-burst.webp",
+  "lava/adult.webp",
+  "lava/grown.webp",
+  "lava/hatchling.webp",
+  "lava/juvenile.webp",
+  "moss/adult.webp",
+  "moss/grown.webp",
+  "moss/hatchling.webp",
+  "moss/juvenile.webp",
+  "stag/adult.webp",
+  "stag/grown.webp",
+  "stag/hatchling.webp",
+  "stag/juvenile.webp",
+  "wolf/form-1.webp",
+  "wolf/form-2.webp",
+  "wolf/form-3.webp",
+  "wolf/form-4.webp",
+  "wolf/form-5.webp",
+  "wolf/form-6.webp",
+  "wolf/form-7.webp"
+ ],
+ "forms": {
+  "wolf": [
+   {
+    "from_level": 1,
+    "file": "wolf/form-1.webp",
+    "name": "Cog Pup"
+   },
+   {
+    "from_level": 3,
+    "file": "wolf/form-2.webp",
+    "name": "Spring Runner"
+   },
+   {
+    "from_level": 5,
+    "file": "wolf/form-3.webp",
+    "name": "Gear Hunter"
+   },
+   {
+    "from_level": 7,
+    "file": "wolf/form-4.webp",
+    "name": "Steel Alpha"
+   },
+   {
+    "from_level": 8,
+    "file": "wolf/form-5.webp",
+    "name": "Brass Veteran"
+   },
+   {
+    "from_level": 9,
+    "file": "wolf/form-6.webp",
+    "name": "Iron Warden"
+   },
+   {
+    "from_level": 10,
+    "file": "wolf/form-7.webp",
+    "name": "Clockwork Legend"
+   }
+  ]
+ }
+}

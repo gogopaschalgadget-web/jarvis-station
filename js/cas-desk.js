@@ -145,7 +145,8 @@ async function answer(id, kind, extra = {}) {
   const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
   const xp = kind === 'done' || kind === 'choice' ? xpLine(res.json) : '';
   const up = rankUpOf(res.json);
-  if (kind === 'done') { scheduleReveal(id); try { cheer(); loadCreature(true).then(() => { if (_panel) draw(); }); } catch { /* a nicety */ } } else if (kind === 'undo') cancelReveal(id);
+  if (kind === 'done') scheduleReveal(id); else if (kind === 'undo') cancelReveal(id);
+  if (kind === 'done' || kind === 'choice') { try { cheer(res.json.xp_gained); loadCreature(true).then(() => { if (_panel) draw(); }); } catch { /* a nicety */ } }
   say(kind === 'undo' ? 'Undone.' : [res.json.line || 'Saved.', xp, up ? 'Rank up: ' + up.name + '.' : ''].filter(Boolean).join(' '), undoable ? () => answer(id, 'undo') : null);
   await load(true);
 }

@@ -1,5 +1,6 @@
 // cas-creature.js - the creature tile on the Bulletin Board and the Den view. Reads GET /api/creature (a read with no side effects); server text goes in with textContent only.
-import { normalizeCreatureRead, normalizeManifest, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
+import { normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
+import { nextEmote, emoteClass, cheerWords, EMOTE_MS, HATCH_MS } from './cas-creature-emotes.js?v=cas115';
 
 const TTL_MS = 30000;
 const FAIL_MS = 60000;
@@ -14,6 +15,12 @@ let _inflight = null;
 let _epoch = 0;
 let _lastLevel = null;
 let _cheerUntil = 0;
+let _emote = null;
+let _lastEmote = '';
+let _hatchUntil = 0;
+let _overlay = null;
+let _overlayTimer = 0;
+let _forms = {};
 let _glowUntil = 0;
 let _files = new Set();
 let _manifestAt = 0;
@@ -44,19 +51,68 @@ async function loadManifest() {
   if (Date.now() - _manifestAt < MANIFEST_MS) return;
   _manifestAt = Date.now();
   try {
-    _files = await timed(async signal => {
+    const got = await timed(async signal => {
       const res = await _o.fetch('creatures/manifest.json', { cache: 'no-cache', signal });
-      return res.ok ? normalizeManifest(await res.json()) : new Set();
+      if (!res.ok) return { files: new Set(), forms: {} };
+      const body = await res.json();
+      return { files: normalizeManifest(body), forms: normalizeForms(body) };
     });
-  } catch { _files = new Set(); }
+    _files = got.files; _forms = got.forms;
+  } catch { _files = new Set(); _forms = {}; }
 }
 const reduced = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
 export function creatureRead() { return _read; }
 export function creatureCard() { return creatureShown() ? _read.creature : null; }
-export function forgetCreature() { _epoch++; _read = null; _loadedAt = 0; _failedAt = 0; _inflight = null; _lastLevel = null; _cheerUntil = 0; _glowUntil = 0; _files = new Set(); _manifestAt = 0; _notFoundAt = 0; }
-export function cheer(ms = 3000) { _cheerUntil = Date.now() + ms; }
+export function forgetCreature() { _epoch++; _read = null; _loadedAt = 0; _failedAt = 0; _inflight = null; _lastLevel = null; _cheerUntil = 0; _emote = null; _lastEmote = ''; _hatchUntil = 0; dismissOverlay(); _forms = {}; _glowUntil = 0; _files = new Set(); _manifestAt = 0; _notFoundAt = 0; }
+/** A card was finished: pick one of the eight celebrations (never the same twice in a row) and play it on the tile, the Den and a small overlay that shows on any Desk tab. */
+export function cheer(xpGained, rnd) {
+  if (!creatureShown()) return null;
+  _emote = nextEmote(_lastEmote, rnd);
+  _lastEmote = _emote.key;
+  _cheerUntil = Date.now() + EMOTE_MS;
+  showOverlay(cheerOverlay(cheerWords(xpGained)), EMOTE_MS);
+  return _emote;
+}
+export const lastEmote = () => _lastEmote;
 const cheering = () => Date.now() < _cheerUntil;
+const cheerClass = () => (cheering() && _emote ? emoteClass(_emote) : '');
+const hatching = () => Date.now() < _hatchUntil;
+function dismissOverlay() { clearTimeout(_overlayTimer); if (_overlay && _overlay.remove) _overlay.remove(); _overlay = null; }
+function showOverlay(node, ms) {
+  dismissOverlay();
+  if (!node || typeof document === 'undefined' || !document.body) return;
+  _overlay = node;
+  document.body.append(node);
+  _overlayTimer = setTimeout(dismissOverlay, ms);
+}
+/** The small celebration that floats above the tab bar so it is seen wherever the card was finished (Work Desk, Orders, Bulletin Board). */
+function cheerOverlay(words) {
+  const c = _read && _read.creature;
+  if (!c) return null;
+  const box = el('div', ['cr-cheer', cheerClass(), c.rarity ? 'rar-' + c.rarity : ''].filter(Boolean).join(' '));
+  box.setAttribute('role', 'status');
+  box.setAttribute('aria-live', 'polite');
+  box.append(pictureNode(c, 'small'), el('span', 'cr-spark', '✦ ✦ ✦'));
+  box.append(el('b', 'cr-cheer-words', words ? `Nice work. ${words}` : 'Nice work.'));
+  return box;
+}
+/** The 6 second hatching: the egg bursts, the creature drops in. Falls back to the creature at once under reduced motion. */
+function hatchOverlay() {
+  const c = _read && _read.creature;
+  if (!c || c.phase !== 'creature') return null;
+  const box = el('div', 'cr-hatch rar-' + (c.rarity || 'common'));
+  box.setAttribute('role', 'status');
+  box.setAttribute('aria-live', 'polite');
+  const stage = el('div', 'cr-hatch-stage');
+  const egg = _files.has('egg/egg-4-burst.webp') ? el('img', 'cr-hatch-egg') : null;
+  if (egg) { egg.alt = ''; egg.src = 'creatures/egg/egg-4-burst.webp'; stage.append(egg); }
+  const born = pictureNode(c, 'small');
+  born.classList.add('cr-hatch-born');
+  stage.append(born, el('span', 'cr-hatch-flash'));
+  box.append(stage, el('b', 'cr-hatch-words', `It hatched! A ${RARITIES[c.rarity]} ${SPECIES[c.species]}.`));
+  return box;
+}
 const glowing = () => Date.now() < _glowUntil;
 
 /** Ask for the creature (fun mode only). Nothing is sent in professional mode. Resolves to the checked read or null. */
@@ -82,8 +138,10 @@ export function loadCreature(force) {
       if (epoch !== _epoch) return null;
       if (!read) { _failedAt = Date.now(); return null; }
       if (_read && _read.creature.number === read.creature.number && read.creature.level > _read.creature.level) _glowUntil = Date.now() + 2000;
+      const hatched = !!_read && _read.creature.phase === 'egg' && read.creature.phase === 'creature' && _read.creature.number === read.creature.number;
       _lastLevel = read.creature.level;
       _read = read; _loadedAt = Date.now(); _failedAt = 0;
+      if (hatched) { _hatchUntil = Date.now() + HATCH_MS; _cheerUntil = 0; showOverlay(hatchOverlay(), HATCH_MS); }
       return read;
     } catch { if (epoch === _epoch) _failedAt = Date.now(); return null; }
     finally { if (_inflight === mine) _inflight = null; }
@@ -96,7 +154,7 @@ export function loadCreature(force) {
 export function pictureNode(c, cls = '') {
   const box = el('div', ['cr-pic', 'rar-' + (c.rarity || 'common'), ...motionClasses(c, 0), cls].filter(Boolean).join(' '));
   const place = () => { box.replaceChildren(el('span', 'cr-slot', slotWords(c))); box.classList.add('placeholder'); };
-  const still = pickArt(c, _files, { reducedMotion: reduced() });
+  const still = pickArt(c, _files, { reducedMotion: reduced(), forms: _forms });
   if (!still) { place(); return box; }
   const img = el('img', 'cr-img');
   img.alt = altWords(c);
@@ -114,7 +172,7 @@ const rarityChip = c => (c.rarity ? el('span', 'cr-rar rar-' + c.rarity, RARITIE
 export function tileNode(flags, onOpen) {
   if (!creatureShown()) return null;
   const c = _read.creature;
-  const tile = el('button', ['cr-tile', ...motionClasses(c, flags), cheering() ? 'cheer' : '', glowing() ? 'glow' : ''].filter(Boolean).join(' '));
+  const tile = el('button', ['cr-tile', ...motionClasses(c, flags), cheering() ? 'cheer' : '', cheerClass(), hatching() ? 'hatching' : '', glowing() ? 'glow' : ''].filter(Boolean).join(' '));
   tile.type = 'button';
   tile.setAttribute('aria-label', 'Open the creature: ' + nameLine(c));
   tile.addEventListener('click', () => onOpen());
@@ -123,7 +181,7 @@ export function tileNode(flags, onOpen) {
   if (c.mood === 'sleeping' || c.mood === 'curled') hero.append(el('span', 'cr-zz', 'zz'));
   if (cheering()) hero.append(el('span', 'cr-spark', '✦ ✦ ✦'));
   const body = el('span', 'cr-body');
-  body.append(el('b', 'cr-name', nameLine(c)));
+  body.append(el('b', 'cr-name', nameLine(c, _forms)));
   const chip = rarityChip(c);
   if (chip) body.append(chip);
   body.append(bar(c), el('span', 'cr-xp', barWords(c)), el('span', 'cr-status', statusLine(c, flags)));
@@ -142,7 +200,7 @@ export function denNode(flags, onBack) {
   back.addEventListener('click', () => onBack());
   top.append(back, el('h3', '', 'The Den'));
   den.append(top);
-  const frame = el('div', ['cr-big', ...motionClasses(c, flags), cheering() ? 'cheer' : '', glowing() ? 'glow' : ''].filter(Boolean).join(' '));
+  const frame = el('div', ['cr-big', ...motionClasses(c, flags), cheering() ? 'cheer' : '', cheerClass(), glowing() ? 'glow' : ''].filter(Boolean).join(' '));
   frame.append(pictureNode(c, 'big'));
   if (c.mood === 'sleeping' || c.mood === 'curled') frame.append(el('span', 'cr-zz', 'zz'));
   den.append(frame);
@@ -153,7 +211,7 @@ export function denNode(flags, onBack) {
   if (chip) id.append(chip);
   den.append(id);
   if (c.phase === 'creature' && !c.name && c.suggested) den.append(el('p', 'cr-hint', 'Not named yet. Suggested name: ' + c.suggested + '.'));
-  den.append(el('p', 'cr-stage', c.phase === 'egg' ? nameLine(c) : `${STAGES[c.stage]}, Level ${c.level}, ${SPECIES[c.species]}`));
+  den.append(el('p', 'cr-stage', c.phase === 'egg' ? nameLine(c) : `${stageWord(c, _forms)}, Level ${c.level}, ${SPECIES[c.species]}`));
   den.append(bar(c), el('p', 'cr-xp', barWords(c)), el('p', 'cr-status', statusLine(c, flags)));
   if (c.phase === 'creature') {
     den.append(el('h5', 'cr-h', 'Traits'));

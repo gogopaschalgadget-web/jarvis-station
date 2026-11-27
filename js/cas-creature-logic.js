@@ -93,9 +93,9 @@ export function slotWords(c) {
 export const altWords = c => (c.phase === 'egg' ? 'Egg' + (c.eggStep ? ', ' + EGG_WORDS[c.eggStep] : '') : `${c.name || SPECIES[c.species]}, ${SPECIES[c.species]}, ${STAGES[c.stage].toLowerCase()}`);
 
 /** The plain name line of the tile: "Lava tortoise, Level 2, Hatchling" or "Egg, 120 of 300 XP". */
-export function nameLine(c) {
+export function nameLine(c, forms) {
   if (c.phase === 'egg') return `Egg, ${Math.min(c.xpIn, 300)} of 300 XP`;
-  return `${c.name ? c.name + ', ' : ''}${SPECIES[c.species]}, Level ${c.level}, ${STAGES[c.stage]}`;
+  return `${c.name ? c.name + ', ' : ''}${SPECIES[c.species]}, Level ${c.level}, ${stageWord(c, forms)}`;
 }
 
 /** Fraction of the way from the step just reached to the next, from xp_in and xp_to_next alone. */
@@ -152,6 +152,32 @@ export function normalizeManifest(raw) {
   return out;
 }
 
+/** The manifest's `forms`: for a species that grows through more than four pictures, the level each one starts at, e.g. the wolf's seven. Anything odd is dropped. */
+export function normalizeForms(raw) {
+  const out = {};
+  const f = raw && typeof raw === 'object' && raw.forms && typeof raw.forms === 'object' ? raw.forms : {};
+  Object.keys(f).slice(0, 10).forEach(sp => {
+    if (!own(SPECIES, sp) || !Array.isArray(f[sp])) return;
+    const list = f[sp].slice(0, 12).map(x => (x && typeof x === 'object' && Number.isInteger(x.from_level) && x.from_level >= 1 && x.from_level <= 10 && typeof x.file === 'string' && /^[a-z0-9-]+\/[a-z0-9-]+\.webp$/.test(x.file)
+      ? { from: x.from_level, file: x.file, name: plain(x.name, 24) } : null)).filter(Boolean).sort((a, b) => a.from - b.from);
+    if (list.length) out[sp] = list;
+  });
+  return out;
+}
+/** The form a creature of this species and level looks like: the last one that has started. Null when the species has no forms table. */
+export function formFor(forms, species, level) {
+  const list = forms && species && forms[species];
+  if (!list || !Number.isInteger(level)) return null;
+  let hit = null;
+  list.forEach(f => { if (f.from <= level) hit = f; });
+  return hit;
+}
+/** The stage word shown to Chris: the form's own name where the species has forms (the wolf: Cog Pup ... Clockwork Legend), else the stage. */
+export function stageWord(c, forms) {
+  const form = c && c.phase === 'creature' ? formFor(forms, c.species, c.level) : null;
+  return form && form.name ? form.name : (c && c.stage ? STAGES[c.stage] : '');
+}
+
 /**
  * The picture for the current state, chosen from the files the manifest lists (the server sends no art). Order: the trait variant of the still, the
  * sleeping pose when asleep, the animated loop when motion is allowed, then the plain still. Returns 'creatures/...' or null (placeholder).
@@ -163,6 +189,8 @@ export function pickArt(c, files, opts = {}) {
     const f = eggSlotFile(c).replace(/^creatures\//, '');
     return has(f) ? 'creatures/' + f : serverStill;
   }
+  const form = formFor(opts.forms, c.species, c.level);
+  if (form && has(form.file)) return 'creatures/' + form.file;
   const base = `${c.species}/${c.stage}`;
   const asleep = c.mood === 'sleeping' || c.mood === 'curled';
   const desk = c.traits.length ? c.traits[c.traits.length - 1] : null;
