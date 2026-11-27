@@ -271,6 +271,11 @@ textarea.dk-whyin { min-height: 72px; resize: vertical; line-height: 1.35; }
 #look-card .look-theme.on b { color: #7e231d; }
 #look-card .look-name { display: flex; justify-content: space-between; gap: 8px; font: 700 13px var(--dk-ui, sans-serif); color: #2a1a05; }
 #look-card small { display: block; margin-top: 2px; font: 600 12px var(--dk-ui, sans-serif); color: #5a3d14; }
+/* Plain directions under the Settings Appearance, Background scenes and Look controls: the card's own dark ink (7 to 1 or better on the parchment). */
+.how-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.how-list li { margin: 0 0 6px; font: 600 12.5px/1.4 var(--dk-ui, sans-serif); color: #2b1a0b; }
+.how-list b { font-weight: 800; }
+#look-card .look-help, .st-scenes-help { margin: 8px 0 0; font: 600 12.5px/1.4 var(--dk-ui, sans-serif); color: #2b1a0b; }
 #look-card .look-note { margin: 8px 0 0; font: 600 12px/1.4 var(--dk-ui, sans-serif); color: #5a3d14; }
 
 .dk-actnote { margin: 4px 0 0; font-size: 12px; color: #5a3d14; }

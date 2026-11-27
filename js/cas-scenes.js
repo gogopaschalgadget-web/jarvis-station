@@ -105,6 +105,7 @@ export function renderScenesSettings(panel) {
   card.append(el('p', 'st-scenes-note', list.enabled
     ? 'On: pictures painted on your PC rotate behind the Missions page. Ban any you do not like.'
     : 'Off: nothing is painted and nothing on screen changes.'));
+  card.append(el('p', 'st-scenes-help', 'A night is how many new pictures the PC paints each night (0 paints none). Pin keeps a picture first in the list and the last to be dropped when the 40-picture limit is reached. Ban hides it; open Banned to bring it back.'));
   const row = el('div', 'st-scenes-row');
   const toggle = el('button', 'st-scenes-btn' + (list.enabled ? ' on' : ''), list.enabled ? 'Turn off' : 'Turn on');
   toggle.type = 'button';

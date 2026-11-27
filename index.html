@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="css/features.css?v=11">
 <link rel="stylesheet" href="css/cas-threads.css?v=4">
 <link rel="stylesheet" href="css/cas-missions.css?v=6">
-<link rel="stylesheet" href="css/cas-desk.css?v=21">
+<link rel="stylesheet" href="css/cas-desk.css?v=22">
 <link rel="stylesheet" href="css/cas-orders.css?v=2">
 <link rel="stylesheet" href="css/station-theme.css?v=16"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -109,6 +109,12 @@
       <button type="button" id="cas-rotate-btn" class="cas-appearance-chip" aria-pressed="true">Scenes: rotate</button>
       <input type="file" id="cas-appearance-picker" accept="image/png,image/jpeg,image/webp" hidden>
 </div>
+<ul class="how-list" id="cas-pref-help">
+<li><b>Appearance</b> Pick a picture from this phone to show as Cas on the Cas tab. PNG, JPEG or WebP, under 8 MB. It stays on this phone only.</li>
+<li><b>Restore look</b> Takes your picture away and brings back the normal Cas picture.</li>
+<li><b>Pause scene / Play scene</b> Stops or restarts the movement in Cas's picture. It starts stopped if this phone has Reduce Motion on.</li>
+<li><b>Scenes: rotate / keep one</b> Rotate shows a different scene each time you open the Station, and a tap on the picture moves to the next. Keep one stays on the same scene.</li>
+</ul>
 <p id="cas-preference-status" role="status"></p>
 </section>
 
@@ -147,7 +153,7 @@
 <nav class="station-nav" id="station-nav" aria-label="Station navigation"></nav>
 
 <!-- SCRIPTS (ES Modules) -->
-<script type="module" src="js/app.js?v=cas109"></script>
+<script type="module" src="js/app.js?v=cas111"></script>
 <script type="module" src="js/pwa.js?v=cas28"></script>
 </body>
 </html>

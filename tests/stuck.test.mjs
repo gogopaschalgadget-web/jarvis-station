@@ -148,9 +148,9 @@ test('every changed module carries the new tag and the service worker the new ve
   const idx = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
-  assert.match(idx, /js\/app\.js\?v=cas109/);
-  assert.match(idx, /cas-desk\.css\?v=21/);
-  assert.match(app, /cas-desk\.js\?v=cas109/);
+  assert.match(idx, /js\/app\.js\?v=cas111/);
+  assert.match(idx, /cas-desk\.css\?v=22/);
+  assert.match(app, /cas-desk\.js\?v=cas111/);
   assert.match(desk, /cas-stuck\.js\?v=cas107/);
 });
 

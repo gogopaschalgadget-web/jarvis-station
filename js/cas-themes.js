@@ -106,6 +106,7 @@ export function renderThemeSettings(panel, getProgress, themes = THEMES) {
   const card = el('div', 'panel-card');
   card.id = 'look-card';
   card.append(el('div', 'panel-card-title', 'Look'));
+  card.append(el('p', 'look-help', 'The Look is the style of the Station on this phone. You can change it once you reach Technician rank.'));
 
   const modes = el('div', 'look-modes');
   modeOptions(themes).forEach(m => {
@@ -121,6 +122,7 @@ export function renderThemeSettings(panel, getProgress, themes = THEMES) {
     modes.append(b);
   });
   card.append(modes);
+  card.append(el('p', 'look-help', 'Game is the full game look. Professional is a plainer office look with its own colours and desk names and fewer pictures. Tap a style below to use it.'));
 
   themes.forEach(t => {
     const row = el('button', 'look-theme' + (look.theme === t.id ? ' on' : ''));
