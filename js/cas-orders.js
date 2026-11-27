@@ -2,7 +2,7 @@
 
 import {
   BLOCKS, agoText, hoursText, weekText, windowText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView, bulletinSections,
-  tomorrowLocal, resetText, budgetLabel, timeWords, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote,
+  tomorrowLocal, resetText, budgetLabel, timeWords, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote, onTodaysList, addView, addFailText,
 } from './cas-orders-logic.js?v=cas93';
 
 const TIMEOUT_MS = 15_000;
@@ -114,6 +114,45 @@ async function change(path, body, okText, undo) {
   if (!apply(res.json, seq) || seq < _applied) loadOrders(true);
   say(okText, undo);
   return true;
+}
+
+// Add to Orders: one tap puts an open Desk card on today's list. Every request has the 15 second limit in call().
+const _adds = new Map();
+
+export function addStatus(id) {
+  const s = _adds.get(id);
+  if (!s) return { state: 'idle', text: '' };
+  if (s.state === 'ok' && _orders.data && _orders.at > s.at && !onTodaysList(_orders.data, id)) { _adds.delete(id); return { state: 'idle', text: '' }; }
+  return s;
+}
+
+export async function addToOrders(id) {
+  const was = addStatus(id).state;
+  if (was === 'busy') return false;
+  if (was === 'ok') return true;
+  _adds.set(id, { state: 'busy', text: '', at: Date.now() });
+  _o.redraw();
+  const seq = ++_seq;
+  const res = await call('/orders/add', { key: id });
+  if (!res.ok) { _adds.set(id, { state: res.status === 0 ? 'noanswer' : 'refused', text: addFailText(res), at: Date.now() }); _o.redraw(); return false; }
+  _adds.set(id, { state: 'ok', text: '', at: Date.now() });
+  if (!apply(res.json, seq)) loadOrders(true);
+  _o.redraw();
+  return true;
+}
+
+/** The Add to Orders part of an open Desk card: the button and its plain caveat, the mark once listed, or nothing. */
+export function addRow(item) {
+  const v = addView(item, onTodaysList(_orders.data, item && item.id), addStatus(item && item.id));
+  if (v.show === 'none') return null;
+  const box = el('div', 'dk-addrow');
+  if (v.show === 'mark') { box.append(el('p', 'dk-onlist', v.text)); return box; }
+  const b = button('dk-add', v.label, () => addToOrders(item.id));
+  b.disabled = v.busy;
+  b.setAttribute('aria-busy', String(v.busy));
+  box.append(b, el('p', 'dk-note dk-actnote', v.caveat));
+  if (v.error) { const e = el('p', 'dk-needline dk-adderr', v.error); e.setAttribute('role', 'alert'); box.append(e); }
+  return box;
 }
 
 function tick(row, done) {

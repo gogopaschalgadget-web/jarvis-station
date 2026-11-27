@@ -170,3 +170,32 @@ export function bulletinSections(d) {
     return { key, label, tiles, loops: key === 'operation' ? loops : [] };
   }).filter(s => s.tiles.length || s.loops.length);
 }
+
+// Add to Orders: the button on an open Desk card.
+export const ADD_CAVEAT = "An added row stops the automatic updates to today's list";
+export const ADD_NO_ANSWER = 'No answer from the server. Nothing was added. Try again.';
+export const ADD_BUSY = 'Adding...';
+export const ADD_LABEL = 'Add to Orders';
+export const ON_LIST = "On today's Orders";
+
+export function onTodaysList(orders, id) {
+  return !!(orders && Array.isArray(orders.rows) && orders.rows.some(r => r.kind === 'card' && String(r.id) === String(id)));
+}
+
+/** What a Desk card shows for adding: the button, a plain mark, or nothing (a done card, a child row). */
+export function addView(item, listed, add) {
+  if (!item || item.status !== 'open' || item.parent_id) return { show: 'none' };
+  const a = add || { state: 'idle', text: '' };
+  if (listed || a.state === 'ok') return { show: 'mark', text: ON_LIST };
+  const busy = a.state === 'busy';
+  return { show: 'button', label: busy ? ADD_BUSY : a.state === 'noanswer' ? 'Try again' : ADD_LABEL, busy, caveat: ADD_CAVEAT, error: busy ? '' : a.state === 'refused' || a.state === 'noanswer' ? String(a.text || '') : '' };
+}
+
+/** The server's own reason for a refusal (422 detail), or a plain line for no answer or any other failure. */
+export function addFailText(res) {
+  if (res.status === 0) return ADD_NO_ANSWER;
+  if (res.status === 429) return 'Too many changes in a minute. Wait a moment.';
+  const d = res.json && typeof res.json.detail === 'string' ? res.json.detail.trim() : '';
+  if (res.status === 422 && d) return d.replace(/^./, c => c.toUpperCase()).replace(/[^.!?]$/, m => m + '.');
+  return 'Not added. Try again.';
+}

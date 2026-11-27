@@ -105,6 +105,11 @@ textarea.dk-whyin { min-height: 72px; resize: vertical; line-height: 1.35; }
 .dk-act.cas { flex: none; margin: 4px 0 6px; background: linear-gradient(#a23a30, #5a1511); color: #fff; }
 .dk-stuckline { margin: 0 0 8px; font-weight: 700; color: var(--dk-crimson); }
 .dk-heldline { margin: 0 0 8px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--dk-brass-lo); background: #fff1c8; color: #5a3d14; font-weight: 700; }
+.dk-addrow { margin: 10px 0 0; }
+.dk-add { display: block; width: 100%; min-height: 46px; padding: 0 14px; border-radius: 10px; border: 2px ridge var(--dk-brass); background: linear-gradient(#f3dd9e, #d9b25a); color: #2a1a05; font: 800 14px var(--dk-ui); text-align: center; }
+.dk-add:disabled { opacity: .75; }
+.dk-onlist { margin: 0; min-height: 44px; display: flex; align-items: center; font: 800 14px var(--dk-ui); color: #1b4d2b; }
+.dk-onlist::before { content: "\2713"; margin-right: 8px; }
 .dk-notoday { display: block; margin: 8px 0 0; min-height: 36px; padding: 0; background: none; border: 0; font: 700 12.5px var(--dk-ui); color: #5a3d14; text-decoration: underline; }
 
 .dk-kids { margin: 10px 0 4px; padding: 8px 8px 2px 12px; border-left: 4px solid var(--dk-crimson); background: #7e231d14; border-radius: 0 10px 10px 0; }

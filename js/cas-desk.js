@@ -1,6 +1,6 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas93';
+import { renderBulletin, initOrders, loadOrders, addRow, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas93';
 import { syncLook } from './cas-themes.js?v=cas111';
 import { barAnimates } from './cas-reveal-logic.js?v=cas117';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas117';
@@ -827,6 +827,8 @@ function card(item, n, ctx) {
     if (!ctx.stuckNow) body.append(kidsNode);
   }
   body.append(actions(item, ctx.stuckNow && { ...ctx.stuckNow, hasKids: ctx.kids.length > 0 }, ctx.stuckNow ? kidsNode : null));
+  const addNode = addRow(item);
+  if (addNode) body.append(addNode);
   if (!ctx.snoozed && !ctx.stuckNow) body.append(button('dk-notoday', 'Not today', () => answer(item.id, 'notnow')));
   if (!ctx.snoozed) body.append(_holdFor === item.id ? holdSheet(item) : button('dk-notoday', 'Hold this card', () => { _holdFor = item.id; _holdPick = false; draw(); }));
   const sources = sourcesBlock(item);
@@ -910,7 +912,7 @@ function subTabs() {
 }
 
 function loadSub(force) {
-  if (_sub === 'orders') loadOrders(force); else if (_sub === 'dashboard') loadDashboard(force); else if (_sub === 'bulletin' || _sub === 'desk') { load(force); loadDashboard(force); } else load(force);
+  if (_sub === 'orders') loadOrders(force); else if (_sub === 'dashboard') loadDashboard(force); else if (_sub === 'bulletin' || _sub === 'desk') { load(force); loadDashboard(force); loadOrders(force); } else load(force);
 }
 
 async function jumpToCard(id) {
