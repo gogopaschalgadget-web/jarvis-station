@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { checkName, nameProblem, makeNameStore, nameCard, NAME_MAX, VISIT_NOTE } from '../js/cas-creature-name.js';
+import { checkName, nameProblem, makeNameStore, nameCard, namePrompt, needsNamePrompt, NAME_PROMPT, NAME_MAX, VISIT_NOTE } from '../js/cas-creature-name.js';
 
 const memStorage = () => { const m = {}; return { m, getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: k => { delete m[k]; } }; };
 
@@ -160,4 +160,44 @@ test('the view: a name from this device wins (tile, Den, shelf); no storage mean
   all(den).find(n => n.className === 'cr-name-form').listeners.submit[0]({ preventDefault() {} });
   assert.equal(w.creatureRead().creature.name, 'Rex', 'named for this visit');
   assert.equal(all(den).find(n => n.tag === 'h4').textContent, 'Rex');
+});
+
+// ---- the prompt at the top of the Den: the naming card sits under the 700 px picture, so a short prompt shows without scrolling
+test('the prompt shows for a hatched creature with no name, and for nothing else', () => {
+  assert.equal(needsNamePrompt({ phase: 'creature', name: null }), true);
+  assert.equal(needsNamePrompt({ phase: 'creature', name: '' }), true);
+  assert.equal(needsNamePrompt({ phase: 'creature', name: '   ' }), true);
+  assert.equal(needsNamePrompt({ phase: 'creature' }), true);
+  assert.equal(needsNamePrompt({ phase: 'creature', name: 'Ember' }), false);
+  assert.equal(needsNamePrompt({ phase: 'egg', name: null }), false, 'an egg cannot be named yet');
+  assert.equal(needsNamePrompt(null), false);
+  assert.equal(needsNamePrompt(undefined), false);
+});
+
+test('the prompt is one button with the words Name your creature; a tap calls the handler; the text is plain', () => {
+  const taps = [];
+  const b = namePrompt(fakeDoc(), () => taps.push(1));
+  assert.equal(b.tag, 'button');
+  assert.equal(b.type, 'button');
+  assert.equal(b.textContent, 'Name your creature');
+  assert.equal(NAME_PROMPT, 'Name your creature');
+  assert.match(b.attrs['aria-label'], /Name your creature/);
+  fire(b, 'click');
+  assert.deepEqual(taps, [1]);
+  assert.doesNotThrow(() => fire(namePrompt(fakeDoc()), 'click'), 'no handler: a tap does nothing and does not throw');
+});
+
+test('the Den wiring: the prompt sits right under the Desk bar, above the picture; a tap goes to the name box; it goes once a name is saved', () => {
+  const src = readFileSync(new URL('../js/cas-creature.js', import.meta.url), 'utf8');
+  const den = src.slice(src.indexOf('export function denNode'));
+  const iPrompt = den.indexOf('namePrompt(document');
+  assert.ok(iPrompt > den.indexOf("den.append(top)") && iPrompt < den.indexOf("el('div', ['cr-big'"), 'the prompt is before the big picture');
+  assert.match(den, /needsNamePrompt\(c\)/);
+  assert.match(den, /card\.querySelector\('input'\)/, 'a tap lands on the name box');
+  assert.match(den, /box\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(den, /if \(prompt && r\.ok && r\.name\) \{ if \(prompt\.remove\) prompt\.remove\(\); prompt = null; \}/, 'the prompt goes once a name is kept');
+  const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
+  assert.match(css, /\.cr-nameprompt \{[^}]*min-height: 48px/, 'a big enough target');
+  const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /'js\/cas-creature-name\.js'/);
 });

@@ -477,6 +477,7 @@ html[data-mode="professional"] .cr-tile, html[data-mode="professional"] .dk-rewa
 @keyframes cr-hatch-born { 0%, 40% { opacity: 0; transform: scale(.2) translateY(20px); } 55% { opacity: 1; transform: scale(1.15) translateY(-8px); } 65% { transform: scale(.95) translateY(0); } 75%, 100% { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .cr-cheer .cr-pic, .cr-hatch, .cr-hatch *, .cr-cheer * { animation: none !important; } .cr-hatch-egg, .cr-hatch-flash { display: none; } .cr-hatch-born { opacity: 1; } }
 /* Naming the creature: the field and its button sit together, 16 px text so iOS does not zoom, long names wrap. */
+.cr-nameprompt { display: block; width: 100%; min-height: 48px; margin: 0 0 10px; padding: 0 16px; border-radius: 12px; border: 2px ridge var(--dk-brass); background: linear-gradient(#e9c36a, #b98a2f); color: #2b1a07; font: 900 16px var(--dk-ui); text-align: center; cursor: pointer; }
 .cr-name-card { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; border: 2px ridge var(--dk-brass); background: #1a130a; scroll-margin-bottom: 140px; }
 .cr-name-card .cr-h { margin-top: 0; }
 .cr-name-use, .cr-name-go, .cr-name-rename, .cr-name-cancel { min-height: 48px; padding: 0 16px; border-radius: 10px; border: 2px ridge var(--dk-brass); background: linear-gradient(#3d2e13, #1a130a); color: var(--dk-brass-hi); font: 800 15px var(--dk-ui); cursor: pointer; max-width: 100%; overflow-wrap: anywhere; }

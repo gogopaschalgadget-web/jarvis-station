@@ -1,6 +1,6 @@
 // cas-creature.js - the creature tile on the Bulletin Board and the Den view. Reads GET /api/creature (a read with no side effects); server text goes in with textContent only.
 import { burstEggFile, normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
-import { makeNameStore, nameCard, VISIT_NOTE } from './cas-creature-name.js?v=cas116';
+import { makeNameStore, nameCard, namePrompt, needsNamePrompt, VISIT_NOTE } from './cas-creature-name.js?v=cas118';
 import { nextEmote, emoteClass, cheerWords, EMOTE_MS, HATCH_MS } from './cas-creature-emotes.js?v=cas115';
 
 const TTL_MS = 30000;
@@ -228,6 +228,15 @@ export function denNode(flags, onBack) {
   back.addEventListener('click', () => onBack());
   top.append(back, el('h3', '', 'The Den'));
   den.append(top);
+  let card = null;
+  let prompt = null;
+  if (needsNamePrompt(c)) {
+    prompt = namePrompt(document, () => {
+      const box = card && card.querySelector ? card.querySelector('input') : null;
+      try { if (box) { box.scrollIntoView({ block: 'center', behavior: 'smooth' }); box.focus({ preventScroll: true }); } else if (card && card.scrollIntoView) card.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* the card stays where it is */ }
+    });
+    den.append(prompt);
+  }
   const frame = el('div', ['cr-big', ...motionClasses(c, flags), cheering() ? 'cheer' : '', cheerClass(), glowing() ? 'glow' : ''].filter(Boolean).join(' '));
   frame.append(pictureNode(c, 'big'));
   if (c.mood === 'sleeping' || c.mood === 'curled') frame.append(el('span', 'cr-zz', 'zz'));
@@ -243,12 +252,13 @@ export function denNode(flags, onBack) {
     let note = '';
     const draw = () => nameCard(document, { number: c.number, current: c.name, suggested: c.suggested, store: _names, note, onSaved: r => {
       note = r.kept === 'visit' ? VISIT_NOTE : '';
+      if (prompt && r.ok && r.name) { if (prompt.remove) prompt.remove(); prompt = null; }
       if (!r.unchanged) { c.name = r.name; if (_read && _read.creature.number === c.number) _read.creature.name = r.name; heading.textContent = r.name; }
       const fresh = draw();
       if (fresh && card.replaceWith) card.replaceWith(fresh);
       card = fresh;
     } });
-    let card = draw();
+    card = draw();
     den.append(card);
   }
   den.append(el('p', 'cr-stage', c.phase === 'egg' ? nameLine(c) : `${stageWord(c, _forms)}, Level ${c.level}, ${SPECIES[c.species]}`));

@@ -59,6 +59,18 @@ const el = (doc, tag, cls, text) => {
   return n;
 };
 
+/** True when the Den should show the "Name your creature" prompt at the top: a hatched creature with no name yet. */
+export const needsNamePrompt = c => !!c && c.phase === 'creature' && !(typeof c.name === 'string' && c.name.trim());
+export const NAME_PROMPT = 'Name your creature';
+/** The prompt at the top of the Den, where it shows without scrolling. A tap runs onTap (the Den takes Chris to the name field). Text only. */
+export function namePrompt(doc, onTap) {
+  const b = el(doc, 'button', 'cr-nameprompt', NAME_PROMPT);
+  b.type = 'button';
+  b.setAttribute('aria-label', NAME_PROMPT + ': go to the name box');
+  b.addEventListener('click', () => { if (onTap) onTap(); });
+  return b;
+}
+
 /**
  * The naming card for the Den. Text goes in with textContent only. `current` is the name now (or null), `suggested` the offered one.
  * onSaved(result) runs after a name is kept. Naming needs a deliberate tap on a button; a name already set is only replaced

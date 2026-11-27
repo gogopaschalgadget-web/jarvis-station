@@ -124,7 +124,7 @@ test('the view: tile and Den from a read, placeholder without art or on a 404, n
   assert.ok(texts(v.denNode(0, () => {})).join(' ').includes('+60 XP, Common picture'), 'XP shows under the effort rule');
   v.setRule(null);
   const nodes = all(v.denNode(0, () => {}));
-  assert.equal(nodes.filter(n => n.listeners.click).length, 2, 'two taps in the Den: the way back and the one-tap suggested name');
+  assert.equal(nodes.filter(n => n.listeners.click).length, 3, 'three taps in the Den: the way back, the Name your creature prompt and the one-tap suggested name');
   // an image that fails to load becomes the placeholder
   v.initCreature({ fetch: answer({ creature: mon() }) });
   await v.loadCreature(true);
