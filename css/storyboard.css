@@ -39,6 +39,8 @@ body { background:#100c07; }
 .cas-scene { border-width:10px; }
 .cas-scene-header,.cas-scene-body,.cas-composer-area { border-width:8px; }
 .panel-card,.more-nav-btn { background:linear-gradient(110deg,#ecd5a4,#c3a56d); color:#2b1a0b; border:4px ridge #a07832; border-radius:0; box-shadow:inset 0 0 14px #72511d55; }
+/* The bright accent colours cannot be read on the parchment (gold 1.3 to 1, cyan 1.3, red 1.6, green 1.0, yellow 1.2): inside a card or a More button they are these dark inks, each at least 4.5 to 1 on the darker end of the parchment. */
+.panel-card,.more-nav-btn { --accent-gold:#442a00; --accent-cyan:#063b46; --accent-red:#701212; --accent-green:#093d1a; --accent-yellow:#4f3500; }
 .tab-panel:not(#panel-cas) { background:linear-gradient(#100c08d9,#100c08f2),url('../assets/cas/map-scene.png') center/cover; }
 @media (min-width:960px) {
   :root { --header-height:84px; --nav-height:0px; }
