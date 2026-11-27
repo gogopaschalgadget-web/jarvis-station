@@ -84,12 +84,13 @@ test('the art shipped is exactly what the manifest lists, all small, with the wo
   }
   assert.deepEqual([...listed].sort(), onDisk.sort());
   for (const f of listed) assert.ok(statSync(new URL('../creatures/' + f, import.meta.url)).size < 200 * 1024, f + ' is under 200 KB');
-  for (const sp of ['lava', 'stag', 'moss']) for (const st of ['hatchling', 'juvenile', 'adult', 'grown']) assert.ok(listed.has(`${sp}/${st}.webp`), `${sp}/${st}`);
+  for (const sp of ['lava', 'stag', 'moss', 'bull', 'squirrel']) for (const st of ['hatchling', 'juvenile', 'adult', 'grown']) assert.ok(listed.has(`${sp}/${st}.webp`), `${sp}/${st}`);
   for (const egg of ['egg-0-whole', 'egg-1-wobble', 'egg-2-cracks', 'egg-3-wide', 'egg-4-burst']) assert.ok(listed.has(`egg/${egg}.webp`), egg);
   const forms = normalizeForms(m);
   assert.deepEqual(forms.wolf.map(f => [f.from, f.name]), [[1, 'Cog Pup'], [3, 'Spring Runner'], [5, 'Gear Hunter'], [7, 'Steel Alpha'], [8, 'Brass Veteran'], [9, 'Iron Warden'], [10, 'Clockwork Legend']]);
   for (const f of forms.wolf) assert.ok(listed.has(f.file) && existsSync(new URL('../creatures/' + f.file, import.meta.url)), f.file);
-  assert.ok(![...listed].some(f => f.startsWith('bull/') || f.startsWith('squirrel/')), 'only approved species are shipped');
+  assert.deepEqual([...new Set([...listed].map(f => f.split('/')[0]))].sort(), ['bull', 'egg', 'lava', 'moss', 'squirrel', 'stag', 'wolf'], 'the six approved species and the neutral egg, nothing else');
+  assert.match(m.note, /awaiting approval/, 'the egg is marked as not yet approved');
 });
 
 test('the service worker keeps the creature pictures on the device and knows the new module', () => {

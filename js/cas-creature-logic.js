@@ -1,5 +1,5 @@
 // The creature on the Desk: what the server's GET /api/creature says, checked, and the words and numbers the tile and the Den draw. No page code here.
-export const SPECIES = { lava: 'Lava tortoise', stag: 'Storm stag', moss: 'Moss bear', wolf: 'Clockwork wolf', bull: 'Iron bull' };
+export const SPECIES = { lava: 'Lava tortoise', stag: 'Storm stag', moss: 'Moss bear', wolf: 'Clockwork wolf', bull: 'Iron bull', squirrel: 'Steampunk squirrel' };
 export const STAGES = { hatchling: 'Hatchling', juvenile: 'Juvenile', adult: 'Adult', grown: 'Grown' };
 export const RARITIES = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' };
 export const MOODS = ['awake', 'drowsy', 'sleeping', 'curled'];

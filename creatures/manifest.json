@@ -1,5 +1,9 @@
 {
  "files": [
+  "bull/adult.webp",
+  "bull/grown.webp",
+  "bull/hatchling.webp",
+  "bull/juvenile.webp",
   "egg/egg-0-whole.webp",
   "egg/egg-1-wobble.webp",
   "egg/egg-2-cracks.webp",
@@ -13,6 +17,10 @@
   "moss/grown.webp",
   "moss/hatchling.webp",
   "moss/juvenile.webp",
+  "squirrel/adult.webp",
+  "squirrel/grown.webp",
+  "squirrel/hatchling.webp",
+  "squirrel/juvenile.webp",
   "stag/adult.webp",
   "stag/grown.webp",
   "stag/hatchling.webp",
@@ -63,5 +71,6 @@
     "name": "Clockwork Legend"
    }
   ]
- }
+ },
+ "note": "art from creatures-v5 station-ready; the neutral egg is awaiting approval"
 }
