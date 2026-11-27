@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { EFFORT, REASON_MAX, normalizeEffort, effortTag, earnedTag, ruleOf } from '../js/cas-effort.js';
+import { EFFORT, REASON_MAX, normalizeEffort, effortTag, earnedTag, ruleOf, previewOf, promiseTag, pictureLine, whyLine } from '../js/cas-effort.js';
 import { doneList } from '../js/cas-desk.js';
 
 test('the table is the agreed one: xs 20, s 40, m 60, l 100, xl 160', () => {
@@ -54,11 +54,46 @@ test('XP is promised only when the server says the rule is effort; otherwise the
   assert.equal(ruleOf({ progress: { xp_rule: 'flat' } }), 'flat');
   for (const bad of [null, {}, { progress: {} }, { progress: { xp_rule: 'EFFORT' } }, { progress: { xp_rule: 1 } }]) assert.equal(ruleOf(bad), null);
   const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
-  assert.match(desk, /effortTag\(eff, ruleOf\(_data\)\)/);
+  assert.match(desk, /promiseTag\(eff, promise, ruleOf\(_data\)\)/);
 });
 
 test('the earned chip also reads rows of done_since_last_look', () => {
   const rows = doneList({ feed: { items: [], done_since_last_look: [{ title: 'A', project: 'station', effort: 'l', xp_earned: 100 }, { title: 'B', effort: null, xp_earned: null }] } });
   assert.equal(rows[0].earned, 'L · 100 XP earned');
   assert.equal(rows[1].earned, '');
+});
+
+
+const P = (rule, xp, upTo, picture = 'common') => ({ xp_preview: { c1: { xp, up_to: upTo, rule, picture, size: 'l' } } });
+
+test('the tag shows what the LIVE rule will really pay, from the server promise, never the size table under another rule', () => {
+  const l = normalizeEffort({ effort: 'l', effort_reason: 'Long job' });
+  assert.equal(promiseTag(l, previewOf(P('old', 175, true), 'c1'), 'old'), 'up to 175 XP', 'the old rule: steps and bonuses, up to');
+  assert.equal(promiseTag(null, previewOf(P('old', 55, true), 'c1'), 'old'), 'up to 55 XP', 'a card with no size still has a promise');
+  assert.equal(promiseTag(l, previewOf(P('flat', 60, false), 'c1'), 'flat'), '60 XP');
+  assert.equal(promiseTag(l, previewOf(P('effort', 100, false), 'c1'), 'effort'), 'L · 100 XP', 'the effort rule: the size pays');
+  assert.equal(promiseTag(l, null, 'old'), 'L', 'no promise from the server: the plain size, nothing promised');
+  assert.equal(promiseTag(l, null, 'effort'), 'L · 100 XP', 'unchanged behaviour with no preview');
+});
+
+test('a promise is read only when whole and from a known rule and picture step', () => {
+  assert.deepEqual(previewOf(P('old', 175, true, 'rare'), 'c1'), { xp: 175, upTo: true, rule: 'old', picture: 'rare' });
+  for (const bad of [null, {}, { xp_preview: null }, { xp_preview: { c1: { xp: '9', up_to: true, rule: 'old', picture: 'common' } } }, { xp_preview: { c1: { xp: 9, up_to: 1, rule: 'old', picture: 'common' } } },
+    { xp_preview: { c1: { xp: 9, up_to: true, rule: 'weird', picture: 'common' } } }, { xp_preview: { c1: { xp: 9, up_to: true, rule: 'old', picture: 'mythic' } } }, { xp_preview: { c1: { xp: -1, up_to: true, rule: 'old', picture: 'common' } } },
+    { xp_preview: { c1: { xp: 5000, up_to: true, rule: 'old', picture: 'common' } } }]) assert.equal(previewOf(bad, 'c1'), null);
+  assert.equal(previewOf(P('old', 1, true), '__proto__'), null);
+  assert.equal(previewOf(P('old', 1, true), 'other'), null);
+});
+
+test('the picture line and the tap text say only what the server promised', () => {
+  assert.equal(pictureLine(previewOf(P('old', 55, true, 'uncommon'), 'c1')), 'Picture: Uncommon');
+  assert.equal(pictureLine(null), '');
+  const l = normalizeEffort({ effort: 'l', effort_reason: 'Long job' });
+  assert.match(whyLine(l, previewOf(P('old', 175, true), 'c1')), /pays for its steps.*Size L: Long job/);
+  assert.equal(whyLine(l, previewOf(P('effort', 100, false), 'c1')), 'Long job');
+  assert.equal(whyLine(l, null), 'Long job');
+  assert.match(whyLine(null, previewOf(P('flat', 60, false), 'c1')), /same/);
+  const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
+  assert.match(desk, /previewOf\(_data, item\.id\)/);
+  assert.match(desk, /pictureLine\(promise\)/);
 });

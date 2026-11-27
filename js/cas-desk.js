@@ -5,7 +5,7 @@ import { syncLook } from './cas-themes.js?v=cas111';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas112';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
-import { normalizeEffort, effortTag, earnedTag, ruleOf } from './cas-effort.js?v=cas114';
+import { normalizeEffort, effortTag, earnedTag, ruleOf, previewOf, promiseTag, pictureLine, whyLine } from './cas-effort.js?v=cas114';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas109';
@@ -774,15 +774,18 @@ function card(item, n, ctx) {
   const top = el('summary', 'dk-top');
   top.append(el('span', 'dk-num', String(n)), el('span', 'dk-proj', words(item.project)), el('span', 'dk-kind dk-kind-' + item.kind, KIND[item.kind] || item.kind));
   const eff = normalizeEffort(item);
-  if (eff) {
-    const tag = button('dk-eff' + (_effOpen.has(item.id) ? ' on' : ''), effortTag(eff, ruleOf(_data)), () => { if (_effOpen.has(item.id)) _effOpen.delete(item.id); else _effOpen.add(item.id); draw(); });
+  const promise = previewOf(_data, item.id);
+  if (eff || promise) {
+    const tag = button('dk-eff' + (_effOpen.has(item.id) ? ' on' : ''), promiseTag(eff, promise, ruleOf(_data)), () => { if (_effOpen.has(item.id)) _effOpen.delete(item.id); else _effOpen.add(item.id); draw(); });
     tag.setAttribute('aria-expanded', _effOpen.has(item.id) ? 'true' : 'false');
-    tag.title = 'Tap for why this size';
+    tag.title = 'Tap to see how this is worked out';
     top.append(tag);
   }
   if (item.minutes != null) top.append(el('span', 'dk-min', 'takes ' + item.minutes + ' min'));
   top.append(titleNode(item));
-  if (eff && _effOpen.has(item.id)) top.append(el('p', 'dk-effwhy', eff.reason || 'No reason was given for this size.'));
+  const pl = pictureLine(promise);
+  if (pl) top.append(el('span', 'dk-reward', pl));
+  if ((eff || promise) && _effOpen.has(item.id)) top.append(el('p', 'dk-effwhy', whyLine(eff, promise) || 'No reason was given for this size.'));
   const marks = el('div', 'dk-marks');
   if (ctx.mine) { marks.append(el('span', 'dk-mark', 'Your order')); marks.append(button('dk-rel', 'Release', () => release(item.id))); }
   if (ctx.stuckNow && ctx.stuckNow.status && ctx.stuckNow.status.working) marks.append(el('span', 'dk-mark warn', 'Cas is working on it'));
