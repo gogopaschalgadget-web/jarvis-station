@@ -117,7 +117,11 @@ test('the view: tile and Den from a read, placeholder without art or on a 404, n
   assert.ok(tt.includes('Lava tortoise, Level 2, Hatchling') && tt.includes('170 XP to Level 3') && tt.includes('Needs you: 2 flags') && tt.includes('Lava tortoise, hatchling (art slot)'));
   assert.ok(!all(tile).some(n => n.tag === 'img'), 'no art file, so a placeholder and no image');
   const den = texts(v.denNode(0, () => {}));
-  for (const want of ['The Den', 'Not named yet. Suggested name: Ember.', 'Juvenile unlocks a trait', 'Collar: empty', 'Reward on your next card', '+60 XP, Common picture', 'Rusty']) assert.ok(den.includes(want), want);
+  for (const want of ['The Den', 'Not named yet. Suggested name: Ember.', 'Juvenile unlocks a trait', 'Collar: empty', 'Reward on your next card', 'Rusty']) assert.ok(den.includes(want), want);
+  assert.ok(den.join(' ').includes('Common picture') && !den.join(' ').includes('+60 XP'), 'the Den shows pictures only unless the effort rule is live');
+  v.setRule('effort');
+  assert.ok(texts(v.denNode(0, () => {})).join(' ').includes('+60 XP, Common picture'), 'XP shows under the effort rule');
+  v.setRule(null);
   const nodes = all(v.denNode(0, () => {}));
   assert.equal(nodes.filter(n => n.listeners.click).length, 1, 'one button in the Den: the way back');
   // an image that fails to load becomes the placeholder
@@ -167,7 +171,9 @@ test('wiring: the tile sits under the rank plate on the Bulletin Board behind a 
   assert.match(desk, /if \(prog\) wrap\.append\(progressBlock\(prog\)\);[\s\S]{0,400}tileNode\(need/);
   assert.match(desk, /try \{ const tile = tileNode\(need[\s\S]*catch/);
   assert.match(desk, /denNode\(need/);
-  assert.match(desk, /rewardLine\(creatureCard\(\), eff\.size\)/);
+  assert.match(desk, /pictureLine\(promise\)/);
+  assert.ok(!/rewardLine\(creatureCard/.test(desk), 'the card line comes from the server promise, not the creature table');
+  assert.match(desk, /setRule\(ruleOf\(_data\)\)/);
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.match(app, /forgetCreature\(\)/);
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');

@@ -6,7 +6,7 @@ import { barAnimates } from './cas-reveal-logic.js?v=cas93';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas112';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
 import { normalizeEffort, effortTag, earnedTag, ruleOf, previewOf, promiseTag, pictureLine, whyLine } from './cas-effort.js?v=cas110';
-import { initCreature, loadCreature, tileNode, denNode, creatureShown, cheer } from './cas-creature.js?v=cas115';
+import { initCreature, loadCreature, tileNode, denNode, creatureShown, cheer, setRule } from './cas-creature.js?v=cas115';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
 import { initGallery, invalidateGallery } from './cas-gallery.js?v=cas109';
@@ -971,6 +971,7 @@ function draw() {
     if (bbToast) wrap.append(bbToast);
     const prog = normalizeProgress(_data && _data.progress);
     if (prog) wrap.append(progressBlock(prog));
+    try { setRule(ruleOf(_data)); } catch { /* the Den falls back to pictures only */ }
     if (_den && !creatureShown()) _den = false;
     if (_den) {
       try { wrap.replaceChildren(denNode(need, () => { _den = false; draw(); })); panel.scrollTop = 0; return; } catch { _den = false; }

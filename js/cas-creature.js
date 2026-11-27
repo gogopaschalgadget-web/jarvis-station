@@ -21,6 +21,9 @@ let _hatchUntil = 0;
 let _overlay = null;
 let _overlayTimer = 0;
 let _forms = {};
+let _rule = null;
+/** The XP rule that is live (from the Desk read), so the Den never shows the effort table's numbers under another rule. */
+export function setRule(rule) { _rule = rule === 'old' || rule === 'flat' || rule === 'effort' ? rule : null; }
 let _glowUntil = 0;
 let _files = new Set();
 let _manifestAt = 0;
@@ -226,9 +229,9 @@ export function denNode(flags, onBack) {
   den.append(el('h5', 'cr-h', 'Reward on your next card'));
   const rw = el('div', 'cr-rewards');
   SIZES.forEach(s => {
-    const line = rewardLine(c, s);
-    if (!line) return;
     const r = c.reward[s];
+    const line = _rule === 'effort' ? rewardLine(c, s) : (r ? `${RARITIES[r.step]} picture${r.animated ? ', animated' : ''}` : '');   // XP is shown only when the effort rule is live
+    if (!line) return;
     const cell = el('div', 'cr-reward');
     cell.append(el('span', 'cr-sw rar-' + r.step), el('b', '', s.toUpperCase()), el('span', '', line));
     rw.append(cell);
