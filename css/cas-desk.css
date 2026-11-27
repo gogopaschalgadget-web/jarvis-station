@@ -476,3 +476,17 @@ html[data-mode="professional"] .cr-tile, html[data-mode="professional"] .dk-rewa
 @keyframes cr-hatch-flash { 0%, 36% { opacity: 0; transform: scale(.4); } 44% { opacity: 1; transform: scale(1.3); } 70%, 100% { opacity: 0; transform: scale(1.8); } }
 @keyframes cr-hatch-born { 0%, 40% { opacity: 0; transform: scale(.2) translateY(20px); } 55% { opacity: 1; transform: scale(1.15) translateY(-8px); } 65% { transform: scale(.95) translateY(0); } 75%, 100% { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .cr-cheer .cr-pic, .cr-hatch, .cr-hatch *, .cr-cheer * { animation: none !important; } .cr-hatch-egg, .cr-hatch-flash { display: none; } .cr-hatch-born { opacity: 1; } }
+/* Naming the creature: the field and its button sit together, 16 px text so iOS does not zoom, long names wrap. */
+.cr-name-card { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; border: 2px ridge var(--dk-brass); background: #1a130a; scroll-margin-bottom: 140px; }
+.cr-name-card .cr-h { margin-top: 0; }
+.cr-name-use, .cr-name-go, .cr-name-rename, .cr-name-cancel { min-height: 48px; padding: 0 16px; border-radius: 10px; border: 2px ridge var(--dk-brass); background: linear-gradient(#3d2e13, #1a130a); color: var(--dk-brass-hi); font: 800 15px var(--dk-ui); cursor: pointer; max-width: 100%; overflow-wrap: anywhere; }
+.cr-name-use { width: 100%; margin: 6px 0 10px; }
+.cr-name-form { display: flex; flex-direction: column; gap: 6px; }
+.cr-name-label { font: 700 13px var(--dk-ui); color: var(--dk-muted); }
+.cr-name-input { width: 100%; min-height: 48px; box-sizing: border-box; padding: 8px 10px; border-radius: 10px; border: 2px solid var(--dk-brass-lo); background: #fff8e3; color: #2a1a05; font: 16px var(--dk-ui); }
+.cr-name-go { width: 100%; }
+.cr-name-cancel { width: 100%; margin-top: 8px; }
+.cr-name-say { margin: 6px 0 0; min-height: 1em; font: 700 13px var(--dk-ui); color: var(--dk-brass-hi); overflow-wrap: anywhere; }
+.cr-id h4 { overflow-wrap: anywhere; min-width: 0; }
+.cr-namehint { font: 700 12px var(--dk-ui); color: var(--dk-brass-hi); text-decoration: underline; }
+.cr-name { overflow-wrap: anywhere; }

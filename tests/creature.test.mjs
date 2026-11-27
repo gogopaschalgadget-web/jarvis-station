@@ -118,13 +118,13 @@ test('the view: tile and Den from a read, placeholder without art or on a 404, n
   assert.ok(tt.includes('Lava tortoise, Level 2, Hatchling') && tt.includes('170 XP to Level 3') && tt.includes('Needs you: 2 flags') && tt.includes('Lava tortoise, hatchling (art slot)'));
   assert.ok(!all(tile).some(n => n.tag === 'img'), 'no art file, so a placeholder and no image');
   const den = texts(v.denNode(0, () => {}));
-  for (const want of ['The Den', 'Not named yet. Suggested name: Ember.', 'Juvenile unlocks a trait', 'Collar: empty', 'Reward on your next card', 'Rusty']) assert.ok(den.includes(want), want);
+  for (const want of ['The Den', 'Not named yet. The name stays on this phone.', 'Use Ember', 'Juvenile unlocks a trait', 'Collar: empty', 'Reward on your next card', 'Rusty']) assert.ok(den.includes(want), want);
   assert.ok(den.join(' ').includes('Common picture') && !den.join(' ').includes('+60 XP'), 'the Den shows pictures only unless the effort rule is live');
   v.setRule('effort');
   assert.ok(texts(v.denNode(0, () => {})).join(' ').includes('+60 XP, Common picture'), 'XP shows under the effort rule');
   v.setRule(null);
   const nodes = all(v.denNode(0, () => {}));
-  assert.equal(nodes.filter(n => n.listeners.click).length, 1, 'one button in the Den: the way back');
+  assert.equal(nodes.filter(n => n.listeners.click).length, 2, 'two taps in the Den: the way back and the one-tap suggested name');
   // an image that fails to load becomes the placeholder
   v.initCreature({ fetch: answer({ creature: mon() }) });
   await v.loadCreature(true);

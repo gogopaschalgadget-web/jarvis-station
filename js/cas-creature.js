@@ -1,5 +1,6 @@
 // cas-creature.js - the creature tile on the Bulletin Board and the Den view. Reads GET /api/creature (a read with no side effects); server text goes in with textContent only.
 import { burstEggFile, normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
+import { makeNameStore, nameCard, VISIT_NOTE } from './cas-creature-name.js?v=cas116';
 import { nextEmote, emoteClass, cheerWords, EMOTE_MS, HATCH_MS } from './cas-creature-emotes.js?v=cas115';
 
 const TTL_MS = 30000;
@@ -21,6 +22,15 @@ let _hatchUntil = 0;
 let _overlay = null;
 let _overlayTimer = 0;
 let _forms = {};
+/** The names Chris chose: on this device only (never sent to the server or anywhere else). */
+const _names = makeNameStore(() => localStorage);
+/** The device's own name wins over the server's; the stable shelf is named the same way. */
+function applyNames(read) {
+  const mine = _names.get(read.creature.number);
+  if (mine) read.creature.name = mine;
+  read.stable.forEach(s => { const n = s.number ? _names.get(s.number) : null; if (n) s.name = n; });
+  return read;
+}
 let _rule = null;
 /** The XP rule that is live (from the Desk read), so the Den never shows the effort table's numbers under another rule. */
 export function setRule(rule) { _rule = rule === 'old' || rule === 'flat' || rule === 'effort' ? rule : null; }
@@ -73,6 +83,8 @@ export function pauseWhenHidden(doc) {
   return set;
 }
 if (typeof document !== 'undefined') pauseWhenHidden(document);
+/** Test hook: the name book of this device. */
+export const nameBook = () => _names;
 export function creatureRead() { return _read; }
 export function creatureCard() { return creatureShown() ? _read.creature : null; }
 export function forgetCreature() { _epoch++; _read = null; _loadedAt = 0; _failedAt = 0; _inflight = null; _lastLevel = null; _cheerUntil = 0; _emote = null; _lastEmote = ''; _hatchUntil = 0; dismissOverlay(); _forms = {}; _glowUntil = 0; _files = new Set(); _manifestAt = 0; _notFoundAt = 0; }
@@ -147,6 +159,7 @@ export function loadCreature(force) {
       if (!got.ok) { _failedAt = Date.now(); if (got.status === 404) _notFoundAt = Date.now(); return null; }
       await loadManifest();
       const read = normalizeCreatureRead(got.body);
+      if (read) applyNames(read);
       if (epoch !== _epoch) return null;
       if (!read) { _failedAt = Date.now(); return null; }
       if (_read && _read.creature.number === read.creature.number && read.creature.level > _read.creature.level) _glowUntil = Date.now() + 2000;
@@ -199,6 +212,7 @@ export function tileNode(flags, onOpen) {
   if (!c.notStarted) body.append(bar(c));
   if (!c.notStarted) body.append(el('span', 'cr-xp', barWords(c)));
   body.append(el('span', 'cr-status', statusLine(c, flags)));
+  if (c.phase === 'creature' && !c.name) body.append(el('span', 'cr-namehint', 'Tap to give it a name'));
   tile.append(hero, body);
   return tile;
 }
@@ -220,11 +234,23 @@ export function denNode(flags, onBack) {
   den.append(frame);
   const id = el('div', 'cr-id');
   const nm = c.phase === 'egg' ? 'Egg' : (c.name || SPECIES[c.species]);
-  id.append(el('h4', '', nm));
+  const heading = el('h4', '', nm);
+  id.append(heading);
   const chip = rarityChip(c);
   if (chip) id.append(chip);
   den.append(id);
-  if (c.phase === 'creature' && !c.name && c.suggested) den.append(el('p', 'cr-hint', 'Not named yet. Suggested name: ' + c.suggested + '.'));
+  if (c.phase === 'creature') {
+    let note = '';
+    const draw = () => nameCard(document, { number: c.number, current: c.name, suggested: c.suggested, store: _names, note, onSaved: r => {
+      note = r.kept === 'visit' ? VISIT_NOTE : '';
+      if (!r.unchanged) { c.name = r.name; if (_read && _read.creature.number === c.number) _read.creature.name = r.name; heading.textContent = r.name; }
+      const fresh = draw();
+      if (fresh && card.replaceWith) card.replaceWith(fresh);
+      card = fresh;
+    } });
+    let card = draw();
+    den.append(card);
+  }
   den.append(el('p', 'cr-stage', c.phase === 'egg' ? nameLine(c) : `${stageWord(c, _forms)}, Level ${c.level}, ${SPECIES[c.species]}`));
   if (!c.notStarted) den.append(bar(c));
   if (!c.notStarted) den.append(el('p', 'cr-xp', barWords(c)));
