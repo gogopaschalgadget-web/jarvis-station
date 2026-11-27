@@ -65,6 +65,14 @@ async function loadManifest() {
 }
 const reduced = () => { try { return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 
+/** While the page is hidden the creature's loops are paused (class on the page root); reduced motion already stops them in the stylesheet. */
+export function pauseWhenHidden(doc) {
+  const set = () => { try { doc.documentElement.classList.toggle('cr-paused', !!doc.hidden); } catch { /* no root to mark */ } };
+  try { if (doc.addEventListener) doc.addEventListener('visibilitychange', set); } catch { /* no events here */ }
+  set();
+  return set;
+}
+if (typeof document !== 'undefined') pauseWhenHidden(document);
 export function creatureRead() { return _read; }
 export function creatureCard() { return creatureShown() ? _read.creature : null; }
 export function forgetCreature() { _epoch++; _read = null; _loadedAt = 0; _failedAt = 0; _inflight = null; _lastLevel = null; _cheerUntil = 0; _emote = null; _lastEmote = ''; _hatchUntil = 0; dismissOverlay(); _forms = {}; _glowUntil = 0; _files = new Set(); _manifestAt = 0; _notFoundAt = 0; }
@@ -187,7 +195,8 @@ export function tileNode(flags, onOpen) {
   body.append(el('b', 'cr-name', nameLine(c, _forms)));
   const chip = rarityChip(c);
   if (chip) body.append(chip);
-  body.append(bar(c), el('span', 'cr-xp', barWords(c)), el('span', 'cr-status', statusLine(c, flags)));
+  if (!c.notStarted) body.append(bar(c));
+  body.append(el('span', 'cr-xp', barWords(c)), el('span', 'cr-status', statusLine(c, flags)));
   tile.append(hero, body);
   return tile;
 }
@@ -215,7 +224,8 @@ export function denNode(flags, onBack) {
   den.append(id);
   if (c.phase === 'creature' && !c.name && c.suggested) den.append(el('p', 'cr-hint', 'Not named yet. Suggested name: ' + c.suggested + '.'));
   den.append(el('p', 'cr-stage', c.phase === 'egg' ? nameLine(c) : `${stageWord(c, _forms)}, Level ${c.level}, ${SPECIES[c.species]}`));
-  den.append(bar(c), el('p', 'cr-xp', barWords(c)), el('p', 'cr-status', statusLine(c, flags)));
+  if (!c.notStarted) den.append(bar(c));
+  den.append(el('p', 'cr-xp', barWords(c)), el('p', 'cr-status', statusLine(c, flags)));
   if (c.phase === 'creature') {
     den.append(el('h5', 'cr-h', 'Traits'));
     const row = el('div', 'cr-chips');

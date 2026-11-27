@@ -82,6 +82,8 @@ export function normalizeCreatureRead(raw) {
     if (!species || !rarity) return null;
     return { number: whole(s.number, 100000) || 0, species, rarity, name: plain(s.name, 24) || null, art: safeArt(s.art && s.art.still ? s.art.still : s.art) };
   }).filter(Boolean);
+  // The server's `epoch` is the moment it began counting this creature. An explicit null means it has not started: the XP bar would sit at 0 whatever is finished.
+  creature.notStarted = raw.epoch === null;
   return { creature, stable, hidden: raw.professional_mode_hidden === true };
 }
 
@@ -94,7 +96,7 @@ export const altWords = c => (c.phase === 'egg' ? 'Egg' + (c.eggStep ? ', ' + EG
 
 /** The plain name line of the tile: "Lava tortoise, Level 2, Hatchling" or "Egg, 120 of 300 XP". */
 export function nameLine(c, forms) {
-  if (c.phase === 'egg') return `Egg, ${Math.min(c.xpIn, 300)} of 300 XP`;
+  if (c.phase === 'egg') return c.notStarted ? 'Egg, not started yet' : `Egg, ${Math.min(c.xpIn, 300)} of 300 XP`;
   return `${c.name ? c.name + ', ' : ''}${SPECIES[c.species]}, Level ${c.level}, ${stageWord(c, forms)}`;
 }
 
@@ -107,7 +109,7 @@ export function barFraction(c) {
   const span = next - prev;
   return span > 0 ? Math.max(0, Math.min(1, (c.xpIn - prev) / span)) : 0;
 }
-export const barWords = c => (c.toNext == null ? 'Grown' : `${c.toNext} XP to ${c.nextLabel || 'the next step'}`);
+export const barWords = c => (c.notStarted ? 'Not started yet' : c.toNext == null ? 'Grown' : `${c.toNext} XP to ${c.nextLabel || 'the next step'}`);
 
 /** The tile's one status line: flags first (they need Chris), then mood. flags is the Desk's own open-card count. */
 export function statusLine(c, flags) {

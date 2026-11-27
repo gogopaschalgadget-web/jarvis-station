@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as L from '../js/cas-creature-logic.js';
+import * as L2 from '../js/cas-creature.js';
 
 const REW = { xs: { xp: 20, step: 'common' }, s: { xp: 40, step: 'common' }, m: { xp: 60, step: 'common' }, l: { xp: 100, step: 'uncommon' }, xl: { xp: 160, step: 'rare', animated: true } };
 const egg = o => ({ number: 1, phase: 'egg', xp_in: 120, xp_to_next: 120, next_label: 'the next crack', egg_step: 'cracks1', traits: [], mood: 'awake', next_reward: REW, art: { still: null, loop: null }, ...o });
@@ -251,4 +252,47 @@ test('a 404 (route not on the server yet) backs off ten minutes, a 500 sixty sec
   const src = readFileSync(new URL('../js/cas-creature.js', import.meta.url), 'utf8');
   assert.match(src, /NOT_FOUND_MS = 600000/);
   assert.match(src, /controllerchange/);
+});
+
+test('a server that has not started the creature (epoch null) shows "not started yet", never a stuck 0 of 300', async () => {
+  const off = L.normalizeCreatureRead({ creature: egg({ xp_in: 0, xp_to_next: 60 }), stable: [], epoch: null });
+  assert.equal(off.creature.notStarted, true);
+  assert.equal(L.nameLine(off.creature), 'Egg, not started yet');
+  assert.equal(L.barWords(off.creature), 'Not started yet');
+  assert.ok(!/of 300/.test(L.nameLine(off.creature) + L.barWords(off.creature)));
+  const on = L.normalizeCreatureRead({ creature: egg({ xp_in: 0, xp_to_next: 60 }), stable: [], epoch: 1764000000 });
+  assert.equal(on.creature.notStarted, false);
+  assert.equal(L.nameLine(on.creature), 'Egg, 0 of 300 XP', 'a started creature at zero still shows its count');
+  assert.equal(read(egg()).creature.notStarted, false, 'no epoch key at all: treated as started');
+  const docEl = makeDom();
+  const v = await fresh();
+  const answer = body => async () => ({ ok: true, status: 200, json: async () => body });
+  v.initCreature({ apiBase: 'https://x', getToken: () => 't', fetch: answer({ creature: egg({ xp_in: 0, xp_to_next: 60 }), stable: [], epoch: null }) });
+  await v.loadCreature(true);
+  const tile = all(v.tileNode(0, () => {}));
+  assert.ok(texts(tile[0]).includes('Egg, not started yet') && texts(tile[0]).includes('Not started yet'));
+  assert.ok(!tile.some(n => (n.className || '').split(' ').includes('cr-bar')), 'no bar to sit at zero');
+  assert.ok(!texts(tile[0]).some(t => /of 300/.test(t)));
+  const den = all(v.denNode(0, () => {}));
+  assert.ok(!den.some(n => (n.className || '').split(' ').includes('cr-bar')));
+  assert.ok(!texts(den[0]).some(t => /of 300/.test(t)));
+  assert.equal(docEl.dataset.mode, undefined);
+});
+
+test('the loops pause while the page is hidden, stop under reduced motion, and the manifest is in the offline list', () => {
+  const classes = new Set();
+  const doc = { hidden: false, listeners: {}, addEventListener(t, f) { this.listeners[t] = f; }, documentElement: { classList: { toggle: (c, on) => (on ? classes.add(c) : classes.delete(c)) } } };
+  const set = L2.pauseWhenHidden(doc);
+  assert.equal(classes.has('cr-paused'), false);
+  doc.hidden = true; doc.listeners.visibilitychange();
+  assert.equal(classes.has('cr-paused'), true);
+  doc.hidden = false; doc.listeners.visibilitychange();
+  assert.equal(classes.has('cr-paused'), false);
+  assert.doesNotThrow(() => L2.pauseWhenHidden({}));
+  const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
+  assert.match(css, /html\.cr-paused \.cr-tile \*[^{]*\{ animation-play-state: paused/);
+  assert.match(css, /prefers-reduced-motion: reduce\) \{ \.cr-tile/);
+  const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  assert.ok(sw.includes("'creatures/manifest.json'"));
+  assert.match(css, /\.cr-body \{[^}]*padding-bottom: 22px/, 'room under the status line for "Tap to open the Den"');
 });
