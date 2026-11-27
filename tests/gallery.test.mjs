@@ -279,7 +279,7 @@ test('hardening: no HTML from the server is ever parsed (text nodes only), ids a
   assert.ok(!desk.includes('galleryEntryNode'), 'the Bulletin Board no longer carries the entry');
   const appSrc = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.match(appSrc, /try \{ const card = panel\.querySelector\('\.panel-card'\); if \(card\) card\.append\(galleryEntryNode\(\)\); \} catch/);
-  assert.match(appSrc, /import \{ stopGallery, galleryEntryNode \} from '\.\/cas-gallery\.js\?v=cas104'/);
+  assert.match(appSrc, /import \{ stopGallery, galleryEntryNode \} from '\.\/cas-gallery\.js\?v=cas109'/);
   assert.match(desk, /onChoice: \(\) => invalidateGallery\(\)/);
   const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.ok(sw.includes("'js/cas-gallery.js'") && sw.includes("'js/cas-gallery-logic.js'"));
@@ -328,10 +328,86 @@ test('every module changed in this stack carries the one new tag in every import
   for (const m of changed) {
     const tags = [...files.matchAll(new RegExp('\\./' + m + '\\.js\\?v=(cas\\d+)', 'g'))].map(x => x[1]);
     assert.ok(tags.length, m + ' is imported');
-    const want = m === 'cas-desk' ? 'cas107' : 'cas104';   // cas-desk changed again (stuck note box): new tag; the rest are unchanged
+    const want = m === 'cas-desk' || m === 'cas-gallery' ? 'cas109' : 'cas104';   // cas-desk and cas-gallery changed again (gallery overlay fix): new tag; the rest are unchanged
     assert.ok(tags.every(t => t === want), m + ' carries ' + want + ' everywhere: ' + tags);
   }
-  assert.match(files, /js\/app\.js\?v=cas108/);
+  assert.match(files, /js\/app\.js\?v=cas109/);
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.ok(/forgetRank\(\)/.test(app));
+});
+
+// ---- the empty gallery froze the app on the phone: the overlay sat under the header and the bottom bar, so its Close button could not be seen or reached while the app behind it was switched off
+
+test('freeze: the gallery and reveal overlays sit above every piece of the Station frame and take their margins from the phone, not from a variable nothing sets', () => {
+  const css = ['station.css', 'cas-identity.css', 'cas-chat.css', 'cas-threads.css', 'cas-missions.css', 'features.css', 'station-theme.css', 'cas-desk.css']
+    .map(n => readFileSync(new URL('../css/' + n, import.meta.url), 'utf8')).join('\n');
+  const frame = [];
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const z = m[2].match(/z-index:\s*(\d+)/);
+    if (z && !/\.gal-|\.rv-|\.rankup|\.dk-sheetwrap/.test(m[1])) frame.push(Number(z[1]));
+  }
+  assert.ok(frame.length > 10 && Math.max(...frame) >= 200, 'found the frame layers');
+  for (const sel of ['gal-overlay', 'rv-overlay']) {
+    const rule = css.match(new RegExp('\.' + sel + ' \{([^}]*)\}'))[1];
+    assert.ok(Number(rule.match(/z-index:\s*(\d+)/)[1]) > Math.max(...frame), sel + ' is above the header, the bottom bar and the Cas sheets');
+    assert.ok(/env\(safe-area-inset-top/.test(rule) && /env\(safe-area-inset-bottom/.test(rule), sel + ' keeps clear of the notch and the home bar');
+    assert.ok(!/var\(--top|var\(--bot/.test(rule), sel + ' does not rely on --top and --bot, which the app never sets');
+  }
+  assert.ok(!/--top\s*:|--bot\s*:/.test(readFileSync(new URL('../js/app.js', import.meta.url), 'utf8') + css), 'nothing in the app sets --top or --bot');
+});
+
+test('freeze: an empty gallery opens as a short friendly card, and Close, the dark area and Escape each give the whole app back', async () => {
+  for (const way of ['close', 'backdrop', 'escape']) {
+    const { body, docListeners } = makeDom();
+    const g = await fresh();
+    const s = server([]);
+    g.initGallery({ apiBase: '', getToken: () => 't', fetch: s.f, say: () => {} });
+    const frame = document.createElement('div'); body.append(frame);
+    const box = g.galleryEntryNode(); frame.append(box);
+    await g.loadGallery(true);
+    all(box).find(n => n.tag === 'button').click();
+    const shell = body.children.find(c => c.className === 'gal-overlay');
+    assert.ok(shell, 'it opened');
+    const card = shell.children[0];
+    assert.equal(card.className, 'gal-card gal-short', 'a short card, so the dark area below it can be tapped');
+    assert.ok(texts(shell).includes('Finish a card to earn your first picture.'));
+    assert.equal(frame.inert, true, 'the app behind is switched off while it is open');
+    if (way === 'close') all(shell).find(n => n.className === 'gal-close').click();
+    else if (way === 'backdrop') shell.listeners.click.forEach(f => f({ target: shell }));
+    else docListeners.keydown.forEach(f => f({ key: 'Escape' }));
+    assert.ok(!body.children.includes(shell), way + ' closed it');
+    assert.equal(frame.inert, false, way + ' switched the app back on');
+  }
+});
+
+test('freeze: a failed, slow-to-fail, empty or odd list never leaves the overlay without a way out and never throws', async () => {
+  const bodies = [
+    { name: 'server error', opts: { listStatus: 500 } },
+    { name: 'signed out', opts: { listStatus: 401 } },
+    { name: 'not found', opts: { listStatus: 404 } },
+    { name: 'no list at all', raw: () => null },
+    { name: 'a list that is not a list', raw: () => ({ pictures: 'none' }) },
+    { name: 'a bare array', raw: () => [] },
+    { name: 'rows that are not pictures', raw: () => ({ pictures: [null, 5, 'x', {}, { id: '../x', state: 'kept' }, { id: 'ok', state: 'pending' }] }) },
+    { name: 'the answer cannot be read', raw: () => { throw new Error('bad json'); } },
+    { name: 'the network drops', fail: true },
+  ];
+  for (const b of bodies) {
+    const { body } = makeDom();
+    const g = await fresh();
+    const base = server([], b.opts || {});
+    const f = b.fail ? async () => { throw new TypeError('Load failed'); }
+      : b.raw ? async (u, i) => (/pictures$/.test(u) ? { ok: true, status: 200, json: async () => b.raw() } : base.f(u, i)) : base.f;
+    g.initGallery({ apiBase: '', getToken: () => 't', fetch: f, say: () => {} });
+    const frame = document.createElement('div'); body.append(frame);
+    const box = g.galleryEntryNode(); frame.append(box);
+    await g.loadGallery(true);
+    all(box).find(n => n.tag === 'button').click();
+    const shell = body.children.find(c => c.className === 'gal-overlay');
+    assert.ok(shell, b.name + ': it opened');
+    assert.ok(texts(shell).some(t => /Finish a card|Not available right now|Loading/.test(t)), b.name + ': it says something plain');
+    assert.equal(shell.children[0].className, 'gal-card gal-short', b.name + ': a short card');
+    all(shell).find(n => n.className === 'gal-close').click();
+    assert.ok(!body.children.includes(shell) && frame.inert === false, b.name + ': Close gives the app back');
+  }
 });

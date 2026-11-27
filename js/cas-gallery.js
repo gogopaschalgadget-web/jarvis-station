@@ -267,6 +267,7 @@ function openGrid() {
   const draw = () => {
     dropObservers(body);
     body.replaceChildren();
+    card.className = _list.length ? 'gal-card' : 'gal-card gal-short';
     if (!_list.length) { body.append(el('p', 'gal-empty', _state === 'failed' || _stopped ? 'Not available right now.' : _state !== 'ready' ? 'Loading...' : 'Finish a card to earn your first picture.')); return; }
     const plain = professional();
     const grid = el('div', plain ? 'gal-list' : 'gal-grid');
