@@ -89,7 +89,14 @@ test('the art shipped is exactly what the manifest lists, all small, with the wo
   const forms = normalizeForms(m);
   assert.deepEqual(forms.wolf.map(f => [f.from, f.name]), [[1, 'Cog Pup'], [3, 'Spring Runner'], [5, 'Gear Hunter'], [7, 'Steel Alpha'], [8, 'Brass Veteran'], [9, 'Iron Warden'], [10, 'Clockwork Legend']]);
   for (const f of forms.wolf) assert.ok(listed.has(f.file) && existsSync(new URL('../creatures/' + f.file, import.meta.url)), f.file);
-  assert.deepEqual([...new Set([...listed].map(f => f.split('/')[0]))].sort(), ['bull', 'egg', 'lava', 'moss', 'squirrel', 'stag', 'wolf'], 'the six approved species and the neutral egg, nothing else');
+  const folders = [...new Set([...listed].map(f => f.split('/')[0]))].sort();
+  const SIX = ['bull', 'lava', 'moss', 'squirrel', 'stag', 'wolf'];
+  const own = folders.filter(d => d.startsWith('egg-'));
+  assert.deepEqual(folders.filter(d => !d.startsWith('egg-')), ['bull', 'egg', 'lava', 'moss', 'squirrel', 'stag', 'wolf'], 'the six approved species and the neutral egg');
+  for (const d of own) {
+    assert.ok(SIX.includes(d.slice(4)), d + ' is the egg of one of the six species');
+    for (const f of [...listed].filter(x => x.startsWith(d + '/'))) assert.match(f, /^egg-[a-z]+\/egg-[0-4]-(whole|wobble|cracks|wide|burst)\.webp$/, f + ' uses the five egg names');
+  }
   assert.match(m.note, /awaiting approval/, 'the egg is marked as not yet approved');
 });
 

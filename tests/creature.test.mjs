@@ -314,3 +314,52 @@ test('each species can have its own egg: chosen by species, step by step, the ne
   assert.equal(L.burstEggFile({ species: 'stag' }, () => false), null);
   assert.ok(L.normalizeManifest({ files: ['egg-stag/egg-0-whole.webp'] }).has('egg-stag/egg-0-whole.webp'), 'the manifest accepts the species egg folders');
 });
+
+// ---- the egg picture follows the species in the server's read (server: the species is fixed when the creature starts)
+const SERVER_SPECIES = ['lava', 'stag', 'moss', 'wolf', 'bull', 'squirrel'];
+const STEP_FILES = { null: 'egg-0-whole', wobble: 'egg-1-wobble', cracks1: 'egg-2-cracks', cracks2: 'egg-3-wide', hatch: 'egg-3-wide' };
+const allEggs = () => new Set(['egg', ...SERVER_SPECIES.map(sp => 'egg-' + sp)].flatMap(d => ['egg-0-whole', 'egg-1-wobble', 'egg-2-cracks', 'egg-3-wide', 'egg-4-burst'].map(n => `${d}/${n}.webp`)));
+
+test('the species keys are the server keys, the same six', () => {
+  assert.deepEqual(Object.keys(L.SPECIES).sort(), [...SERVER_SPECIES].sort());
+});
+
+test('every species egg: the server read of an egg names the species and each step shows creatures/egg-<species>/ when that file exists', () => {
+  const files = allEggs();
+  for (const sp of SERVER_SPECIES) {
+    for (const [step, name] of Object.entries(STEP_FILES)) {
+      const c = read(egg({ species: sp, species_name: 'x', egg_step: step === 'null' ? null : step, art: null })).creature;
+      assert.equal(c.species, sp);
+      assert.equal(L.pickArt(c, files), `creatures/egg-${sp}/${name}.webp`, `${sp} ${step}`);
+    }
+    assert.equal(L.burstEggFile({ species: sp }, f => files.has(f)), `egg-${sp}/egg-4-burst.webp`);
+  }
+});
+
+test('the neutral egg stays the fallback: a read with no species, a species with no egg folder yet, or one missing step', () => {
+  const neutralOnly = allEggs();
+  for (const f of [...neutralOnly]) if (f.startsWith('egg-')) neutralOnly.delete(f);
+  for (const sp of SERVER_SPECIES) assert.equal(L.pickArt(read(egg({ species: sp, egg_step: null, art: null })).creature, neutralOnly), 'creatures/egg/egg-0-whole.webp', sp + ' has no egg folder yet');
+  assert.equal(L.pickArt(read(egg({ egg_step: null, art: null })).creature, allEggs()), 'creatures/egg/egg-0-whole.webp', 'no species in the read (today live server)');
+  assert.equal(L.pickArt(read(egg({ species: null, egg_step: 'wobble', art: null })).creature, allEggs()), 'creatures/egg/egg-1-wobble.webp');
+  const partial = allEggs(); partial.delete('egg-lava/egg-2-cracks.webp');
+  assert.equal(L.pickArt(read(egg({ species: 'lava', egg_step: 'cracks1', art: null })).creature, partial), 'creatures/egg/egg-2-cracks.webp', 'only the missing step falls back');
+  assert.equal(L.pickArt(read(egg({ species: 'lava', egg_step: 'wobble', art: null })).creature, partial), 'creatures/egg-lava/egg-1-wobble.webp', 'the other steps keep the species egg');
+  assert.equal(L.burstEggFile({ species: 'lava' }, f => neutralOnly.has(f)), 'egg/egg-4-burst.webp');
+});
+
+test('a species that is not one of the six, or is a path trick, never builds a path', () => {
+  for (const bad of ['dragon', '../egg', 'lava/../..', '__proto__', 'constructor', 'Lava', '', 5, {}, []]) {
+    const c = read(egg({ species: bad, egg_step: null, art: null })).creature;
+    assert.equal(c.species, null, String(bad));
+    assert.equal(L.pickArt(c, allEggs()), 'creatures/egg/egg-0-whole.webp');
+  }
+});
+
+test('the egg that hatches keeps the species it showed: the same species egg, then the same species creature', () => {
+  const sp = 'moss';
+  const eggRead = read(egg({ species: sp, egg_step: 'hatch', art: null })).creature;
+  assert.equal(L.pickArt(eggRead, allEggs()), 'creatures/egg-moss/egg-3-wide.webp');
+  const born = read(mon({ species: sp, stage: 'hatchling', level: 1 })).creature;
+  assert.equal(born.species, eggRead.species);
+});
