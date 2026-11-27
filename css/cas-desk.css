@@ -239,8 +239,8 @@ textarea.dk-whyin { min-height: 72px; resize: vertical; line-height: 1.35; }
 .bb-desk span { display: block; margin-top: 4px; font: 700 11.5px var(--dk-ui); color: var(--dk-text); }
 .bb-desk em { display: block; margin-top: 4px; font: 700 11px var(--dk-ui); font-style: normal; color: #8a7a5a; }
 
-.rv-overlay { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); background: #000c; }
-.rv-card { width: 100%; max-width: 420px; padding: 12px; border-radius: 12px; border: 2px ridge var(--dk-brass); background: linear-gradient(#2a2010, #14100a); }
+.rv-overlay { position: fixed; inset: 0; z-index: 500; display: flex; justify-content: center; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); background: #000c; }
+.rv-card { margin: auto; width: 100%; max-width: 420px; padding: 12px; border-radius: 12px; border: 2px ridge var(--dk-brass); background: linear-gradient(#2a2010, #14100a); }
 .rv-head { margin: 0 0 8px; font: 900 13px var(--dk-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--dk-brass-hi); }
 .rv-frame { position: relative; overflow: hidden; border-radius: 10px; border: 2px solid #3c3423; background: #0b0905; }
 .rv-img { display: block; width: 100%; height: auto; max-height: 52vh; object-fit: contain; }

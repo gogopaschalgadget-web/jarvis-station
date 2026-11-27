@@ -27,7 +27,7 @@ const overlay = () => body.find(e => e.className === 'rv-overlay');
 let n = 0;
 const store = {};
 globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
-async function fresh(handler, keep = false) {
+async function fresh(handler, keep = false, extra = {}) {
   body.length = 0; keyListeners.clear();
   if (!keep) Object.keys(store).forEach(k => delete store[k]);
   const calls = [];
@@ -37,7 +37,7 @@ async function fresh(handler, keep = false) {
   URL.revokeObjectURL = u => { revoked.push(u); };
   const m = await import('../js/cas-reveal.js?t=' + (++n));
   m.initReveal({
-    apiBase: 'https://api.test', getToken: () => 't', say: t => said.push(t),
+    apiBase: 'https://api.test', getToken: () => 't', say: t => said.push(t), ...extra,
     fetch: async (url, o) => {
       const path = url.split('/api/station/pictures')[1];
       calls.push((o.method || 'GET') + ' ' + path);
@@ -222,5 +222,98 @@ test('closing with the close button or Escape counts as Keep, also after X was t
   find(overlay(), e => e.className === 'rv-close').click(); await tick();
   assert.equal(overlay(), undefined);
   assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 1);
+  t.restore();
+});
+
+// ---- the card must never hold the screen: it closes at once and the choice is saved afterwards
+
+const ready = (choice) => async (path, o) => (path === '/reveal' ? json({ status: 'ready', picture_id: 'p1' }) : path === '/p1/picture' ? jpg() : choice(path, o));
+const open = async t => { await t.m.requestReveal('card1'); await tick(); assert.ok(overlay(), 'the card is open'); };
+
+test('freeze: a server that never answers cannot hold the card: every way of closing it works at once, then the choice is kept, retried three times and said plainly', async () => {
+  for (const way of ['close', 'keep', 'star', 'reject', 'escape', 'dark area']) {
+    const onChoice = [];
+    const t = await fresh(ready(() => new Promise(() => {})), false, { timeoutMs: 30, retryMs: [20, 20, 20], onChoice: () => onChoice.push(1) });
+    await open(t);
+    const o = overlay();
+    if (way === 'close') find(o, e => e.className === 'rv-close').click();
+    else if (way === 'keep') find(o, e => e.textContent === 'Keep').click();
+    else if (way === 'star') find(o, e => e.textContent === 'Star').click();
+    else if (way === 'reject') { find(o, e => e.textContent === 'X').click(); find(o, e => e.className === 'rv-input').value = 'dull'; find(o, e => e.textContent === 'Send X').click(); }
+    else if (way === 'escape') pressEscape();
+    else o.listeners.click.forEach(f => f({ target: o }));
+    assert.equal(overlay(), undefined, way + ': closed at once, with the server still silent (no waiting)');
+    assert.equal(t.revoked.length, 1, way + ': the picture URL was released');
+    await tick(400);
+    assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 4, way + ': one send and exactly three retries, then it stops');
+    assert.ok(t.said.some(x => /not saved yet/i.test(x)), way + ': a plain notice: ' + t.said);
+    assert.equal(overlay(), undefined);
+    assert.equal(onChoice.length, 0);
+    t.restore();
+  }
+});
+
+test('freeze: a slow answer (the card is already gone) still saves, tells the gallery, and does not warn', async () => {
+  const onChoice = [];
+  const t = await fresh(ready(async () => { await tick(60); return json({ ok: true }); }), false, { timeoutMs: 500, onChoice: () => onChoice.push(1) });
+  await open(t);
+  find(overlay(), e => e.textContent === 'Keep').click();
+  assert.equal(overlay(), undefined, 'closed before the server answered');
+  assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 1);
+  await tick(150);
+  assert.equal(onChoice.length, 1, 'the gallery list refreshes once it is saved');
+  assert.equal(t.said.length, 0);
+  t.restore();
+});
+
+test('freeze: a dropped connection and a failed save close at once and are retried; a retry that works clears it and never sends again', async () => {
+  let n = 0;
+  const onChoice = [];
+  const t = await fresh(ready(async () => { n++; if (n < 3) throw new TypeError('Load failed'); return json({ ok: true }); }), false, { retryMs: [15, 15, 15], onChoice: () => onChoice.push(1) });
+  await open(t);
+  find(overlay(), e => e.textContent === 'Star').click();
+  assert.equal(overlay(), undefined);
+  await tick(300);
+  assert.equal(t.calls.filter(c => c === 'POST /p1/choice').length, 3, 'two failures then one success, and nothing more');
+  assert.equal(onChoice.length, 1);
+  assert.equal(t.said.filter(x => /not saved yet/i.test(x)).length, 1, 'one notice, not one per try');
+  t.restore();
+  const bad = await fresh(ready(async () => json({ detail: 'down' }, 503)), false, { retryMs: [15, 15, 15] });
+  await open(bad);
+  find(overlay(), e => e.textContent === 'Keep').click();
+  assert.equal(overlay(), undefined);
+  await tick(300);
+  assert.equal(bad.calls.filter(c => c === 'POST /p1/choice').length, 4);
+  assert.ok(bad.said.some(x => /not saved yet/i.test(x)));
+  bad.restore();
+});
+
+test('freeze: while a choice is being sent the same picture is not shown again by a poll', async () => {
+  const t = await fresh(async (path, o) => {
+    if (path === '/reveal') return json({ status: 'ready', picture_id: 'p1' });
+    if (path === '/p1/picture') return jpg();
+    if (path === '/p1/choice') return new Promise(() => {});
+    if (path === '') return json({ pictures: [{ id: 'p1', state: 'shown', rarity: 'common' }] });
+    return json({ ok: true });
+  }, false, { timeoutMs: 500, retryMs: [1000] });
+  await t.m.requestReveal('card1'); await tick();
+  find(overlay(), e => e.textContent === 'Keep').click();
+  await t.m.pollReveals(); await tick();
+  assert.equal(overlay(), undefined, 'not shown again while its choice is on its way');
+  t.restore();
+});
+
+test('freeze: a request for a picture that never answers ends by itself, so the next reveal is not stuck behind it', async () => {
+  const t = await fresh(async (path, o) => {
+    if (path === '/reveal') return json({ status: 'ready', picture_id: JSON.parse(o.body).card_id === 'card1' ? 'p1' : 'p2' });
+    if (path === '/p1/picture') return new Promise(() => {});
+    if (path === '/p2/picture') return jpg();
+    return json({ ok: true });
+  }, false, { timeoutMs: 40 });
+  t.m.requestReveal('card1'); await tick(5);
+  await t.m.requestReveal('card2');
+  assert.equal(overlay(), undefined, 'the second one waits its turn behind the silent one');
+  await tick(150);
+  assert.ok(overlay(), 'then the silent one gave up and the second one is shown');
   t.restore();
 });

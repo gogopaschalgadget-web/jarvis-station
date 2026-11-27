@@ -3,7 +3,7 @@
 import { renderBulletin, initOrders, loadOrders, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas93';
 import { syncLook } from './cas-themes.js?v=cas111';
 import { barAnimates } from './cas-reveal-logic.js?v=cas93';
-import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas104';
+import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas112';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';

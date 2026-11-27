@@ -285,18 +285,25 @@ html, body {
   padding: 6px 0; font-size: 13px;
 }
 
+/* A status dot says its state by shape, mark and lightness as well as colour: a light green round dot with a dark tick, a dark red square one with a white cross, each with a dark ring so it shows on the parchment. */
 .svc-dot {
-  display: inline-block; width: 8px; height: 8px;
-  border-radius: 50%; margin-right: 8px;
+  display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; vertical-align: -2px;
+  border-radius: 50%; margin-right: 8px; box-shadow: 0 0 0 1.5px #2b1a0b; color: #fff; font: 900 10px/1 sans-serif;
 }
-.svc-dot.alive { background: var(--accent-green); }
-.svc-dot.stale { background: var(--accent-red); }
+.svc-dot.alive { background: #6fd68c; color: #0b2e16; }
+.svc-dot.alive::after { content: "\2713"; }
+.svc-dot.stale { background: #a31d1d; border-radius: 3px; }
+.svc-dot.stale::after { content: "\2715"; }
 
 .flag-item {
   padding: 8px 12px; border-radius: 6px;
   font-size: 12px; margin-bottom: 6px;
   font-family: var(--font-mono);
 }
+.flag-item::before { margin-right: 6px; font-weight: 900; }
+.flag-ok::before { content: "\2713"; }
+.flag-warn::before { content: "!"; }
+.flag-error::before { content: "\2715"; }
 .flag-ok    { background: rgba(34,197,94,0.08); border-left: 3px solid var(--accent-green); }
 .flag-warn  { background: rgba(234,179,8,0.08); border-left: 3px solid var(--accent-yellow); }
 .flag-error { background: rgba(239,68,68,0.08); border-left: 3px solid var(--accent-red); }

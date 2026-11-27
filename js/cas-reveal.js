@@ -6,6 +6,8 @@ import {
 const STORE = 'reveal-waiting';
 const SCHEDULE_STORE = 'reveal-scheduled';
 const POLL_MS = 60000;
+const TIMEOUT_MS = 15000;
+const RETRY_MS = [10000, 30000, 90000];   // a choice that could not be saved is tried again three times, then left for the next poll
 let _o = { apiBase: '', getToken: () => '', say: () => {}, fetch: (...a) => fetch(...a) };
 let _waiting = [];
 let _scheduled = [];
@@ -37,14 +39,21 @@ const save = () => write(STORE, _waiting);
 const saveScheduled = () => write(SCHEDULE_STORE, _scheduled);
 
 async function call(path, body) {
-  try {
-    const res = await _o.fetch(`${_o.apiBase}/api/station/pictures${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
-      headers: { Authorization: 'Bearer ' + _o.getToken(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    return { ok: res.ok, status: res.status, res };
-  } catch { return { ok: false, status: 0, res: null }; }
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  let timer = 0;
+  const late = new Promise(done => { timer = setTimeout(() => { if (ctl) { try { ctl.abort(); } catch { /* already over */ } } done({ ok: false, status: 0, res: null }); }, _o.timeoutMs || TIMEOUT_MS); });
+  const go = (async () => {
+    try {
+      const res = await _o.fetch(`${_o.apiBase}/api/station/pictures${path}`, {
+        method: body === undefined ? 'GET' : 'POST',
+        headers: { Authorization: 'Bearer ' + _o.getToken(), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        ...(ctl ? { signal: ctl.signal } : {}),
+      });
+      return { ok: res.ok, status: res.status, res };
+    } catch { return { ok: false, status: 0, res: null }; }
+  })();
+  try { return await Promise.race([go, late]); } finally { clearTimeout(timer); }
 }
 
 async function json(r) { try { return await r.res.json(); } catch { return null; } }
@@ -125,12 +134,45 @@ function settle(cardId, rv) {
 
 async function flushPending() {
   for (const p of [..._pending]) {
+    if (p.sending) continue;
     const r = await call('/' + encodeURIComponent(p.id) + '/choice', p.body);
     const act = r.ok ? 'drop' : failureAction(r.status);
     if (act === 'stop') { _stopped = true; return; }
     if (act !== 'later') _pending = _pending.filter(x => x !== p);
     if (act === 'drop') _skip.add(p.id);
+    if (r.ok && _o.onChoice) { try { _o.onChoice(); } catch { /* the gallery list refreshes by itself */ } }
   }
+}
+
+/** A choice that could not be saved is tried again after 10 s, 30 s and 90 s (never more); after that it waits for the next poll, and the picture shows again if it was never saved. */
+function retrySoon(attempt = 0) {
+  const waits = _o.retryMs || RETRY_MS;
+  if (_stopped || !_pending.length || attempt >= waits.length) return;
+  later(async () => {
+    if (_stopped || !_pending.length) return;
+    await flushPending();
+    if (_pending.length) retrySoon(attempt + 1);
+  }, waits[attempt]);
+}
+
+/** Sends a choice after the card has closed. The answer never holds the screen: a failure says so plainly and the choice is kept and retried. */
+async function sendChoice(entry) {
+  const { id, body } = entry;
+  const r = await call('/' + encodeURIComponent(id) + '/choice', body);
+  entry.sending = false;
+  if (r.ok) {
+    _pending = _pending.filter(p => p !== entry);
+    const line = replacementLine(await json(r));
+    if (line) _o.say(line);
+    if (_o.onChoice) { try { _o.onChoice(); } catch { /* the gallery list refreshes by itself */ } }
+    return;
+  }
+  const act = failureAction(r.status);
+  if (act === 'stop') { _stopped = true; _o.say('The sign-in has expired. Sign in again.'); }
+  else if (act === 'later') {
+    _o.say('Your choice is not saved yet. It will try again.');
+    retrySoon();
+  } else { _pending = _pending.filter(p => p !== entry); _skip.add(id); }
 }
 
 /** Ask again for every waiting card (the answer is repeatable), send choices that could not be saved, and pick up any picture not yet answered, also after the app was reopened. */
@@ -181,7 +223,7 @@ async function pictureUrl(id) {
 
 function reduced() { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } }
 
-/** The reveal sheet. It can always be closed (Close, Escape): a failed save is kept to retry quietly later and never traps the screen. */
+/** The reveal sheet. It closes at once on Close, Keep, Star, X, Escape or a tap on the dark area; the choice is saved afterwards, and a failed save is kept, retried and said plainly, so it never traps the screen and is never silently lost. */
 function show(item) {
   return new Promise(async done => {
     let url = null;
@@ -220,23 +262,15 @@ function show(item) {
       card.append(frame);
       const status = el('p', 'rv-status', '');
       let busy = false;
-      const choose = async (choice, reason) => {
+      const choose = (choice, reason) => {
         if (busy || finished) return;
         const body = choiceBody(choice, reason);
         if (!body) return;
         busy = true;
-        const r = await call('/' + encodeURIComponent(item.id) + '/choice', body);
-        if (r.ok) {
-          const line = replacementLine(await json(r));
-          if (line) _o.say(line);
-          if (_o.onChoice) { try { _o.onChoice(); } catch { /* the gallery list refreshes by itself */ } }
-        } else {
-          const act = failureAction(r.status);
-          if (act === 'stop') { _stopped = true; _o.say('The sign-in has expired. Sign in again.'); }
-          else if (act === 'later') { _pending = addPending(_pending, { id: item.id, body }); _o.say('Not saved yet. It will try again.'); }
-          else _skip.add(item.id);
-        }
-        finish();
+        const entry = { id: item.id, body, sending: true };
+        _pending = addPending(_pending, entry);   // kept while it is sent, so the same picture is not shown again meanwhile
+        finish();   // the card closes at once, whatever the connection does
+        sendChoice(entry);
       };
       const closeBtn = el('button', 'rv-close', '✕');
       closeBtn.type = 'button';
@@ -263,7 +297,8 @@ function show(item) {
       reject.addEventListener('click', () => { why.hidden = false; input.focus(); });
       card.append(row, why, status);
       overlay.append(card);
-      onKey = e => { if (e.key === 'Escape') { e.preventDefault(); Promise.resolve(choose('keep')).finally(() => finish()); } };
+      onKey = e => { if (e.key === 'Escape') { e.preventDefault(); choose('keep'); } };
+      overlay.addEventListener('click', e => { if (e.target === overlay) choose('keep'); });
       document.addEventListener('keydown', onKey);
       document.body.append(overlay);
     } catch {
