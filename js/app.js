@@ -21,7 +21,7 @@ import {
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
-import { currentBuild, CHECKING, UNKNOWN } from './cas-build.js?v=cas120';
+import { currentBuild, CHECKING, UNKNOWN } from './cas-build.js?v=cas121';
 import { ROOMS, ROOM_COLORS, OP_STATUSES, PROGRESSION_STATES, TIER_COLORS } from './rooms.js';
 import { initRenderer, setDrawCallback, setRoomTapHandler, setApiData, requestRedraw, resetView } from './fortress.js';
 import { drawRooms, hexToRgba } from './room-views.js';

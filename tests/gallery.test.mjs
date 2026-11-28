@@ -331,7 +331,7 @@ test('every module changed in this stack carries the one new tag in every import
     const want = m === 'cas-desk' ? 'cas120' : ['cas-reveal', 'cas-gallery', 'cas-gallery-logic'].includes(m) ? 'cas117' : m === 'cas-themes' ? 'cas111' : 'cas104';   // the Epic word touches the gallery and reveal modules: cas117; cas-themes (Appearance directions) cas111; the rest are unchanged
     assert.ok(tags.every(t => t === want), m + ' carries ' + want + ' everywhere: ' + tags);
   }
-  assert.match(files, /js\/app\.js\?v=cas120/);
+  assert.match(files, /js\/app\.js\?v=cas121/);
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.ok(/forgetRank\(\)/.test(app));
 });
