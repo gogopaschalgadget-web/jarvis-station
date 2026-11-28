@@ -1,5 +1,5 @@
 // cas-creature.js - the creature tile on the Bulletin Board and the Den view. Reads GET /api/creature (a read with no side effects); server text goes in with textContent only.
-import { burstEggFile, normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
+import { burstEggFile, neutralEggFile, neutralBurstFile, normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas115';
 import { makeNameStore, nameCard, namePrompt, needsNamePrompt, VISIT_NOTE } from './cas-creature-name.js?v=cas118';
 import { nextEmote, emoteClass, cheerWords, EMOTE_MS, HATCH_MS } from './cas-creature-emotes.js?v=cas115';
 
@@ -130,7 +130,18 @@ function hatchOverlay() {
   const stage = el('div', 'cr-hatch-stage');
   const burst = burstEggFile(c, f => _files.has(f));
   const egg = burst ? el('img', 'cr-hatch-egg') : null;
-  if (egg) { egg.alt = ''; egg.src = 'creatures/' + burst; stage.append(egg); }
+  if (egg) {
+    egg.alt = '';
+    let swapped = false;
+    egg.addEventListener('error', () => {   // a species egg that will not load: the neutral burst egg once, then no egg at all (never a broken picture)
+      const plain = swapped ? null : neutralBurstFile(f => _files.has(f));
+      swapped = true;
+      if (plain && 'creatures/' + plain !== shown) { shown = 'creatures/' + plain; egg.src = shown; } else egg.style.display = 'none';
+    });
+    let shown = 'creatures/' + burst;
+    egg.src = shown;
+    stage.append(egg);
+  }
   const born = pictureNode(c, 'small');
   born.classList.add('cr-hatch-born');
   stage.append(born, el('span', 'cr-hatch-flash'));
@@ -184,8 +195,14 @@ export function pictureNode(c, cls = '') {
   const img = el('img', 'cr-img');
   img.alt = altWords(c);
   img.decoding = 'async';
-  img.addEventListener('error', place);
-  img.src = still;
+  let swapped = false;
+  img.addEventListener('error', () => {   // a species egg that will not load: the neutral egg of the same step once, then the placeholder
+    const plain = !swapped && c.phase === 'egg' ? neutralEggFile(c, f => _files.has(f)) : null;
+    swapped = true;
+    if (plain && 'creatures/' + plain !== shown) { shown = 'creatures/' + plain; img.src = shown; } else place();
+  });
+  let shown = still;
+  img.src = shown;
   box.append(img);
   return box;
 }

@@ -211,6 +211,10 @@ export function eggFile(c, has, step) {
   if (c.species && own(SPECIES, c.species) && has(`egg-${c.species}/${name}`)) return `egg-${c.species}/${name}`;
   return has(`egg/${name}`) ? `egg/${name}` : null;
 }
+/** The neutral egg for this step when the manifest lists it, else null: what shows when a species egg file fails to load. */
+export const neutralEggFile = (c, has, step) => { const f = 'egg/' + eggStepFile(c, step); return has(f) ? f : null; };
+/** The neutral burst egg when listed, else null. */
+export const neutralBurstFile = has => (has('egg/egg-4-burst.webp') ? 'egg/egg-4-burst.webp' : null);
 /** The burst egg of the hatching: the species' own, else the neutral one, else null. */
 export const burstEggFile = (c, has) => { const name = 'egg-4-burst.webp'; return c.species && own(SPECIES, c.species) && has(`egg-${c.species}/${name}`) ? `egg-${c.species}/${name}` : has(`egg/${name}`) ? `egg/${name}` : null; };
 export const eggSlotFile = c => (c.phase === 'egg' ? 'creatures/egg/' + (c.eggStep ? EGG_ART[c.eggStep] : 'egg-0-whole') + '.webp' : null);
