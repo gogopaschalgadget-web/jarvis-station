@@ -21,6 +21,7 @@ import {
 // app.js - Station orchestrator. ES Module. No em-dashes. No hardcoded credentials.
 // Phase 4: Cas-first layout with live chat adapter. Preserves all existing panels.
 
+import { currentBuild, CHECKING, UNKNOWN } from './cas-build.js?v=cas120';
 import { ROOMS, ROOM_COLORS, OP_STATUSES, PROGRESSION_STATES, TIER_COLORS } from './rooms.js';
 import { initRenderer, setDrawCallback, setRoomTapHandler, setApiData, requestRedraw, resetView } from './fortress.js';
 import { drawRooms, hexToRgba } from './room-views.js';
@@ -1975,7 +1976,7 @@ function renderSettings() {
       <div class="stat-row"><span class="stat-label">Auto-refresh</span><span class="stat-value">${REFRESH_INTERVAL_MS/1000}s</span></div>
       <div class="stat-row"><span class="stat-label">API endpoint</span><span class="stat-value">/api/station/status</span></div>
       <div class="stat-row"><span class="stat-label">Device</span><span class="stat-value">${esc(getDeviceId().slice(0,8)||'?')}</span></div>
-      <div class="stat-row"><span class="stat-label">Version</span><span class="stat-value">2.5.0</span></div>
+      <div class="stat-row"><span class="stat-label">Build</span><span class="stat-value" id="build-value">${CHECKING}</span></div>
     </div>
     <div class="panel-card" style="cursor:pointer" id="reload-card">
       <div class="panel-card-title" style="color:var(--accent-cyan);text-align:center">Force Refresh</div>
@@ -1987,6 +1988,7 @@ function renderSettings() {
       <div class="panel-card-title" style="color:var(--accent-red,#ef4444);text-align:center">Unpair Device</div>
     </div>`;
   if (preferences) { preferences.hidden = false; panel.prepend(preferences); }
+  currentBuild(navigator, typeof caches !== 'undefined' ? caches : null).then(name => { const v = document.getElementById('build-value'); if (v) v.textContent = name || UNKNOWN; });
   renderScenesSettings(panel);
   renderThemeSettingsSafe(panel, deskProgress);
   document.getElementById('reload-card')?.addEventListener('click', () => location.reload());
