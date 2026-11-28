@@ -363,3 +363,14 @@ test('the egg that hatches keeps the species it showed: the same species egg, th
   const born = read(mon({ species: sp, stage: 'hatchling', level: 1 })).creature;
   assert.equal(born.species, eggRead.species);
 });
+
+test('reduce motion: the hatching keeps the burst egg as a still, and a cheer or level-up shows a fixed ring, never an empty look', () => {
+  const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
+  const blocks = css.match(/@media \(prefers-reduced-motion: reduce\) \{[^\n]*/g) || [];
+  const mine = blocks.filter(b => /cr-hatch|cr-cheer/.test(b)).join('\n');
+  assert.match(mine, /\.cr-hatch-flash \{ display: none; \}/, 'the flash is hidden');
+  assert.ok(!/\.cr-hatch-egg, \.cr-hatch-flash \{ display: none; \}/.test(mine), 'the burst egg is no longer hidden');
+  assert.match(mine, /\.cr-hatch-egg \{[^}]*opacity: 1[^}]*\}/, 'the burst egg is a visible still');
+  assert.match(mine, /\.cr-tile\.cheer \.cr-pic[^{]*\{ box-shadow/, 'a finished card shows a still ring on the tile');
+  assert.match(mine, /\.cr-tile\.glow \.cr-pic[^{]*\{ box-shadow/, 'a level-up shows the same still ring');
+});
