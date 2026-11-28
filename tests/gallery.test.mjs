@@ -328,10 +328,10 @@ test('every module changed in this stack carries the one new tag in every import
   for (const m of changed) {
     const tags = [...files.matchAll(new RegExp('\\./' + m + '\\.js\\?v=(cas\\d+)', 'g'))].map(x => x[1]);
     assert.ok(tags.length, m + ' is imported');
-    const want = m === 'cas-desk' ? 'cas122' : ['cas-reveal', 'cas-gallery', 'cas-gallery-logic'].includes(m) ? 'cas117' : m === 'cas-themes' ? 'cas111' : 'cas104';   // the Epic word touches the gallery and reveal modules: cas117; cas-themes (Appearance directions) cas111; the rest are unchanged
+    const want = m === 'cas-desk' ? 'cas123' : ['cas-reveal', 'cas-gallery', 'cas-gallery-logic'].includes(m) ? 'cas117' : m === 'cas-themes' ? 'cas111' : 'cas104';   // the Epic word touches the gallery and reveal modules: cas117; cas-themes (Appearance directions) cas111; the rest are unchanged
     assert.ok(tags.every(t => t === want), m + ' carries ' + want + ' everywhere: ' + tags);
   }
-  assert.match(files, /js\/app\.js\?v=cas122/);
+  assert.match(files, /js\/app\.js\?v=cas123/);
   const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
   assert.ok(/forgetRank\(\)/.test(app));
 });

@@ -1,6 +1,6 @@
 // cas-creature.js - the creature tile on the Bulletin Board and the Den view. Reads GET /api/creature (a read with no side effects); server text goes in with textContent only.
 import { burstEggFile, neutralEggFile, neutralBurstFile, normalizeCreatureRead, normalizeManifest, normalizeForms, stageWord, pickArt, nameLine, barFraction, barWords, statusLine, motionClasses, traitChips, rewardLine, altWords, slotWords, SPECIES, STAGES, RARITIES, GEAR, SIZES } from './cas-creature-logic.js?v=cas119';
-import { makeNameStore, nameCard, namePrompt, needsNamePrompt, VISIT_NOTE } from './cas-creature-name.js?v=cas118';
+import { makeNameStore, nameCard, namePrompt, needsNamePrompt, VISIT_NOTE } from './cas-creature-name.js?v=cas123';
 import { nextEmote, emoteClass, cheerWords, EMOTE_MS, HATCH_MS } from './cas-creature-emotes.js?v=cas115';
 
 const TTL_MS = 30000;

@@ -54,5 +54,5 @@ test('the directions read on the parchment (the card ink, 4.5 to 1 or better) an
   const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
   assert.match(css, /\.how-list li \{[^}]*color: #2b1a0b/);
   assert.match(css, /#look-card \.look-help, \.st-scenes-help \{[^}]*color: #2b1a0b/);
-  assert.match(idx, /css\/cas-desk\.css\?v=31/);
+  assert.match(idx, /css\/cas-desk\.css\?v=32/);
 });
