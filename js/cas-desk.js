@@ -1,6 +1,6 @@
 // cas-desk.js - the Desk tab: every open card is a mission. Server text goes in with textContent only.
 
-import { renderBulletin, initOrders, loadOrders, addRow, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas93';
+import { renderBulletin, initOrders, loadOrders, addRow, loadDashboard, renderOrders, renderDashboard, dashLoops, ordersPill, typingInOrders } from './cas-orders.js?v=cas120';
 import { syncLook } from './cas-themes.js?v=cas111';
 import { barAnimates } from './cas-reveal-logic.js?v=cas117';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas117';
