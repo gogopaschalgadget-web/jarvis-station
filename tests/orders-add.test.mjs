@@ -1,7 +1,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addView, addFailText, onTodaysList, ADD_CAVEAT, ADD_NO_ANSWER, ON_LIST } from '../js/cas-orders-logic.js';
+import { addView, addFailText, alreadyListed, onTodaysList, ADD_CAVEAT, ADD_NO_ANSWER, ON_LIST } from '../js/cas-orders-logic.js';
 
 class El {
   constructor(tag) { this.tag = tag; this.className = ''; this.children = []; this.listeners = {}; this.attrs = {}; this.textContent = ''; this.disabled = false; this.type = ''; }
@@ -76,12 +76,31 @@ test('while waiting the button says it is working; after a refusal the server re
 });
 
 test('the server\'s own reason is shown for a 422, with a capital and a full stop; no answer and other failures read plainly', () => {
-  assert.equal(addFailText({ status: 422, json: { detail: "today's list is full (32 rows)" } }), "Today's list is full (32 rows).");
-  assert.equal(addFailText({ status: 422, json: { detail: "Today's sittings are full." } }), "Today's sittings are full.");
   assert.equal(addFailText({ status: 0, json: {} }), ADD_NO_ANSWER);
-  assert.equal(addFailText({ status: 429, json: {} }), 'Too many changes in a minute. Wait a moment.');
+  assert.equal(addFailText({ status: 429, json: {} }), 'Too many changes in a minute, wait a moment.');
   assert.equal(addFailText({ status: 500, json: { detail: 'boom' } }), 'Not added. Try again.');
   assert.equal(addFailText({ status: 422, json: {} }), 'Not added. Try again.');
+});
+
+// The real answers of POST /api/station/desk/orders/add, read from the server repo (engines/shared/station_orders.py, add(), the 422 FeedError texts; station_desk.py RateLimit, the 429 text).
+const REAL_422 = [
+  ['that card is not open', 'That card is not open.'],
+  ['that order was sent away, it comes back on its own day', 'That order was sent away, it comes back on its own day.'],
+  ["today's orders are full, finish a sitting first", "Today's orders are full, finish a sitting first."],
+  ['there is no plan yet, the PC has not sent a list', 'There is no plan yet, the PC has not sent a list.'],
+];
+test('the real server answers read as the server wrote them, with a capital and a full stop; the rate limit text too', () => {
+  for (const [detail, want] of REAL_422) assert.equal(addFailText({ status: 422, json: { detail } }), want, detail);
+  assert.equal(addFailText({ status: 429, json: { detail: 'too many changes in a minute, wait a moment' } }), 'Too many changes in a minute, wait a moment.');
+  assert.equal(addFailText({ status: 413, json: { detail: 'too large' } }), 'Not added. Try again.');
+  assert.equal(addFailText({ status: 422, json: { detail: 'not JSON' } }), 'Not JSON.', 'any other 422 reason is shown as the server gave it');
+});
+
+test("the server's 'already in today's orders' is a success, not a refusal", () => {
+  assert.equal(alreadyListed({ status: 422, json: { detail: "it is already in today's orders" } }), true);
+  assert.equal(alreadyListed({ status: 422, json: { detail: 'that card is not open' } }), false);
+  assert.equal(alreadyListed({ status: 500, json: { detail: "it is already in today's orders" } }), false);
+  assert.equal(alreadyListed(null), false);
 });
 
 test('a tap sends one POST to /orders/add with {key: card id}, the device login and a time limit signal', async () => {
@@ -120,8 +139,8 @@ test('success with a reply the Station cannot read still shows the mark and asks
 });
 
 test('refusal: the server\'s own reason (list full, sittings full) shows under the button, which stays ready', async () => {
-  for (const detail of ['the list is full at 32 rows', 'the sittings for today are full']) {
-    const t = await fresh(async () => json({ detail }, 422));
+  for (const detail of [...REAL_422.map(r => r[0]), 'too many changes in a minute, wait a moment']) {
+    const t = await fresh(async () => json({ detail }, detail.startsWith('too many') ? 429 : 422));
     assert.equal(await t.m.addToOrders('c3'), false);
     const row = t.m.addRow(open('c3'));
     const want = detail.replace(/^./, c => c.toUpperCase()) + '.';
@@ -206,4 +225,12 @@ test('the Desk draws the row on its open cards only, loads the list with the Des
   const px = re => Number((css.match(re) || [])[1]);
   assert.ok(px(/\.dk-add \{[^}]*min-height: (\d+)px/) >= 44);
   assert.ok(px(/\.dk-onlist \{[^}]*min-height: (\d+)px/) >= 44);
+});
+
+test("already in today's orders (the Station had not read the list): the card shows the mark, the list is read again, nothing red", async () => {
+  const t = await fresh(async (url, o) => (url.endsWith('/orders/add') ? json({ detail: "it is already in today's orders" }, 422) : json(ordersJson([{ ...ROW, id: 'c6', key: 'kc6' }]))));
+  assert.equal(await t.m.addToOrders('c6'), true);
+  await tick();
+  assert.ok(t.calls.some(c => c.url.endsWith('/orders') && c.method === 'GET'), 'the list is read again');
+  assert.deepEqual(texts(t.m.addRow(open('c6'))), ["On today's Orders"]);
 });

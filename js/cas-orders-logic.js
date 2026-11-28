@@ -191,11 +191,14 @@ export function addView(item, listed, add) {
   return { show: 'button', label: busy ? ADD_BUSY : a.state === 'noanswer' ? 'Try again' : ADD_LABEL, busy, caveat: ADD_CAVEAT, error: busy ? '' : a.state === 'refused' || a.state === 'noanswer' ? String(a.text || '') : '' };
 }
 
+/** The server answers 422 "it is already in today's orders" when the card is on the list already (the Station had not read the list yet): that is a success to show, not a refusal. */
+export const alreadyListed = res => !!res && res.status === 422 && !!res.json && typeof res.json.detail === 'string' && /already in today's orders/i.test(res.json.detail);
+
 /** The server's own reason for a refusal (422 detail), or a plain line for no answer or any other failure. */
 export function addFailText(res) {
   if (res.status === 0) return ADD_NO_ANSWER;
-  if (res.status === 429) return 'Too many changes in a minute. Wait a moment.';
   const d = res.json && typeof res.json.detail === 'string' ? res.json.detail.trim() : '';
+  if (res.status === 429) return d ? d.replace(/^./, c => c.toUpperCase()).replace(/[^.!?]$/, m => m + '.') : 'Too many changes in a minute, wait a moment.';
   if (res.status === 422 && d) return d.replace(/^./, c => c.toUpperCase()).replace(/[^.!?]$/, m => m + '.');
   return 'Not added. Try again.';
 }

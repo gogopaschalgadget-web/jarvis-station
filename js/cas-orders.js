@@ -2,7 +2,7 @@
 
 import {
   BLOCKS, agoText, hoursText, weekText, windowText, streakText, carryTag, statusInfo, proofInfo, tickAction, loopAction, numbersFor, numberView, bulletinSections,
-  tomorrowLocal, resetText, budgetLabel, timeWords, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote, onTodaysList, addView, addFailText,
+  tomorrowLocal, resetText, budgetLabel, timeWords, sittingTitle, normalizeOrders, normalizeDashboard, sittingGroups, quickGroup, quickTitle, rundownText, allDoneText, weekNote, onTodaysList, addView, addFailText, alreadyListed,
 } from './cas-orders-logic.js?v=cas93';
 
 const TIMEOUT_MS = 15_000;
@@ -134,6 +134,7 @@ export async function addToOrders(id) {
   _o.redraw();
   const seq = ++_seq;
   const res = await call('/orders/add', { key: id });
+  if (alreadyListed(res)) { _adds.set(id, { state: 'ok', text: '', at: Date.now() }); loadOrders(true); _o.redraw(); return true; }
   if (!res.ok) { _adds.set(id, { state: res.status === 0 ? 'noanswer' : 'refused', text: addFailText(res), at: Date.now() }); _o.redraw(); return false; }
   _adds.set(id, { state: 'ok', text: '', at: Date.now() });
   if (!apply(res.json, seq)) loadOrders(true);
