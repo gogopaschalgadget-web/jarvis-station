@@ -250,7 +250,7 @@ export function denNode(flags, onBack) {
   if (needsNamePrompt(c)) {
     prompt = namePrompt(document, () => {
       const box = card && card.querySelector ? card.querySelector('input') : null;
-      try { if (box) { box.scrollIntoView({ block: 'center', behavior: 'smooth' }); box.focus({ preventScroll: true }); } else if (card && card.scrollIntoView) card.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* the card stays where it is */ }
+      try { if (box) { box.scrollIntoView({ block: 'start', behavior: 'smooth' }); box.focus({ preventScroll: true }); } else if (card && card.scrollIntoView) card.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch { /* the card stays where it is */ }
     });
     den.append(prompt);
   }

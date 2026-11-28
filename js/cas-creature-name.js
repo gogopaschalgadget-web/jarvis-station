@@ -108,7 +108,7 @@ export function nameCard(doc, { number, current, suggested, store, onSaved, note
     input.setAttribute('aria-label', title);
     const go = el(doc, 'button', 'cr-name-go', confirmWords);
     go.type = 'submit';
-    const lift = () => { try { setTimeout(() => { if (f.scrollIntoView) f.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300); } catch { /* the page stays where it is */ } };
+    const lift = () => { try { setTimeout(() => { if (f.scrollIntoView) f.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 300); } catch { /* the page stays where it is */ } };
     input.addEventListener('focus', () => {
       lift();
       try { if (typeof visualViewport !== 'undefined' && visualViewport && visualViewport.addEventListener) visualViewport.addEventListener('resize', lift, { once: true }); } catch { /* no viewport events */ }

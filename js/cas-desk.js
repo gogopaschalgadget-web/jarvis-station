@@ -135,7 +135,7 @@ async function post(path, body) {
 function say(text, undo) {
   clearTimeout(_toastTimer);
   _toast = { text, undo };
-  draw();
+  drawQuiet();
   _toastTimer = setTimeout(() => { _toast = null; const n = _panel && _panel.querySelector('.dk-toast'); if (n) n.remove(); }, TOAST_MS);
 }
 
@@ -156,7 +156,7 @@ async function answer(id, kind, extra = {}) {
   const xp = kind === 'done' || kind === 'choice' ? xpLine(res.json) : '';
   const up = rankUpOf(res.json);
   if (kind === 'done') scheduleReveal(id); else if (kind === 'undo') cancelReveal(id);
-  if (kind === 'done' || kind === 'choice') { try { cheer(res.json.xp_gained); loadCreature(true).then(() => { if (_panel) draw(); }); } catch { /* a nicety */ } }
+  if (kind === 'done' || kind === 'choice') { try { cheer(res.json.xp_gained); loadCreature(true).then(() => { if (_panel) drawQuiet(); }); } catch { /* a nicety */ } }
   say(kind === 'undo' ? 'Undone.' : [res.json.line || 'Saved.', xp, up ? 'Rank up: ' + up.name + '.' : ''].filter(Boolean).join(' '), undoable ? () => answer(id, 'undo') : null);
   await load(true);
 }
@@ -967,6 +967,11 @@ function toastNode() {
   return t;
 }
 
+function typingInName() { const a = typeof document !== 'undefined' ? document.activeElement : null; return !!(a && a.classList && a.classList.contains('cr-name-input')); }
+
+/** A redraw nobody tapped for (a toast, a refresh, the creature arriving): it waits while a name is being typed, so the box is never wiped. A tap still redraws at once. */
+function drawQuiet() { if (!typingInName()) draw(); }
+
 function draw() {
   const panel = _panel;
   if (!panel) return;
@@ -1175,7 +1180,7 @@ async function doLoad(force) {
     _state = data.feed && Array.isArray(data.feed.items) ? 'ready' : 'empty';
     _loadedAt = Date.now();
     if (_state === 'ready') { try { _place.prune(data.feed.items.filter(i => i && i.status === 'open').map(i => String(i.id))); restorePlace(); } catch { /* his place is a nicety */ } }
-    try { loadCreature(false).then(r => { if (r && _panel && _sub === LANDING_SUB) draw(); }); } catch { /* the Desk never depends on the creature */ }
+    try { loadCreature(false).then(r => { if (r && _panel && _sub === LANDING_SUB) drawQuiet(); }); } catch { /* the Desk never depends on the creature */ }
     _refreshFailed = false;
   } catch {
     if (_state !== 'ready') _state = 'failed';
@@ -1184,7 +1189,7 @@ async function doLoad(force) {
     clearTimeout(timer);
     _inflight = false;
   }
-  draw();
+  drawQuiet();
   applyPlaceScroll();
   _onData();
 }

@@ -374,3 +374,35 @@ test('reduce motion: the hatching keeps the burst egg as a still, and a cheer or
   assert.match(mine, /\.cr-tile\.cheer \.cr-pic[^{]*\{ box-shadow/, 'a finished card shows a still ring on the tile');
   assert.match(mine, /\.cr-tile\.glow \.cr-pic[^{]*\{ box-shadow/, 'a level-up shows the same still ring');
 });
+
+const lumOf = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+
+test('should-fix S2, S3, S8: tag tap target 44 px, picture line contrast 4.5 to 1 on the darker parchment, overlay offset follows the bar', () => {
+  const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
+  assert.match(css, /\.dk-eff \{[^}]*min-height: 44px; min-width: 44px;/);
+  const ink = css.match(/\.dk-reward \{[^}]*color: (#[0-9a-f]{6});/)[1];
+  const darkParchment = 0.3968;   // the darker right end of the card parchment (measured in the review of 4e9c7b1)
+  assert.ok((darkParchment + 0.05) / (lumOf(ink) + 0.05) >= 4.5, `contrast of ${ink}`);
+  assert.ok(!/92px/.test(css.match(/\.cr-cheer \{[^}]*\}/)[0]) && /var\(--nav-height/.test(css.match(/\.cr-cheer \{[^}]*\}/)[0]), 'cheer offset follows --nav-height');
+  assert.ok(/\.cr-hatch \{[^}]*var\(--nav-height/.test(css), 'hatch offset follows --nav-height');
+  assert.ok(!/--sab/.test(css.match(/\.cr-hatch \{[^}]*\}/)[0]), 'the undefined --sab is gone');
+});
+
+test('should-fix S1: a toast, a refresh or the creature arriving never redraws while a name is being typed; a tap still does', () => {
+  const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
+  assert.match(desk, /function typingInName\(\)[^\n]*cr-name-input/);
+  assert.match(desk, /function drawQuiet\(\) \{ if \(!typingInName\(\)\) draw\(\); \}/);
+  assert.match(desk, /_toast = \{ text, undo \};\s*drawQuiet\(\);/, 'say');
+  assert.match(desk, /_sub === LANDING_SUB\) drawQuiet\(\)/, 'the creature arriving');
+  assert.match(desk, /else _refreshFailed = true;[\s\S]{0,120}drawQuiet\(\);\s*applyPlaceScroll\(\);\s*_onData\(\);/, 'the end of a load (the quiet draw, then his saved place)');
+  assert.match(desk, /function draw\(\) \{\s*const panel = _panel;\s*if \(!panel\) return;\s*if \(\(_sub/, 'draw itself is not blocked, so Back and the tabs always work');
+});
+
+test('should-fix S4: the name box scrolls to the top of the view, with room above, so the keyboard does not cover Name it', () => {
+  const nm = readFileSync(new URL('../js/cas-creature-name.js', import.meta.url), 'utf8');
+  const cr = readFileSync(new URL('../js/cas-creature.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../css/cas-desk.css', import.meta.url), 'utf8');
+  assert.ok(!/block: 'center'/.test(nm) && /block: 'start'/.test(nm));
+  assert.ok(!/block: 'center'/.test(cr) && /block: 'start'/.test(cr));
+  assert.match(css, /\.cr-name-form \{ scroll-margin-top: 72px;/);
+});
