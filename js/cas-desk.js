@@ -6,6 +6,7 @@ import { barAnimates } from './cas-reveal-logic.js?v=cas117';
 import { initReveal, scheduleReveal, cancelReveal, pollReveals, revealWaiting } from './cas-reveal.js?v=cas117';
 import { normalizeStuckMeta, stuckStatus, clockNow, ageSeconds, heldLine, heldRepeated, slideFraction, slideDone, normalizeRepairXp, repairChip, STUCK_MAX, countLine, countNear, oneLine, UNSTUCK_NOTE, SEND_NOTE } from './cas-stuck.js?v=cas107';
 import { normalizeEffort, effortTag, earnedTag, ruleOf, previewOf, promiseTag, pictureLine, whyLine } from './cas-effort.js?v=cas114';
+import { makePlaceStore, restoreTargetOf, wantsDeskOf } from './cas-place.js?v=cas120';
 import { initCreature, loadCreature, tileNode, denNode, creatureShown, cheer, setRule } from './cas-creature.js?v=cas119';
 import { normalizeProgress, xpLine, rankUpOf, plateFor, nextPlate, makeRankMemory } from './cas-progress.js?v=cas104';
 import { showRankUp } from './cas-rankup.js?v=cas104';
@@ -48,6 +49,14 @@ if (typeof document !== 'undefined' && document.addEventListener) document.addEv
 export function forgetRank() { _rankMemory.forget(); }
 const _rankMemory = makeRankMemory((() => { try { return localStorage; } catch { return null; } })());
 const _open = new Set();
+const _place = makePlaceStore((() => { try { return localStorage; } catch { return null; } })());
+const _start = _place.get();   // where he was when the app started, read before anything writes a new place over it
+let _placeDone = false;
+let _placeScroll = null;
+/** For app.js: did he leave the Desk with a card open (so a start goes back there), remember which tab he is on, and forget it all on sign-out. */
+export const deskPlaceWanted = () => { try { return wantsDeskOf(_start); } catch { return false; } };
+export const rememberTab = tab => { try { _place.setTab(tab); } catch { /* no memory is fine */ } };
+export const forgetPlace = () => { try { _place.forget(); } catch { /* nothing to forget */ } };
 const _effOpen = new Set();
 let _den = false;
 const _whys = new Map();
@@ -142,6 +151,7 @@ async function answer(id, kind, extra = {}) {
   }
   _whys.delete(id);
   _need.delete(id);
+  if (kind === 'done' || kind === 'choice') _place.clearCard(id);   // the card is finished: its ticks and its place are forgotten
   const undoable = kind === 'choice' || kind === 'done' || kind === 'notnow';
   const xp = kind === 'done' || kind === 'choice' ? xpLine(res.json) : '';
   const up = rankUpOf(res.json);
@@ -223,6 +233,7 @@ function openCard(id) {
   const ids = openIds(_data);
   if (!ids.includes(id)) { say('That one is already done.'); return; }
   _open.add(id);
+  _place.setOpen(id);
   const items = itemsById(_data);
   _tile = tileAfterJump(_tile, items.get(id));
   if (viewFor(ids, items, _tile).indexOf(id) >= SHOWN) _moreOpen = true;
@@ -289,12 +300,27 @@ function toggleTerm(host, term) {
   host.after(box);
 }
 
-function stepsList(steps, terms, seen) {
+/** The tick box before a step: his ticks stay on this phone with the card, so he can leave to read another site and find his place again. */
+function tickBox(cardId, index, li, on) {
+  const b = el('button', 'dk-tick');
+  b.type = 'button';
+  b.setAttribute('role', 'checkbox');
+  b.setAttribute('aria-label', 'Step ' + (index + 1) + ' done');
+  b.append(el('span', 'dk-tick-m', '✓'));
+  const paint = v => { b.setAttribute('aria-checked', String(v)); li.classList.toggle('ticked', v); };
+  paint(on);
+  b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); paint(_place.toggle(cardId, index)); });
+  return b;
+}
+
+function stepsList(steps, terms, seen, cardId) {
   const ol = el('ol', 'dk-steps');
-  steps.forEach(s => {
+  const ticked = cardId ? _place.ticked(cardId) : new Set();
+  steps.forEach((s, i) => {
     const p = stepParts(s);
     const detail = stepDetail(s);
     const li = terms && terms.size ? richText('li', '', p.text, terms) : el('li', '', p.text);
+    if (cardId) li.prepend(tickBox(cardId, i, li, ticked.has(i)));
     if (detail.length) {
       const d = el('details', 'dk-sd');
       d.append(el('summary', '', 'Details'));
@@ -415,6 +441,7 @@ function openStuckSheet(item, why) {
 function goToMissions(c, id) {
   c.open = true;
   _open.add(id);
+  _place.setOpen(id);
   const target = c.querySelector('.dk-kids') || c.querySelector('.dk-acts');
   if (target && target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
@@ -489,7 +516,7 @@ function kidCard(item, done, stuckNow, parent, why, chip) {
     return k;
   }
   const seen = new Set();
-  if (item.steps && item.steps.length) k.append(stepsList(item.steps, null, seen));
+  if (item.steps && item.steps.length) k.append(stepsList(item.steps, null, seen, item.id));
   const row = chips(item.links, seen);
   if (row) k.append(row);
   k.append(actions(item, stuckNow));
@@ -775,6 +802,10 @@ function card(item, n, ctx) {
   c.open = _open.has(item.id);
   c.addEventListener('toggle', () => { if (c.open) _open.add(item.id); else _open.delete(item.id); });
   const top = el('summary', 'dk-top');
+  top.addEventListener('click', e => {   // only his own tap on the card top counts as opening or closing: a redraw also flips the card, and must not move his place
+    if (e.target && e.target.closest && e.target.closest('button, a, input, textarea')) return;
+    if (!c.open) _place.setOpen(item.id); else if (_place.get().open === item.id) _place.setOpen(null);
+  });
   top.append(el('span', 'dk-num', String(n)), el('span', 'dk-proj', words(item.project)), el('span', 'dk-kind dk-kind-' + item.kind, KIND[item.kind] || item.kind));
   const eff = normalizeEffort(item);
   const promise = previewOf(_data, item.id);
@@ -813,7 +844,7 @@ function card(item, n, ctx) {
     body.append(w);
   }
   const seen = new Set();
-  if (item.steps && item.steps.length) body.append(stepsList(item.steps, terms, seen));
+  if (item.steps && item.steps.length) body.append(stepsList(item.steps, terms, seen, item.id));
   if (item.values && item.values.length) body.append(valuesBlock(item.values, ctx.items));
   const row = chips(item.links, seen);
   if (row) body.append(row);
@@ -919,6 +950,7 @@ async function jumpToCard(id) {
   _sub = 'desk';
   _tile = null;
   _open.add(id);
+  _place.setOpen(id);
   draw();
   if (_state !== 'ready') await load(true);
   if (_state !== 'ready') { say('The Desk is not available right now.'); return; }
@@ -1142,6 +1174,7 @@ async function doLoad(force) {
     if (!_doneOpen) _lookBase = lastLook();
     _state = data.feed && Array.isArray(data.feed.items) ? 'ready' : 'empty';
     _loadedAt = Date.now();
+    if (_state === 'ready') { try { _place.prune(data.feed.items.filter(i => i && i.status === 'open').map(i => String(i.id))); restorePlace(); } catch { /* his place is a nicety */ } }
     try { loadCreature(false).then(r => { if (r && _panel && _sub === LANDING_SUB) draw(); }); } catch { /* the Desk never depends on the creature */ }
     _refreshFailed = false;
   } catch {
@@ -1152,6 +1185,7 @@ async function doLoad(force) {
     _inflight = false;
   }
   draw();
+  applyPlaceScroll();
   _onData();
 }
 
@@ -1164,6 +1198,56 @@ export function preloadDesk(done) { _onData = done || (() => {}); load(false); }
 /** The checked progress block of the last Desk read, or null. */
 export function deskProgress() { return normalizeProgress(_data && _data.progress); }
 
+/** Once per start: if he left a card open, open it again (the Work Desk, that card, its place in the list). The ticks come back with the card itself. */
+function restorePlace() {
+  if (_placeDone || _state !== 'ready') return;
+  _placeDone = true;
+  const ids = openIds(_data);
+  const t = _sub === LANDING_SUB || _sub === 'desk' ? restoreTargetOf(_start, ids) : null;   // not if he has already gone to Orders or the Dashboard
+  if (!t) return;
+  const items = itemsById(_data);
+  _sub = 'desk';
+  _tile = tileAfterJump(null, items.get(t.id));
+  _open.add(t.id);
+  _openInit = true;
+  if (viewFor(ids, items, _tile).indexOf(t.id) >= SHOWN) _moreOpen = true;
+  _placeScroll = t;
+}
+function applyPlaceScroll() {
+  const t = _placeScroll;
+  if (!t || !_panel) return;
+  _placeScroll = null;
+  const put = () => {
+    const n = _panel.querySelector(`[data-id="${CSS.escape(t.id)}"]`);
+    const r = n && n.getBoundingClientRect ? n.getBoundingClientRect() : null;
+    const pr = _panel.getBoundingClientRect();
+    // the same place relative to the card (the list above it may be laid out a little differently now); the plain number only when the card cannot be measured
+    _panel.scrollTop = r && Number.isFinite(t.rel) ? Math.max(0, _panel.scrollTop + (r.top - pr.top) + t.rel) : t.scroll;
+    if (r && pr.height > 0 && n.scrollIntoView) {
+      const q = n.getBoundingClientRect();
+      if (q.bottom < pr.top || q.top > pr.bottom) n.scrollIntoView({ block: 'start' });   // still not on screen: at least show the card
+    }
+  };
+  put();
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(put);
+}
+let _scrollTimer = 0;
+function saveScroll() {
+  if (!_panel || !_placeDone || _sub !== 'desk' || _state !== 'ready' || !_panel.classList.contains('visible')) return;
+  try {
+    const open = _place.get().open;
+    if (!open) return;
+    const n = _panel.querySelector(`[data-id="${CSS.escape(open)}"]`);
+    const rel = n && n.getBoundingClientRect ? _panel.getBoundingClientRect().top - n.getBoundingClientRect().top : null;
+    _place.setScroll(_panel.scrollTop, rel);
+  } catch { /* no memory is fine */ }
+}
+function watchPlace(panel) {
+  panel.addEventListener('scroll', () => { clearTimeout(_scrollTimer); _scrollTimer = setTimeout(saveScroll, 250); }, { passive: true });
+  if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', () => { if (document.hidden) saveScroll(); });
+  if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pagehide', saveScroll);
+}
+
 export function showDesk() {
   if (!_panel) _panel = document.getElementById('panel-desk');
   if (_state === 'ready' || _state === 'empty' || _sub === 'orders' || _sub === 'dashboard') draw();
@@ -1174,6 +1258,7 @@ export function showDesk() {
 
 export function initDesk(panel, options) {
   _panel = panel;
+  watchPlace(panel);
   _o = { ..._o, ...options };
   initReveal({ apiBase: _o.apiBase, getToken: _o.getToken, say: t => say(t), onChoice: () => invalidateGallery() });
   initGallery({ apiBase: _o.apiBase, getToken: _o.getToken, say: t => say(t) });

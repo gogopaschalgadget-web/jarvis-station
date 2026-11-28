@@ -6,7 +6,7 @@ import { initMissions, showMissions, missionLogStatus, missionLogRecent, mayPubl
 import { enterMap3d, leaveMap3d, feedMap3d, setMap3dReviewOpener } from './map3d.js';
 import { initCasCard, nearBottom } from './cas-card.js';
 import { initScenes, renderScenesSettings } from './cas-scenes.js?v=cas111';
-import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress, forgetRank } from './cas-desk.js?v=cas120';
+import { initDesk, showDesk, deskMissions, preloadDesk, deskProgress, forgetRank, deskPlaceWanted, rememberTab, forgetPlace } from './cas-desk.js?v=cas120';
 import { renderThemeSettingsSafe, applyLook, bootLook } from './cas-themes.js?v=cas111';
 import { startTrim, applyTrim } from './cas-trim.js?v=cas104';
 import { stopGallery, galleryEntryNode } from './cas-gallery.js?v=cas117';
@@ -119,6 +119,7 @@ function clearAuth({ userRequested = false } = {}) {
   try { stopGallery(); } catch { /* nothing to forget */ }
   try { forgetCreature(); } catch { /* nothing to forget */ }
   try { forgetRank(); } catch { /* the next account starts from a baseline */ }
+  try { forgetPlace(); } catch { /* the next account starts with no open card */ }
   try { localStorage.removeItem('station-look-unlocked'); } catch { /* the mark only ever vouches for the account that earned it */ }
   showPairingUI(userRequested ? '' : SIGNED_OUT_MESSAGE);
   if (rejectedToken && !userRequested) explainSignOut(rejectedToken);
@@ -166,10 +167,12 @@ async function pairDevice(code, name) {
 // ---------------------------------------------------------------------------
 // INIT
 // ---------------------------------------------------------------------------
+let resumeDesk = false;
 document.addEventListener('DOMContentLoaded', () => {
   if (!isAuthenticated()) { showPairingUI(); return; }
 
   setupNav();
+  resumeDesk = deskPlaceWanted();   // he left the Desk with a card open (the phone may have closed the app while he read another site): once the Desk is set up, go back to it
   switchTab('cas');        // start on Cas
   fetchStatus();
   refreshInterval = setInterval(fetchStatus, REFRESH_INTERVAL_MS);
@@ -326,6 +329,7 @@ function _navActiveId(tabId) {
 
 function switchTab(tabId) {
   currentTab = tabId;
+  rememberTab(tabId);
   setTimeout(sendScreenReport, 900);
   document.body.classList.toggle('cas-home', tabId === 'cas');
   const activeNavId = _navActiveId(tabId);
@@ -516,6 +520,7 @@ async function initCasScene() {
       box.focus();
     },
   });
+  if (resumeDesk) { resumeDesk = false; switchTab('desk'); }   // the Desk is ready now: back to the card he left open
   initShortFix(); // phones whose page is laid out short of the screen get the bottom bar moved down
   // Layout facts of this phone for the builders: once at load, then at most once per tab change.
   initScreenReport({ apiBase: API_BASE, getToken: getDeviceToken, getTab: () => currentTab });

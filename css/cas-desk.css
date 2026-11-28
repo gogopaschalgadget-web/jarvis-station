@@ -496,3 +496,11 @@ html[data-mode="professional"] .cr-tile, html[data-mode="professional"] .dk-rewa
 .cr-id h4 { overflow-wrap: anywhere; min-width: 0; }
 .cr-namehint { font: 700 12px var(--dk-ui); color: var(--dk-brass-hi); text-decoration: underline; }
 .cr-name { overflow-wrap: anywhere; }
+.dk-steps li { min-height: 44px; }
+.dk-steps li::after { content: ""; display: table; clear: both; }
+.dk-steps li.ticked { text-decoration: line-through; text-decoration-thickness: 1px; }
+.dk-tick { float: left; position: relative; box-sizing: border-box; width: 44px; height: 44px; min-height: 44px; margin: 0 6px 0 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.dk-tick::before { content: ''; position: absolute; left: 10px; top: 10px; width: 24px; height: 24px; box-sizing: border-box; border: 2px solid #4a3010; border-radius: 6px; background: #f6e8c0; }
+.dk-tick[aria-checked="true"]::before { background: #d6e8bd; border-color: #24401a; }
+.dk-tick-m { position: relative; display: none; font: 900 18px/1 var(--dk-ui); color: #24401a; text-decoration: none; }
+.dk-tick[aria-checked="true"] .dk-tick-m { display: inline; }
