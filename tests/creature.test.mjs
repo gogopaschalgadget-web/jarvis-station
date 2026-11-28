@@ -167,9 +167,9 @@ test('failures and sign-out: a bad or failed answer shows nothing and is not ret
   await tick();
 });
 
-test('wiring: the tile sits under the rank plate on the Bulletin Board behind a try, the Den is inside the panel, sign-out forgets, the precache lists both modules, text nodes only', () => {
+test('wiring: the tile sits at the top of the Bulletin Board, above the rank plate, behind a try, the Den is inside the panel, sign-out forgets, the precache lists both modules, text nodes only', () => {
   const desk = readFileSync(new URL('../js/cas-desk.js', import.meta.url), 'utf8');
-  assert.match(desk, /if \(prog\) wrap\.append\(progressBlock\(prog\)\);[\s\S]{0,400}tileNode\(need/);
+  assert.match(desk, /tileNode\(need[\s\S]{0,300}if \(prog\) wrap\.append\(progressBlock\(prog\)\);/, 'the tile comes before the rank plate');
   assert.match(desk, /try \{ const tile = tileNode\(need[\s\S]*catch/);
   assert.match(desk, /denNode\(need/);
   assert.match(desk, /pictureLine\(promise\)/);

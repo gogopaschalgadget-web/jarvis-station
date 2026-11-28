@@ -1004,13 +1004,13 @@ function draw() {
     const bbToast = toastNode();
     if (bbToast) wrap.append(bbToast);
     const prog = normalizeProgress(_data && _data.progress);
-    if (prog) wrap.append(progressBlock(prog));
     try { setRule(ruleOf(_data)); } catch { /* the Den falls back to pictures only */ }
     if (_den && !creatureShown()) _den = false;
     if (_den) {
       try { wrap.replaceChildren(denNode(need, () => { _den = false; draw(); })); panel.scrollTop = 0; return; } catch { _den = false; }
     }
     try { const tile = tileNode(need, () => { _den = true; draw(); }); if (tile) wrap.append(tile); } catch { /* the Bulletin Board never depends on the creature */ }
+    if (prog) wrap.append(progressBlock(prog));
     if (revealWaiting()) wrap.append(el('p', 'dk-note', revealWaiting() === 1 ? 'A picture is on its way.' : revealWaiting() + ' pictures are on their way.'));
     renderBulletin(wrap, [{ label: 'Cards that need you', value: String(need), note: 'on the Work Desk' }, { label: 'Done log', value: String(logged), note: 'cards finished' }]);
     try { _stopMachines = watchMachines(wrap); } catch { /* the pictures stay stills */ }
